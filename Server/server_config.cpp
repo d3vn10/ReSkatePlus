@@ -1,4 +1,5 @@
 #include "server_config.h"
+#include <mutex>
 #include "Engine/Core/Json/json.h"
 #include "Engine/Core/Platform/path_text.h"
 #include "Extension/Multiplayer/Net/protocol.h"
@@ -100,6 +101,7 @@ namespace dingosdk::server {
     players.set("party_size", c.party_size);
     players.set("afk_kick_minutes", c.afk_kick);
     players.set("word_warnings", c.word_warnings);
+    players.set("use_global_word_filter", c.global_words);
     players.set("allow_voice_chat", c.voice_chat);
     players.set("voice_range", static_cast<double>(c.voice_range));
     players.set("object_placement", placement_text(c.object_placement));
@@ -291,6 +293,7 @@ ServerConfig load_config(const std::filesystem::path &file, std::vector<std::str
     c.query_port = read_port("query_port", c.query_port);
     c.steam_token = get("server", "steam_token", c.steam_token);
     c.auto_update = get("server", "auto_update", c.auto_update);
+    c.autostart = get("server", "autostart", c.autostart);
     c.activity_log = get("server", "activity_log", c.activity_log);
 
     // (Admins were listed here before there were roles: they are moved into the admin role below.)
@@ -323,6 +326,7 @@ ServerConfig load_config(const std::filesystem::path &file, std::vector<std::str
     c.party_size = std::clamp(get("players", "party_size", c.party_size), 2U, 8U);
     c.afk_kick = get("players", "afk_kick_minutes", c.afk_kick);
     c.word_warnings = get("players", "word_warnings", c.word_warnings);
+    c.global_words = get("players", "use_global_word_filter", c.global_words);
     c.voice_chat = get("players", "allow_voice_chat", c.voice_chat, {"voice_chat"});
     c.voice_range = get("players", "voice_range", c.voice_range);
     const auto placement = get("players", "object_placement", placement_text(c.object_placement));
@@ -676,7 +680,7 @@ std::optional<std::uint32_t> parse_colour(std::string_view text) noexcept {
 }
 bool custom_vote_name_free(std::string_view name) noexcept {
     // What "/vote <word>" already means.
-    for (const std::string_view taken : {"map", "kick", "tod", "time", "yes", "y", "no", "n", "poll", "list"})
+    for (const std::string_view taken : {"map", "kick", "tod", "time", "extend", "yes", "y", "no", "n", "poll", "list"})
         if (name == taken) return false;
     // A number is an answer to a poll ("/vote 2").
     return !std::all_of(name.begin(), name.end(), [](char c) { return c >= '0' && c <= '9'; });
@@ -715,9 +719,9 @@ bool custom_command_name_free(std::string_view name) noexcept {
           "ban", "bans", "board-check", "bone-scale", "boosts", "boosts-allow", "chat-color", "chat-colour", "clear-objects", "crowd",
           "distances", "effects", "kick", "layer", "layer-sync", "layers", "listed", "map", "map-pool", "maps", "msg",
           "msg-admins", "msg-party", "name", "net", "nobail", "nobail-allow", "noclip", "noclip-allow", "object-limit",
-          "object-placement", "object-scaling", "objects", "park", "parties", "party-size", "password", "placement",
-          "players", "rate", "reserved", "rotation", "say", "score-allow", "score-check", "speed-check", "status", "tod",
-          "tpall", "tphere", "tps", "tuning", "tuning-enforce", "unban", "voice", "voice-allow", "voice-range",
+          "object-placement", "object-scaling", "objects", "park", "park-mod", "parties", "party-size", "password", "placement",
+          "players", "rate", "reserved", "rotation", "say", "score-allow", "score-check", "speed-check", "status", "teleport",
+          "tod", "tpall", "tphere", "tps", "tuning", "tuning-enforce", "unban", "voice", "voice-allow", "voice-range",
           "vote-cancel", "votes", "welcome", "world-layer-sync", "quit", "exit", "stop", "update"})
         if (name == taken) return false;
     // A number is an answer to a poll ("/2").
@@ -740,6 +744,40 @@ std::string custom_commands_error(const std::vector<CustomCommand> &commands) {
             return where + "at most " + std::to_string(max_custom_command_runs) + " server commands.";
         for (const auto &run : c.commands)
             if (!valid_admin_text(run)) return where + "each command must be one server command, e.g. \"announce-to {player} Hi\".";
+    }
+    return {};
+}
+bool valid_mod_folder(std::string_view folder) noexcept {
+    // What the game's mod list takes (mods::valid_mod_name), without blanks at either end.
+    if (folder.empty() || folder.size() > 64 || folder.front() == '.' || folder.front() == ' ' || folder.back() == ' ') return false;
+    return std::all_of(folder.begin(), folder.end(), [](char c) {
+        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.' || c == ' ';
+    });
+}
+bool valid_park_key(std::string_view key) noexcept {
+    return !key.empty() && key.size() <= 32 &&
+           std::all_of(key.begin(), key.end(), [](char c) { return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_'; });
+}
+std::string park_mods_error(const ServerConfig &c) {
+    using namespace multiplayer;
+    if (c.park_limits.parks < 1 || c.park_limits.parks > max_spawned_parks)
+        return "park_limits.parks must be 1 to " + std::to_string(max_spawned_parks) + ".";
+    if (c.park_limits.objects < 1 || c.park_limits.objects > max_object_limit)
+        return "park_limits.objects must be 1 to " + std::to_string(max_object_limit) + ".";
+    if (c.park_mods.size() > max_park_mods) return "park_mods: at most " + std::to_string(max_park_mods) + " parks.";
+    for (std::size_t i = 0; i < c.park_mods.size(); ++i) {
+        const auto &park = c.park_mods[i];
+        if (!valid_server_vote_name(park.name))
+            return "park_mods: each park needs a name of 1 to 16 lowercase letters, digits, - or _ (\"" + park.name + "\" is not).";
+        const auto where = "park_mods \"" + park.name + "\": ";
+        for (std::size_t j = 0; j < i; ++j)
+            if (c.park_mods[j].name == park.name) return where + "two parks have that name.";
+        if (!valid_mod_folder(park.folder))
+            return where + "folder must be the name of a mod folder in Mods (letters, digits, spaces, _ - and ., no path).";
+        if (!find_level(park.map) || !valid_map_destination(map_destination(park.map)))
+            return where + "map \"" + park.map + "\" is not a single known map. Use the map's name, e.g. \"San Vansterdam\".";
+        if (!park.key.empty() && !valid_park_key(park.key))
+            return where + "key must be a base map's key such as bam, grom or stadium_1, or empty.";
     }
     return {};
 }
@@ -790,6 +828,7 @@ std::string config_error(const ServerConfig &c) {
     for (unsigned lot = 0; lot < park_lots.size(); ++lot)
         if (c.parks[lot].empty() || !valid_park(lot, c.parks[lot]))
             return "parks." + std::string(park_lots[lot].key) + " is not a park layout (e.g. skatepark_01, or empty).";
+    if (auto error = park_mods_error(c); !error.empty()) return error;
     if (!c.port || !c.query_port || c.port == c.query_port) return "port and query_port must differ.";
     if (const auto error = roles_error(c.roles); !error.empty()) return "roles: " + error;
     return {};
@@ -810,10 +849,20 @@ std::vector<ServerLevel> &level_list() {
     static std::vector<ServerLevel> value;
     return value;
 }
+// The list is the server thread's; the server window reads a copy of it (level_snapshot), and
+// this is held while one is taken or the list is put in place.
+std::mutex level_mutex;
 } // namespace
 std::vector<std::string> load_levels(const std::filesystem::path &mods) {
-    auto &list = level_list();
-    list.clear();
+    // Built aside and put in place at the end: "maps reload" reads the folder while the server runs.
+    std::vector<ServerLevel> list;
+    struct Publish {
+        std::vector<ServerLevel> &fresh;
+        ~Publish() {
+            std::lock_guard lock(level_mutex);
+            level_list() = std::move(fresh);
+        }
+    } publish{list};
     // The retail maps players can skate together; the game names them the same way.
     for (const char *asset : {"Levels/Game/BAM_LevelRoot/BAM_LevelRoot",
                               "Levels/Game/DingoLevel_Isle_of_Grom/DingoLevel_Isle_of_Grom",
@@ -855,10 +904,15 @@ std::vector<std::string> load_levels(const std::filesystem::path &mods) {
     return problems;
 }
 const std::vector<ServerLevel> &levels() { return level_list(); }
+std::vector<ServerLevel> level_snapshot() {
+    std::lock_guard lock(level_mutex);
+    return level_list();
+}
 const ServerLevel *find_level(std::string_view map) {
     if (map.empty()) return nullptr;
     for (const auto &level : level_list())
         if (same(level.asset, map)) return &level;
+    map = world_level_typed_name(map);
     for (const bool exact : {true, false}) {
         const ServerLevel *result{};
         for (const auto &level : level_list()) {
