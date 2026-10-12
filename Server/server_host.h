@@ -44,12 +44,18 @@ namespace dingosdk::server {
         std::string command(std::string_view line, std::uint64_t admin = 0);
         void stop(const std::string& reason);
 
-        std::string invite() const;
-        std::string map_name() const;
-        unsigned players() const;
-        std::uint64_t secret() const { return secret_; }
-        // The UDP port players may connect straight to, or 0 (config connection).
-        std::uint16_t direct_port() const { return direct_port_; }
+    std::string invite() const;
+    std::string map_name() const;
+    // "maps reload": reads Mods again and says what changed. Also after a map was updated.
+    std::string reload_maps();
+    // The mod folder of the map in play while anyone is on (an update leaves it alone), or
+    // nothing; and whether "maps update" was typed since this was last asked.
+    std::string map_folder_in_play() const;
+    bool take_map_update_request() { return std::exchange(map_update_requested_, false); }
+    unsigned players() const;
+    std::uint64_t secret() const { return secret_; }
+    // The UDP port players may connect straight to, or 0 (config connection).
+    std::uint16_t direct_port() const { return direct_port_; }
 
     const ServerConfig &config() const { return config_; }
     bool voice_allowed() const { return voice_policy_.allowed; }
@@ -224,6 +230,7 @@ namespace dingosdk::server {
     ServerConfig &config_;
     SteamTransport &transport_;
     Log log_;
+    bool map_update_requested_{};
     ActivityLog activity_; // what players do, for the console (config_.activity_log)
     // The running player vote (server_votes.cpp), and when each player may start another.
     // A poll is one too: it has answers instead of yes and no, and runs nothing (but the console's poll-run).

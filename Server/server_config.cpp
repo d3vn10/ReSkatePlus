@@ -79,19 +79,39 @@ namespace dingosdk::server {
     access.set("reserved_players_slots", ids(c.reserved));
     access.set("use_global_bans", c.global_bans);
 
-            auto& maps = root.section("maps");
-            maps.set("map", c.map);
-            auto pool = Json::array();
-            for (const auto& map : c.map_pool) pool.push_back(map);
-            maps.set("pool", std::move(pool));
-            maps.set("rotation_minutes", c.map_rotation);
-            auto parks = Json::object();
-            for (unsigned lot = 0; lot < park_lots.size(); ++lot) parks[park_lots[lot].key] = c.parks[lot];
-            maps.set("parks", std::move(parks));
-            maps.set("world_layer_sync", c.world_layer_sync);
-            auto layers = Json::object();
-            for (const auto& [key, mode] : c.layers) layers[key] = mode;
-            maps.set("layers", std::move(layers));
+    auto &maps = root.section("maps");
+    maps.set("map", c.map);
+    auto pool = Json::array();
+    for (const auto &map : c.map_pool) pool.push_back(map);
+    maps.set("pool", std::move(pool));
+    maps.set("rotation_minutes", c.map_rotation);
+    maps.set("rotation_vote", c.rotation_vote);
+    maps.set("rotation_vote_seconds", c.rotation_vote_seconds);
+    maps.set("rotation_extend_minutes", c.rotation_extend);
+    maps.set("rotation_announce", c.rotation_announce);
+    maps.set("latest_versions", c.latest_versions);
+    maps.set("latest_check_minutes", c.latest_check_minutes);
+    auto parks = Json::object();
+    for (unsigned lot = 0; lot < park_lots.size(); ++lot) parks[park_lots[lot].key] = c.parks[lot];
+    maps.set("parks", std::move(parks));
+    maps.set("world_layer_sync", c.world_layer_sync);
+    auto layers = Json::object();
+    for (const auto &[key, mode] : c.layers) layers[key] = mode;
+    maps.set("layers", std::move(layers));
+    auto park_mods = Json::array();
+    for (const auto &park : c.park_mods) {
+        auto item = Json::object();
+        item["name"] = park.name;
+        item["folder"] = park.folder;
+        item["map"] = park.map;
+        item["key"] = park.key;
+        park_mods.push_back(std::move(item));
+    }
+    maps.set("park_mods", std::move(park_mods));
+    auto park_limits = Json::object();
+    park_limits["parks"] = c.park_limits.parks;
+    park_limits["objects"] = c.park_limits.objects;
+    maps.set("park_limits", std::move(park_limits));
 
     auto &players = root.section("players");
     players.set("allow_boosts", c.boosts);
@@ -307,17 +327,35 @@ ServerConfig load_config(const std::filesystem::path &file, std::vector<std::str
         for (const auto &id : *reserved) c.reserved.push_back(steam_id(id));
     c.global_bans = get("access", "use_global_bans", c.global_bans, {"global_bans"});
 
-        c.map = get("maps", "map", c.map);
-        if (const auto* pool = find("maps", "pool", { "map_pool" }); pool && pool->is_array())
-            for (const auto& map : *pool)
-                if (map.is_string() && !map.string().empty()) c.map_pool.push_back(map.string());
-        c.map_rotation = std::min(get("maps", "rotation_minutes", c.map_rotation, { "map_rotation_minutes" }), max_map_rotation);
-        if (const auto* parks = find("maps", "parks"); parks && parks->is_object())
-            for (unsigned lot = 0; lot < park_lots.size(); ++lot) c.parks[lot] = parks->value(park_lots[lot].key, c.parks[lot]);
-        c.world_layer_sync = get("maps", "world_layer_sync", c.world_layer_sync);
-        if (const auto* layers = find("maps", "layers"); layers && layers->is_object())
-            for (const auto& [key, mode] : layers->items())
-                if (mode.is_string()) c.layers[key] = mode.string();
+    c.map = get("maps", "map", c.map);
+    if (const auto *pool = find("maps", "pool", {"map_pool"}); pool && pool->is_array())
+        for (const auto &map : *pool)
+            if (map.is_string() && !map.string().empty()) c.map_pool.push_back(map.string());
+    c.map_rotation = std::min(get("maps", "rotation_minutes", c.map_rotation, {"map_rotation_minutes"}), max_map_rotation);
+    c.rotation_vote = get("maps", "rotation_vote", c.rotation_vote);
+    c.rotation_vote_seconds = std::clamp(get("maps", "rotation_vote_seconds", c.rotation_vote_seconds), 10U, 120U);
+    c.rotation_extend = std::min(get("maps", "rotation_extend_minutes", c.rotation_extend), 240U);
+    c.rotation_announce = get("maps", "rotation_announce", c.rotation_announce);
+    c.latest_versions = get("maps", "latest_versions", c.latest_versions);
+    c.latest_check_minutes = std::clamp(get("maps", "latest_check_minutes", c.latest_check_minutes), 5U, 1440U);
+    if (const auto *parks = find("maps", "parks"); parks && parks->is_object())
+        for (unsigned lot = 0; lot < park_lots.size(); ++lot) c.parks[lot] = parks->value(park_lots[lot].key, c.parks[lot]);
+    c.world_layer_sync = get("maps", "world_layer_sync", c.world_layer_sync);
+    if (const auto *layers = find("maps", "layers"); layers && layers->is_object())
+        for (const auto &[key, mode] : layers->items())
+            if (mode.is_string()) c.layers[key] = mode.string();
+    if (const auto *parks = find("maps", "park_mods"); parks && !parks->is_null()) {
+        if (!parks->is_array()) throw std::runtime_error("park_mods must be a list of parks, each a JSON object.");
+        for (const auto &item : *parks) {
+            if (!item.is_object()) throw std::runtime_error("park_mods must be a list of parks, each a JSON object.");
+            c.park_mods.push_back({item.value("name", std::string{}), item.value("folder", std::string{}),
+                                   item.value("map", std::string{}), item.value("key", std::string{})});
+        }
+    }
+    if (const auto *limits = find("maps", "park_limits"); limits && limits->is_object()) {
+        c.park_limits.parks = limits->value("parks", c.park_limits.parks);
+        c.park_limits.objects = limits->value("objects", c.park_limits.objects);
+    }
 
     c.boosts = get("players", "allow_boosts", c.boosts, {"boosts"});
     c.no_bail = get("players", "allow_no_bail", c.no_bail, {"no_bail"});
@@ -529,7 +567,7 @@ std::string roles_error(const Roles &roles) {
             if (roles.list[j].name == role.name) return where + "listed twice.";
         if (!role.tag.empty() && !valid_role_tag(role.tag)) return where + "its tag is at most 16 bytes of plain text.";
         // What the game itself calls the server, a lobby's host, friends and the ReSkate team.
-        for (const std::string_view taken : {"server", "reskate", "dev", "developer", "contentcreator", "centrix", "staff", "homie", "host", "friend"})
+        for (const std::string_view taken : {"server", "reskate", "reskateadmin", "dev", "developer", "contentcreator", "centrix", "staff", "homie", "host", "friend"})
             if (plain(role.tag) == taken) return where + "the tag \"" + role.tag + "\" is one the game uses itself.";
         if (!parse_colour(role.color)) return where + "color must be a colour like #FF74C6.";
         if (role.rank < 0 || role.rank > 1000) return where + "rank is 0 to 1000.";
