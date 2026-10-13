@@ -41,7 +41,7 @@ The launcher, the runtime that loads into the game, the dedicated server, or eve
 
 ### Features+
 
-Compatible with servers running: **2.0.4**\
+Compatible with servers running: **2.0.9**\
 Older/newer versions _should_ work unless the packet structure or SteamAPI handshake validation has changed.
 
 - **No reserved cosmetics.**
