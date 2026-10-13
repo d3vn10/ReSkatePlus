@@ -46,6 +46,11 @@ bool Context::execute(std::string_view source) const {
     return native && source.size() <= std::numeric_limits<unsigned>::max() &&
         execute_native(native, source.data(), static_cast<unsigned>(source.size()), nullptr);
 }
+bool execute(std::string_view source) {
+    if (!get_context) return false;
+    const Context context{ get_context() };
+    return context.execute(source);
+}
 bool add_callback(std::uintptr_t base, Callback callback, std::string& error) {
     std::lock_guard lock(install_mutex);
     error.clear();

@@ -5,6 +5,5 @@
   "ReSkate.MaxNeighborhoodRanks": true,
   "ReSkate.UnlockBusStops": true,
   "ReSkate.UnlockCosmetics": true,
-  "ReSkate.UnlockObjects": true,
-  "ReSkate.UnlockEverything": true
+  "ReSkate.UnlockObjects": true
 }

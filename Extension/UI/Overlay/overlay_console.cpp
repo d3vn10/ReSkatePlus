@@ -3,6 +3,7 @@
 #include "overlay_internal.h"
 #include "Extension/Console/commands.h"
 #include "console_suggestions.h"
+#include "Extension/Scripting/lua_startup.h"
 
 namespace dingosdk::overlay::detail {
 
@@ -208,6 +209,23 @@ void submit_console_command() {
     if (s.console_history.empty() || s.console_history.back() != command) {
         if (s.console_history.size() >= 128) s.console_history.pop_front();
         s.console_history.push_back(command);
+    }
+    // If command starts with '>' then execute it as Lua
+    if (command.starts_with(">")) {
+        logging::write(logging::Level::info, logging::Channel::command, "Lua console route reached.");
+        const auto source = std::string_view(command).substr(1);
+        if (source.empty()) {
+            logging::write(logging::Level::info, logging::Channel::command, "Enter Lua code after '>'.");
+            return;
+        }
+        append_console_line("lua: " + std::string(source));
+        if (lua_startup::execute(source))
+            append_console_line("Lua executed successfully.");
+        else
+            append_console_line("Lua execution failed.");
+        reset_completion();
+        logging::write(logging::Level::error, logging::Channel::command, "Lua command queue is full or the source is invalid.");
+        return;
     }
     const auto parsed = dingosdk::parse_console_command(command);
     const dingosdk::console::Output output{

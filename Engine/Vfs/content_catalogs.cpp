@@ -123,7 +123,7 @@ void add_source(std::set<std::string>& open, const std::string& id, const Fields
             if (grant.kind == "own-create" && lower(grant.id.substr(0, 4)) == "own_") open.insert(lower(grant.id));
     };
     if (id.ends_with("Price")) {
-        open_grants(11);
+        /*if (free_offer(record))*/ open_grants(11);
         return;
     }
     open_grants(8);

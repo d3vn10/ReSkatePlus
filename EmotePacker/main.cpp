@@ -1,4 +1,4 @@
-// ReSkatePlusEmotePacker: builds the chat emote pack ReSkatePlus.dll bakes in (assets/emotes) from a
+// ReSkateEmotePacker: builds the chat emote pack ReSkatePlus.dll bakes in (assets/emotes) from a
 // folder of pictures and GIFs. Every file becomes one emote named after the file; animated
 // GIFs keep their frames and timing. Output: emotes.json + emotes.png in Better Chat's format
 // (Extension/UI/Overlay/chat_emotes.h), within the limits ReSkate's loader accepts.

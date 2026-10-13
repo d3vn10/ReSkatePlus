@@ -28,7 +28,7 @@ std::filesystem::path log_directory(const std::filesystem::path& game_directory)
     if (auto path = attempt(game_directory / L"logs"); !path.empty()) return path;
     PWSTR local{};
     if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_LocalAppData, KF_FLAG_DONT_VERIFY, nullptr, &local))) {
-        const auto root = std::filesystem::path(local) / L"ReSkatePlus" / L"logs";
+        const auto root = std::filesystem::path(local) / L"ReSkate" / L"logs";
         CoTaskMemFree(local);
         if (auto path = attempt(root); !path.empty()) return path;
     }

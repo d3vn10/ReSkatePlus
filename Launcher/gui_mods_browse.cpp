@@ -5,6 +5,7 @@
 #include "updater.h"
 
 #include "Engine/Core/Log/logging.h"
+#include "Engine/Core/Debug/trace.h"
 
 #include <cstdio>
 #include <format>
@@ -157,6 +158,9 @@ std::string install_package(ModsPanel& panel, const fs::path& root, const ts::Pa
         ~Cleanup() { std::error_code ignored; fs::remove(archive, ignored); fs::remove(folder, ignored); }
     } cleanup{folder, archive};
 
+    trace::Scope timing("launcher.mod_install", "task");
+    timing.tag("package", package.full_name);
+    timing.tag("version", version.number);
     set_activity(panel, "Downloading " + package.title() + " v" + version.number +
         (version.file_size ? "  (" + size_text(version.file_size) + ")" : std::string()));
     panel.progress = 0;
@@ -202,15 +206,14 @@ bool nsfw(const ts::Package& package) {
                                        [](const std::string& category) { return lower(category) == "nsfw"; });
 }
 
-std::vector<const ts::Package*> visible_packages(const Store& store, const ts::Installed& installed) {
-    //const bool show_deprecated = settings.value("show_deprecated", false);
-    //const bool show_nsfw = settings.value("show_nsfw", false);
+std::vector<const ts::Package*> visible_packages(const Store& store, const ts::Installed& installed, Settings& settings) {
     const auto query = lower(store.search.data());
     std::vector<const ts::Package*> result;
     for (const auto& package : store.packages) {
         const bool have = installed.contains(ts::folder_for(package.full_name));
-        // Deprecated and NSFW packages only show once installed.
-        if (/*((package.deprecated && !show_deprecated) || (package.nsfw && !show_nsfw)) && !*/have) continue;
+        // Let user decide if they want to see NSFW or deprecated mods
+        if (nsfw(package) && !(settings.nsfw_mods || have)) continue;
+        if (package.deprecated && !(settings.deprecated_mods || have)) continue;
         if (!store.category.empty() && !package.in_category(store.category)) continue;
         if (!query.empty() && lower(package.title()).find(query) == std::string::npos &&
             lower(package.owner).find(query) == std::string::npos &&
@@ -323,6 +326,17 @@ std::vector<const thunderstore::Package*> updates(const Store& store, const thun
 
 void start_store_install(ModsPanel& panel, std::vector<thunderstore::Package> packages) {
     if (panel.installing || packages.empty()) return;
+    {
+        // A package brings what it needs with it (a mod pack is nothing else), needed mods first.
+        const auto have = installed_versions(panel.list);
+        std::vector<thunderstore::Package> expanded;
+        for (const auto& package : packages)
+            for (auto& needed : thunderstore::with_dependencies(package, panel.store.packages, have))
+                if (std::none_of(expanded.begin(), expanded.end(),
+                        [&](const auto& queued) { return queued.full_name == needed.full_name; }))
+                    expanded.push_back(std::move(needed));
+        packages = std::move(expanded);
+    }
     if (panel.worker.joinable()) panel.worker.join();
     panel.installing = true;
     panel.cancel = false;
@@ -345,7 +359,7 @@ void start_store_install(ModsPanel& panel, std::vector<thunderstore::Package> pa
                 log(logging::Level::info, std::format("Mod {} from Thunderstore: {} v{} into Mods\\{}",
                     update ? "updated" : "installed", package.full_name, package.latest().number, name));
                 note = packages.size() > 1
-                    ? std::format("Updated {} mods. Changes apply the next time Skate starts.", done)
+                    ? std::format("Installed or updated {} mods. Changes apply the next time Skate starts.", done)
                     : std::format("{} {} v{}. It loads the next time Skate starts.", update ? "Updated" : "Installed",
                                   package.title(), package.latest().number);
             } catch (const std::exception& failure) {
@@ -507,7 +521,7 @@ void browse_page(Launcher& launcher, const Fonts& fonts, ModsPanel& panel, float
     }
     ImGui::Spacing();
     const float body = std::max(S(120), height - (ImGui::GetCursorPosY() - top));
-    const auto packages = visible_packages(store, installed);
+    const auto packages = visible_packages(store, installed, launcher.settings());
 
     // ------------------------------------------------ the list
     ImGui::BeginChild("##store_list", ImVec2(0, body), ImGuiChildFlags_Borders | ImGuiChildFlags_NavFlattened);

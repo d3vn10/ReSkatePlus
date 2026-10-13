@@ -1266,6 +1266,24 @@ void Host::receive(std::uint64_t peer, std::span<const std::uint8_t> bytes, std:
         broadcast(p, true, false, p.source);
         return;
     }
+    // Grey dots above the sender. Not a chat line, and not logged. A player who may not
+    // chat sends none. "On" is held to a few a second, and "off" is passed on only after an
+    // "on", so neither can flood the relay.
+    if (p.kind == PacketKind::typing) {
+        if (!routed_source(p, link->member, peer, true, id_) || !may(peer, multiplayer::role_chat)) return;
+        if (p.typing) {
+            if (link->typing_notice && now_ < link->typing_notice + 200000) return;
+            link->typing_notice = now_;
+            link->typing = true;
+        } else {
+            if (!link->typing) return;
+            link->typing = false;
+        }
+        link->last_packet = now_;
+        active(*link);
+        broadcast(p, true, false, p.source);
+        return;
+    }
     // Linked throwdowns (Extension/Throwdowns/throwdown_relay.cpp): opaque to the
     // server, relayed like chat to everyone else in the same world.
     if (p.kind == PacketKind::throwdown) {
@@ -1520,105 +1538,105 @@ void Host::sync_objects() {
     }
 }
 
-    // `net`: how the connections and the server's own loop are doing right now. With a player's
-    // name or SteamID64, that player alone. In-game admins get the first line: a reply has to fit
-    // one chat-sized message.
-    std::string Host::network_report(std::string_view player, bool console) {
-        const auto links = transport_.links();
-        const auto& net = transport_.status();
-        const auto kb = [](float bytes) { return std::to_string(static_cast<int>(bytes / 1024.f + .5f)); };
-        const auto percent = [](float quality) { return quality < 0 ? std::string("?") : std::to_string(static_cast<int>(quality * 100.f + .5f)) + "%"; };
-        const auto row = [&](const multiplayer::TransportLink& link) {
-            const auto* guest = find(link.id);
-            std::string name = guest ? guest_name(*guest) : std::to_string(link.id);
-            if (name.size() > 20) name.resize(20);
-            name.resize(21, ' ');
-            if (!link.measured) return "  " + name + (link.connected ? "not measured yet" : "connecting");
-            const auto silent = guest && guest->last_packet && now_ > guest->last_packet ? (now_ - guest->last_packet) / 100000 : 0; // tenths of a second
-            return "  " + name + "ping " + std::to_string(link.ping_ms) + " ms, quality " + percent(link.quality_local) + " here / " +
-                percent(link.quality_remote) + " there, queued " + std::to_string(link.pending_bytes) + " B (" +
-                std::to_string(link.queue_us / 1000) + " ms), out " + kb(link.out_bps) + " of " + kb(static_cast<float>(link.send_rate)) +
-                " KB/s, in " + kb(link.in_bps) + " KB/s, last heard " + std::to_string(silent / 10) + "." + std::to_string(silent % 10) + " s ago" +
-                (guest && !guest->handshaken ? ", joining" : guest && !guest->world_ready ? ", loading" : "");
-            };
-        // By what it carries, in KB/s: the last whole half minute, or the one so far.
-        const bool whole = traffic_window_us_ != 0;
-        const double seconds = whole ? static_cast<double>(traffic_window_us_) / 1e6
-            : std::max(1.0, static_cast<double>(now_ - traffic_mark_) / 1e6);
-        const auto rate = [&](const Counted& c, bool out, std::size_t kind) {
-            const auto bytes = whole ? (out ? c.last.out[kind] : c.last.in[kind])
-                : out ? c.total.out[kind] - c.mark.out[kind] : c.total.in[kind] - c.mark.in[kind];
-            return static_cast<double>(bytes) / 1024.0 / seconds;
-            };
-        const auto number = [](double value) {
-            char text[32];
-            std::snprintf(text, sizeof(text), value < 10 ? "%.1f" : "%.0f", value);
-            return std::string(text);
-            };
-        const auto by_kind = [&](const Counted& c) {
-            std::string text = "KB/s out / in:";
-            for (std::size_t kind = 0; kind < traffic_names.size(); ++kind)
-                text += std::string(kind ? ", " : " ") + traffic_names[kind] + " " + number(rate(c, true, kind)) + " / " + number(rate(c, false, kind));
-            const auto snapshots = whole ? c.last.snapshots : c.total.snapshots - c.mark.snapshots;
-            return text + "; " + number(static_cast<double>(snapshots) / seconds) + " whole states a second";
-            };
-        if (!player.empty()) {
-            const auto wanted = lower(player);
-            for (const auto& link : links) {
-                const auto* guest = find(link.id);
-                if (std::to_string(link.id) == player || (guest && lower(guest_name(*guest)).starts_with(wanted)))
-                    return row(link).substr(2) + (guest ? "\n" + by_kind(guest->traffic) : std::string{}) +
-                    (link.direct ? std::string("\nroute: direct, not through Steam's relays")
-                        : "\nroute: through Steam's relay " + (link.relay.empty() ? std::string("(unknown)") : link.relay) +
-                        " on this side and " + (link.remote_relay.empty() ? std::string("(unknown)") : link.remote_relay) + " on theirs");
-            }
-            return "No connected player matches \"" + std::string(player) + "\".";
+// `net`: how the connections and the server's own loop are doing right now. With a player's
+// name or SteamID64, that player alone. In-game admins get the first line: a reply has to fit
+// one chat-sized message.
+std::string Host::network_report(std::string_view player, bool console) {
+    const auto links = transport_.links();
+    const auto &net = transport_.status();
+    const auto kb = [](float bytes) { return std::to_string(static_cast<int>(bytes / 1024.f + .5f)); };
+    const auto percent = [](float quality) { return quality < 0 ? std::string("?") : std::to_string(static_cast<int>(quality * 100.f + .5f)) + "%"; };
+    const auto row = [&](const multiplayer::TransportLink &link) {
+        const auto *guest = find(link.id);
+        std::string name = guest ? guest_name(*guest) : std::to_string(link.id);
+        if (name.size() > 20) name.resize(20);
+        name.resize(21, ' ');
+        if (!link.measured) return "  " + name + (link.connected ? "not measured yet" : "connecting");
+        const auto silent = guest && guest->last_packet && now_ > guest->last_packet ? (now_ - guest->last_packet) / 100000 : 0; // tenths of a second
+        return "  " + name + "ping " + std::to_string(link.ping_ms) + " ms, quality " + percent(link.quality_local) + " here / " +
+               percent(link.quality_remote) + " there, queued " + std::to_string(link.pending_bytes) + " B (" +
+               std::to_string(link.queue_us / 1000) + " ms), out " + kb(link.out_bps) + " of " + kb(static_cast<float>(link.send_rate)) +
+               " KB/s, in " + kb(link.in_bps) + " KB/s, last heard " + std::to_string(silent / 10) + "." + std::to_string(silent % 10) + " s ago" +
+               (guest && !guest->handshaken ? ", joining" : guest && !guest->world_ready ? ", loading" : "");
+    };
+    // By what it carries, in KB/s: the last whole half minute, or the one so far.
+    const bool whole = traffic_window_us_ != 0;
+    const double seconds = whole ? static_cast<double>(traffic_window_us_) / 1e6
+                                 : std::max(1.0, static_cast<double>(now_ - traffic_mark_) / 1e6);
+    const auto rate = [&](const Counted &c, bool out, std::size_t kind) {
+        const auto bytes = whole ? (out ? c.last.out[kind] : c.last.in[kind])
+                                 : out ? c.total.out[kind] - c.mark.out[kind] : c.total.in[kind] - c.mark.in[kind];
+        return static_cast<double>(bytes) / 1024.0 / seconds;
+    };
+    const auto number = [](double value) {
+        char text[32];
+        std::snprintf(text, sizeof(text), value < 10 ? "%.1f" : "%.0f", value);
+        return std::string(text);
+    };
+    const auto by_kind = [&](const Counted &c) {
+        std::string text = "KB/s out / in:";
+        for (std::size_t kind = 0; kind < traffic_names.size(); ++kind)
+            text += std::string(kind ? ", " : " ") + traffic_names[kind] + " " + number(rate(c, true, kind)) + " / " + number(rate(c, false, kind));
+        const auto snapshots = whole ? c.last.snapshots : c.total.snapshots - c.mark.snapshots;
+        return text + "; " + number(static_cast<double>(snapshots) / seconds) + " whole states a second";
+    };
+    if (!player.empty()) {
+        const auto wanted = lower(player);
+        for (const auto &link : links) {
+            const auto *guest = find(link.id);
+            if (std::to_string(link.id) == player || (guest && lower(guest_name(*guest)).starts_with(wanted)))
+                return row(link).substr(2) + (guest ? "\n" + by_kind(guest->traffic) : std::string{}) +
+                       (link.direct ? std::string("\nroute: direct, not through Steam's relays")
+                                    : "\nroute: through Steam's relay " + (link.relay.empty() ? std::string("(unknown)") : link.relay) +
+                                          " on this side and " + (link.remote_relay.empty() ? std::string("(unknown)") : link.remote_relay) + " on theirs");
         }
-        float out{}, in{};
-        std::uint64_t queued{}, longest_queue{};
-        std::size_t waiting{}, poor{};
-        int worst_ping{};
-        for (const auto& link : links) {
-            if (!link.measured) continue;
-            out += link.out_bps;
-            in += link.in_bps;
-            queued += static_cast<std::uint64_t>(std::max(0, link.pending_bytes));
-            longest_queue = std::max(longest_queue, link.queue_us);
-            waiting += link.queue_us > 50000;
-            poor += (link.quality_local >= 0 && link.quality_local < .9f) || (link.quality_remote >= 0 && link.quality_remote < .9f);
-            worst_ping = std::max(worst_ping, link.ping_ms);
-        }
-        std::string text = std::to_string(players()) + " players (" + std::to_string(links.size()) + " connections), " + std::to_string(config_.tps) +
-            " TPS | " + kb(out) + " KB/s out, " + kb(in) + " KB/s in | worst ping " + std::to_string(worst_ping) + " ms | " +
-            std::to_string(queued / 1024) + " KB queued, longest wait " + std::to_string(longest_queue / 1000) + " ms, " +
-            std::to_string(waiting) + " waiting over 50 ms | " + std::to_string(poor) + " under 90% quality";
-        if (!console) return text;
-        {
-            // The relay locations in use, most connections first: everyone through one far away is a route problem.
-            std::map<std::string, unsigned> relays;
-            for (const auto& link : links)
-                if (link.measured)
-                    ++relays[link.direct ? std::string("direct")
-                    : (link.relay.empty() ? "?" : link.relay) + "-" + (link.remote_relay.empty() ? "?" : link.remote_relay)];
-            std::vector<std::pair<std::string, unsigned>> order(relays.begin(), relays.end());
-            std::stable_sort(order.begin(), order.end(), [](const auto& a, const auto& b) { return a.second > b.second; });
-            text += "\nSteam relay network: " + transport_.relay_status();
-            text += "\nrelays (ours-theirs):";
-            for (std::size_t i = 0; i < std::min<std::size_t>(order.size(), 10); ++i)
-                text += " " + order[i].first + " x" + std::to_string(order[i].second);
-        }
-        text += "\nloop: " + loop_report();
-        text += "\n" + by_kind(traffic_);
-        {
-            std::uint64_t poses{};
-            for (const auto count : pose_sizes_.sent) poses += count;
-            if (poses) {
-                text += "\npose sizes:";
-                for (std::size_t i = 0; i < pose_sizes_.sent.size(); ++i)
-                    if (pose_sizes_.sent[i])
-                        text += std::string(" ") + pose_rate_names[i] + " " + std::to_string(pose_sizes_.sent_bytes[i] / pose_sizes_.sent[i]) + " B x" +
-                        std::to_string(pose_sizes_.sent[i]);
-                text += "; " + std::to_string(pose_sizes_.held * 100 / poses) + "% without fingers; whole poses " + std::to_string(pose_sizes_.whole_sent) +
+        return "No connected player matches \"" + std::string(player) + "\".";
+    }
+    float out{}, in{};
+    std::uint64_t queued{}, longest_queue{};
+    std::size_t waiting{}, poor{};
+    int worst_ping{};
+    for (const auto &link : links) {
+        if (!link.measured) continue;
+        out += link.out_bps;
+        in += link.in_bps;
+        queued += static_cast<std::uint64_t>(std::max(0, link.pending_bytes));
+        longest_queue = std::max(longest_queue, link.queue_us);
+        waiting += link.queue_us > 50000;
+        poor += (link.quality_local >= 0 && link.quality_local < .9f) || (link.quality_remote >= 0 && link.quality_remote < .9f);
+        worst_ping = std::max(worst_ping, link.ping_ms);
+    }
+    std::string text = std::to_string(players()) + " players (" + std::to_string(links.size()) + " connections), " + std::to_string(config_.tps) +
+                       " TPS | " + kb(out) + " KB/s out, " + kb(in) + " KB/s in | worst ping " + std::to_string(worst_ping) + " ms | " +
+                       std::to_string(queued / 1024) + " KB queued, longest wait " + std::to_string(longest_queue / 1000) + " ms, " +
+                       std::to_string(waiting) + " waiting over 50 ms | " + std::to_string(poor) + " under 90% quality";
+    if (!console) return text;
+    {
+        // The relay locations in use, most connections first: everyone through one far away is a route problem.
+        std::map<std::string, unsigned> relays;
+        for (const auto &link : links)
+            if (link.measured)
+                ++relays[link.direct ? std::string("direct")
+                                     : (link.relay.empty() ? "?" : link.relay) + "-" + (link.remote_relay.empty() ? "?" : link.remote_relay)];
+        std::vector<std::pair<std::string, unsigned>> order(relays.begin(), relays.end());
+        std::stable_sort(order.begin(), order.end(), [](const auto &a, const auto &b) { return a.second > b.second; });
+        text += "\nSteam relay network: " + transport_.relay_status();
+        text += "\nrelays (ours-theirs):";
+        for (std::size_t i = 0; i < std::min<std::size_t>(order.size(), 10); ++i)
+            text += " " + order[i].first + " x" + std::to_string(order[i].second);
+    }
+    text += "\nloop: " + loop_report();
+    text += "\n" + by_kind(traffic_);
+    {
+        std::uint64_t poses{};
+        for (const auto count : pose_sizes_.sent) poses += count;
+        if (poses) {
+            text += "\npose sizes:";
+            for (std::size_t i = 0; i < pose_sizes_.sent.size(); ++i)
+                if (pose_sizes_.sent[i])
+                    text += std::string(" ") + pose_rate_names[i] + " " + std::to_string(pose_sizes_.sent_bytes[i] / pose_sizes_.sent[i]) + " B x" +
+                            std::to_string(pose_sizes_.sent[i]);
+            text += "; " + std::to_string(pose_sizes_.held * 100 / poses) + "% without fingers; whole poses " + std::to_string(pose_sizes_.whole_sent) +
                     (pose_sizes_.whole_sent ? " at " + std::to_string(pose_sizes_.whole_sent_bytes / pose_sizes_.whole_sent) + " B" : std::string{});
         }
     }
@@ -1644,20 +1662,20 @@ void Host::sync_objects() {
     text += "\nshed while behind: " + std::to_string(shed_) + " poses and effects not passed on (since the server started)";
     text += "\nsends: " + std::to_string(net.send_failures) + " failed, " + std::to_string(net.skipped) + " skipped, " +
             std::to_string(net.dropped) + " dropped (since the server started)";
-        // The connections doing worst first: a long queue, poor delivery, silence, then ping.
-        auto order = links;
-        const auto badness = [&](const multiplayer::TransportLink& link) {
-            const auto* guest = find(link.id);
-            const double silent = guest && guest->handshaken && now_ > guest->last_packet ? static_cast<double>(now_ - guest->last_packet) / 1000.0 : 0;
-            const double lost = 1.0 - std::min(link.quality_local < 0 ? 1.f : link.quality_local, link.quality_remote < 0 ? 1.f : link.quality_remote);
-            return static_cast<double>(link.queue_us) / 1000.0 + lost * 2000.0 + silent + link.ping_ms;
-            };
-        std::stable_sort(order.begin(), order.end(), [&](const auto& a, const auto& b) { return badness(a) > badness(b); });
-        const std::size_t shown = std::min<std::size_t>(order.size(), 12);
-        if (shown) text += "\nworst " + std::to_string(shown) + " of " + std::to_string(order.size()) + " (net <player> for one):";
-        for (std::size_t i = 0; i < shown; ++i) text += "\n" + row(order[i]);
-        return text;
-    }
+    // The connections doing worst first: a long queue, poor delivery, silence, then ping.
+    auto order = links;
+    const auto badness = [&](const multiplayer::TransportLink &link) {
+        const auto *guest = find(link.id);
+        const double silent = guest && guest->handshaken && now_ > guest->last_packet ? static_cast<double>(now_ - guest->last_packet) / 1000.0 : 0;
+        const double lost = 1.0 - std::min(link.quality_local < 0 ? 1.f : link.quality_local, link.quality_remote < 0 ? 1.f : link.quality_remote);
+        return static_cast<double>(link.queue_us) / 1000.0 + lost * 2000.0 + silent + link.ping_ms;
+    };
+    std::stable_sort(order.begin(), order.end(), [&](const auto &a, const auto &b) { return badness(a) > badness(b); });
+    const std::size_t shown = std::min<std::size_t>(order.size(), 12);
+    if (shown) text += "\nworst " + std::to_string(shown) + " of " + std::to_string(order.size()) + " (net <player> for one):";
+    for (std::size_t i = 0; i < shown; ++i) text += "\n" + row(order[i]);
+    return text;
+}
 
 // ---- Tick ------------------------------------------------------------------------------------
 namespace {
@@ -1724,8 +1742,19 @@ void Host::tick(std::uint64_t now) {
         drop(id, "Disconnected.", how);
     }
     for (const auto &link : links) {
-        if (kicked_.contains(link.id)) {
-            transport_.disconnect(link.id, "You were kicked from this server.");
+        if (const auto kicked = kicked_.find(link.id); kicked != kicked_.end()) {
+            if (!kicked->second || now_ < kicked->second) {
+                const auto reason = kicked->second
+                    ? "You were kicked from this server. You can join again in " +
+                          std::to_string((kicked->second - now_) / 60000000 + 1) + " min."
+                    : std::string("You were kicked from this server.");
+                transport_.disconnect(link.id, reason.c_str());
+                continue;
+            }
+            kicked_.erase(kicked); // their time is up
+        }
+        if (is_banned(link.id)) {
+            transport_.disconnect(link.id, "You are banned from this server.");
             continue;
         }
         // The backend's list (global_bans.h), which can reach a player who is already on.

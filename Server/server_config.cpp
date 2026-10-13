@@ -73,6 +73,7 @@ namespace dingosdk::server {
             server.set("query_port", static_cast<unsigned>(c.query_port));
             server.set("steam_token", c.steam_token);
             server.set("auto_update", c.auto_update);
+    server.set("autostart", c.autostart);
             server.set("activity_log", c.activity_log);
 
     auto &access = root.section("access");
@@ -120,6 +121,7 @@ namespace dingosdk::server {
     players.set("allow_parties", c.parties);
     players.set("party_size", c.party_size);
     players.set("afk_kick_minutes", c.afk_kick);
+    players.set("kick_minutes", c.kick_minutes);
     players.set("word_warnings", c.word_warnings);
     players.set("use_global_word_filter", c.global_words);
     players.set("allow_voice_chat", c.voice_chat);
@@ -167,6 +169,7 @@ namespace dingosdk::server {
             vote("map", c.votes.map);
             vote("kick", c.votes.kick);
             vote("time_of_day", c.votes.time);
+    vote("extend_map", c.votes.extend);
             votes.set("seconds", c.votes.seconds);
             votes.set("cooldown_seconds", c.votes.cooldown);
             votes.set("starter_votes_yes", c.votes.starter_votes_yes);
@@ -426,6 +429,7 @@ ServerConfig load_config(const std::filesystem::path &file, std::vector<std::str
         read_vote("map", c.votes.map);
         read_vote("kick", c.votes.kick);
         read_vote("time_of_day", c.votes.time);
+    read_vote("extend_map", c.votes.extend);
         for (const char* key : { "seconds", "cooldown_seconds", "starter_votes_yes", "polls", "poll_seconds", "custom" })
             if (!votes.contains(key)) missing.push_back(std::string("votes.") + key);
         c.votes.seconds = std::clamp(votes.value("seconds", c.votes.seconds), 10U, 300U);
@@ -823,6 +827,7 @@ std::string config_error(const ServerConfig &c) {
     using namespace multiplayer;
     if (!parse_colour(c.chat_color)) return "chat_color must be a colour like #8E5CFF.";
     if (c.afk_kick > 1440) return "afk_kick_minutes must be 0 (never) to 1440.";
+    if (c.kick_minutes > 1440) return "kick_minutes must be 0 (until the server restarts) to 1440.";
     if (c.word_warnings > 10) return "word_warnings must be 0 (words are not checked) to 10.";
     if (!parse_colour(c.chat_text_color)) return "chat_text_color must be a colour like #D9C8FF.";
     if (!valid_server_name(c.name)) return std::string("name must be ") + server_name_rule + ".";

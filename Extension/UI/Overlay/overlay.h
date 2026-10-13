@@ -22,23 +22,23 @@
 #include <vector>
 
 namespace dingosdk::overlay {
-    struct Level {
-        std::string asset;
-        std::string display_name;
-        std::vector<std::string> start_points;
-        std::string manifest_start_point;
-        // False only for a Studio manifest fallback which is valid as a detached
-        // LM destination, not as the native request's base/root level.
-        bool native_registered = true;
-        bool can_load = true;
-        std::string load_block_reason;
-        bool custom = false; // Declared by a mod's level manifest.
+struct Level {
+    std::string asset;
+    std::string display_name;
+    std::vector<std::string> start_points;
+    std::string manifest_start_point;
+    // False only for a Studio manifest fallback which is valid as a detached
+    // LM destination, not as the native request's base/root level.
+    bool native_registered = true;
+    bool can_load = true;
+    std::string load_block_reason;
+    bool custom = false; // Declared by a mod's level manifest.
 
-        const std::string* automatic_start_point() const noexcept {
-            if (!manifest_start_point.empty()) return &manifest_start_point;
-            return !native_registered && start_points.size() == 1 ? &start_points.front() : nullptr;
-        }
-    };
+    const std::string* automatic_start_point() const noexcept {
+        if (!manifest_start_point.empty()) return &manifest_start_point;
+        return !native_registered && start_points.size() == 1 ? &start_points.front() : nullptr;
+    }
+};
 
 enum class DebugAction {
     set_free_camera,
@@ -92,12 +92,6 @@ enum class DebugAction {
         float right = 0, up = 0, forward = 0;
         float look_x = 0, look_y = 0;
     };
-struct FlightInput {
-    bool active = false;
-    bool boost = false;
-    float right = 0, up = 0, forward = 0;
-    float look_x = 0, look_y = 0;
-};
 
 // May change what the GAME reads from an XInput pad (never what ReSkate itself reads). `user` is
 // the XInput slot. Called on whatever thread the game polls from, once per poll that returns a
@@ -411,6 +405,7 @@ void set_skate_hud_feed(SkateHudFeed) noexcept;
 struct NametagBubble {
     std::string text, raw;
     float appear{1}, fade{1};
+    bool hint{}; // grey typing discs, not a chat line. text is ".", "..", or "..." for 1, 2, or 3 discs
 };
 struct Nametag {
     std::array<float, 3> position{}; // above the skater's head, world space

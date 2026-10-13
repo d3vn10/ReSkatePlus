@@ -34,8 +34,8 @@ struct Catalog;
 // what was looked for or found. The number is how ReSkate's own people tell it
 // from a mod that really is damaged; the log names the check by it as well,
 // when something could not be read for it.
-inline constexpr std::string_view store_copies_problem = "merge error 0x5343";
-inline constexpr std::string_view store_copies_check = "merge check 0x5343";
+inline constexpr std::string_view store_copies_problem = "uses store cosmetics";
+inline constexpr std::string_view store_copies_check = "uses store cosmetics";
 
 // What an item is made of, whatever it is called. Lower-case; the lists sorted.
 struct ItemContent {
@@ -89,7 +89,7 @@ class StoreMeshes final {
 public:
     // One level of detail of one of the game's meshes. `key`: the costume's item; any other
     // mesh of the game's (clothes, a free costume) is added as not sold, under any key.
-    void add(std::string_view key, bool sold, const std::vector<std::uint64_t>& points);
+    void add(std::string_view key, bool /*sold*/, const std::vector<std::uint64_t>& points);
     [[nodiscard]] bool empty() const noexcept { return owners_.empty(); }
     // The key of the store costume a mesh with these points takes from, or empty. It does when
     // enough of them (shared_least) are points only that one costume has, and they are a tenth

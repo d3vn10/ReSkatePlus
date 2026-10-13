@@ -28,7 +28,6 @@ void register_item_commands(Commands &);
 void register_trainer_commands(Commands &);
 void register_hall_of_meat_commands(Commands &);
 void register_road_rash_commands(Commands &);
-void register_skate3_hom_commands(Commands &);
 void register_board_break_commands(Commands &);
 void register_grind_exit_commands(Commands &);
 // Runtime adapters. Invoked only by the verified game-thread dispatcher.

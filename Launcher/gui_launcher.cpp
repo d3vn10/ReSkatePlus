@@ -4,6 +4,7 @@
 
 #include "Engine/Core/Json/json.h"
 #include "Engine/Core/Log/logging.h"
+#include "Engine/Core/Debug/trace.h"
 #include "Engine/Vfs/mod_catalog.h"
 
 #include <shellapi.h>
@@ -29,7 +30,7 @@ std::string format_bytes(std::uint64_t bytes) {
 }
 
 fs::path settings_path(const launcher_app::Session& session) {
-    return session.self.parent_path() / L"ReSkatePlusLauncher.settings.json";
+    return session.self.parent_path() / L"ReSkateLauncher.settings.json";
 }
 
 Settings load_settings(const fs::path& path) {
@@ -64,6 +65,7 @@ Settings load_settings(const fs::path& path) {
         settings.keep_open_after_launch = !json.value("close_on_launch", !settings.keep_open_after_launch);
         settings.updates = json.value("updates", settings.updates);
         settings.crash_reports = json.value("crash_reports", settings.crash_reports);
+        settings.performance_timings = json.value("performance_timings", settings.performance_timings);
         settings.steam_username = json.value("steam_username", std::string());
         settings.steam_remember = json.value("steam_remember", settings.steam_remember);
         settings.steam_prefer_code = json.value("steam_prefer_code", settings.steam_prefer_code);
@@ -91,6 +93,7 @@ void save_settings(const fs::path& path, const Settings& settings) {
     json["close_on_launch"] = !settings.keep_open_after_launch;
     json["updates"] = settings.updates;
     json["crash_reports"] = settings.crash_reports;
+    json["performance_timings"] = settings.performance_timings;
     json["steam_username"] = settings.steam_username;
     json["steam_remember"] = settings.steam_remember;
     json["steam_prefer_code"] = settings.steam_prefer_code;
@@ -155,6 +158,7 @@ void Launcher::save() {
     // The game inherits the launcher's environment, so this reaches the next launch; the
     // launcher's own crash reporting follows the setting from its next start.
     SetEnvironmentVariableW(L"RESKATE_CRASH_REPORTING", settings_.crash_reports ? nullptr : L"0");
+    SetEnvironmentVariableW(L"RESKATE_TRACING", settings_.performance_timings ? L"1" : L"0");
 }
 
 template<class Task> void Launcher::start(Task task) {
@@ -339,7 +343,7 @@ void Launcher::run_check() {
     }
     std::error_code error;
     if (!fs::is_regular_file(session_.paths.dll, error)) {
-        fail("ReSkatePlus.dll is missing from the game folder.");
+        fail("ReSkate+.dll is missing from the game folder.");
         return;
     }
     set(Phase::ready, "Ready to skate", !config ? "Offline: Update check skipped."
@@ -352,7 +356,7 @@ void Launcher::run_updates() {
     if (!config) return run_check();
     set(Phase::updating, "Updating ReSkate+");
     if (runtime_outdated(*config))
-        update::replace_file(session_.paths.dll, config->runtime, progress_for("ReSkatePlus.dll"));
+        update::replace_file(session_.paths.dll, config->runtime, progress_for("ReSkate+.dll"));
     if (launcher_outdated(*config)) {
         update::replace_running_launcher(session_.self, config->launcher, progress_for("Launcher"));
         logging::flush();
@@ -365,6 +369,8 @@ void Launcher::run_updates() {
 void Launcher::run_download(bool validate) {
     const auto config = this->config();
     if (!config) return run_check();
+    trace::Scope timing("launcher.game_download", "task");
+    timing.tag("mode", validate ? "verify" : "download");
     set(Phase::downloading, "Preparing Steam download", {}, 0);
     const auto depot_downloader = update::ensure_depot_downloader(config->depot_downloader,
         progress_for("DepotDownloader"));
@@ -414,6 +420,7 @@ void Launcher::run_download(bool validate) {
         wipe(password_);
     }
     if (cancel_) {
+        timing.tag("cancelled", "true");
         run_check();
         std::lock_guard lock(mutex_);
         state_.detail = "Download cancelled. It will resume where it stopped.";
@@ -423,6 +430,7 @@ void Launcher::run_download(bool validate) {
         set(Phase::ready, "Ready to skate", "Skate build installed.");
         return;
     }
+    timing.fail();
     fail(std::format("The Steam download did not finish (exit code {}). {}", code, output.message));
 }
 
@@ -434,10 +442,14 @@ bool Launcher::run_mod_merge() {
     std::error_code error;
     if (!fs::is_directory(root / mods::mods_folder, error)) return true;
     set(Phase::merging, "Preparing mods", "Merging what is installed", 0);
+    trace::Scope timing("launcher.mod_merge", "task");
     auto catalog = mods::load_catalog(root, [this](const mods::MergeProgress& progress) {
         set_progress(progress.step, progress.total
             ? static_cast<float>(progress.done) / static_cast<float>(progress.total) : -1.0f);
     });
+    timing.tag("mods", std::to_string(catalog.mods.size()));
+    timing.tag("mods.excluded", std::to_string(catalog.excluded.size()));
+    if (!catalog.issue.empty()) timing.fail();
     for (const auto& note : catalog.notes)
         logging::write(logging::Level::info, logging::Channel::launcher, note);
     for (const auto& warning : catalog.warnings)
@@ -501,8 +513,11 @@ void apply_crash_report_setting() noexcept {
         const auto length = GetModuleFileNameW(nullptr, path.data(), static_cast<DWORD>(path.size()));
         if (!length || length >= path.size()) return;
         path.resize(length);
-        if (!detail::load_settings(std::filesystem::path(path).parent_path() / L"ReSkatePlusLauncher.settings.json").crash_reports)
-            SetEnvironmentVariableW(L"RESKATE_CRASH_REPORTING", L"0");
+        const auto settings = detail::load_settings(std::filesystem::path(path).parent_path() / L"ReSkateLauncher.settings.json");
+        if (!settings.crash_reports) SetEnvironmentVariableW(L"RESKATE_CRASH_REPORTING", L"0");
+        // A RESKATE_TRACING already set (to test with, or to refuse) is left alone.
+        if (settings.performance_timings && !GetEnvironmentVariableW(L"RESKATE_TRACING", nullptr, 0))
+            SetEnvironmentVariableW(L"RESKATE_TRACING", L"1");
     } catch (...) {}
 }
 } // namespace dingosdk::launcher_gui

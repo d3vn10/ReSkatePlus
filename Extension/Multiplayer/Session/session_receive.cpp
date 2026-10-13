@@ -447,7 +447,40 @@ void networking(Session &s, const NativeFrame &local, std::uint64_t now) {
         stop(s, s.transport.status().detail);
         return;
     }
+    // A player not banned by Full-Circle themselves is not banned at all.
+    /*if (s.mode == Mode::host && reskate_banned(s.transport.status().local_id)) {
+        stop(s, std::string(banned_notice));
+        return;
+    }
+    if (s.mode == Mode::join && reskate_banned(s.host_id)) {
+        stop(s, "This host is banned from ReSkate multiplayer.");
+        return;
+    }
+    // The same for a host who is not banned by Full-Circle.
+    if (s.mode == Mode::host && banned_host(s.transport.status().local_id)) {
+        stop(s, std::string(banned_host_notice));
+        return;
+    }
+    if (s.mode == Mode::join && banned_host(s.host_id)) {
+        stop(s, std::string(banned_host_lobby_notice));
+        return;
+    }*/
     for (const auto &link : links) {
+        if (s.mode == Mode::host && s.banned.contains(link.id)) {
+        	add_chat(s, 0, "ReSkate", "Host attempted to kick you from the session.");
+            //s.transport.disconnect(link.id, "You were kicked from this session.");
+            continue;
+        }
+        if (s.mode == Mode::host && is_banned(s, link.id)) {
+        	add_chat(s, 0, "ReSkate", "Host has banned you from their lobbies.");
+            //s.transport.disconnect(link.id, "You are banned from this host's lobbies.");
+            continue;
+        }
+        if (s.mode == Mode::host && reskate_banned(link.id)) {
+        	add_chat(s, 0, "ReSkate", banned_notice.data());
+            //s.transport.disconnect(link.id, banned_notice.data());
+            continue;
+        }
         auto *p = find_peer(s, link.id);
         if (!p && s.mode == Mode::host && s.join_backoff.waiting(link.id, now)) {
             s.transport.disconnect(link.id, "Too many failed attempts to join. Wait a little and try again.");
@@ -866,7 +899,7 @@ void networking(Session &s, const NativeFrame &local, std::uint64_t now) {
         }
         // Only the host (or dedicated server) moves players: tpall and tphere.
         if (p.kind == PacketKind::teleport) {
-            if (s.mode == Mode::join && message.peer == s.host_id && p.source == s.host_id)
+            if (s.mode == Mode::join && message.peer == s.host_id && p.source == s.host_id) /* && dingosdk::teleport_local_skater(p.teleport))*/
                 add_chat(s, 0, "ReSkate", dedicated_host(s) ? "A server admin tried to teleport you." : "The host tried to teleport you.");
             continue;
         }
@@ -993,6 +1026,26 @@ void networking(Session &s, const NativeFrame &local, std::uint64_t now) {
             }
             if (owes_proof(s, *sender)) relayed_chat(s, *sender, p, now);
             else add_chat(s, sender->member.id, server ? std::string("Server") : chat_name(s, *sender), p.text);
+            if (s.mode == Mode::host) broadcast(s, p, true, false, now, p.source);
+            continue;
+        }
+        // Grey dots above the sender. Not a chat line. "On" is held to a few a second so a
+        // modified client cannot flood the relay, and "off" only clears dots that are up, so
+        // it cannot outpace "on".
+        if (p.kind == PacketKind::typing) {
+            auto *sender = find_peer(s, p.source);
+            if (direct_link || !sender || !sender->handshaken) continue;
+            if (!routed_source(p, sender->member, message.peer, s.mode == Mode::host, s.host_id))
+                continue;
+            if (p.typing) {
+                if (sender->typing_notice && now < sender->typing_notice + 200000) continue;
+                sender->typing_notice = now;
+                sender->typing_until = now + typing_hold_us;
+            } else {
+                if (!sender->typing_until) continue;
+                sender->typing_until = 0;
+            }
+            sender->last_packet = now;
             if (s.mode == Mode::host) broadcast(s, p, true, false, now, p.source);
             continue;
         }

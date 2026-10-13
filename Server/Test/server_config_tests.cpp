@@ -7,19 +7,19 @@
 #include <sstream>
 
 namespace {
-    int failures{};
-    void check(bool ok, const char* what) {
-        if (!ok) {
-            std::cerr << "FAIL: " << what << '\n';
-            ++failures;
-        }
+int failures{};
+void check(bool ok, const std::string &what) {
+    if (!ok) {
+        std::cerr << "FAIL: " << what << '\n';
+        ++failures;
     }
-    std::string text(const std::filesystem::path& file) {
-        std::ifstream in(file, std::ios::binary);
-        std::stringstream s;
-        s << in.rdbuf();
-        return s.str();
-    }
+}
+std::string text(const std::filesystem::path &file) {
+    std::ifstream in(file, std::ios::binary);
+    std::stringstream s;
+    s << in.rdbuf();
+    return s.str();
+}
 } // namespace
 
 int run() {
@@ -37,8 +37,8 @@ int run() {
     const auto config = load_config(file, &added);
     const auto has = [&](std::string_view name) { return std::ranges::find(added, name) != added.end(); };
     check(has("anti_cheat.enforce_tuning") && has("votes.seconds") && has("votes.kick") && has("anti_cheat.modified_scoring") && has("anti_cheat.allowed_scoring_mods") &&
-        has("access.use_global_bans") && has("maps.pool") && has("maps.rotation_minutes"),
-        "New settings not reported");
+              has("access.use_global_bans") && has("maps.pool") && has("maps.rotation_minutes"),
+          "New settings not reported");
     // A setting under its old name is read, written back under its new one, and not called new.
     check(!has("players.allow_boosts") && has("players.allow_noclip"), "A renamed setting was reported as new, or a new one was not");
     check(!has("server.name") && !has("tps") && !has("votes.map"), "Settings the file had reported as new");
@@ -52,16 +52,16 @@ int run() {
           "park_mods and park_limits are not new settings with their defaults");
     const auto written = text(file);
     check(written.find("\"enforce_tuning\"") != std::string::npos && written.find("\"seconds\"") != std::string::npos,
-        "New settings not written into the file");
+          "New settings not written into the file");
     check(config.name == "Old Server" && config.tps == dedicated_tps /* fixed: the file's 60 is not kept */ && !config.boosts && config.votes.map.enabled &&
-        config.votes.map.percent == 60 && config.enforce_tuning && config.global_bans,
-        "The file's own values or the new defaults were lost");
+              config.votes.map.percent == 60 && config.enforce_tuning && config.global_bans,
+          "The file's own values or the new defaults were lost");
     const auto reloaded = load_config(file);
     check(reloaded.name == "Old Server" && !reloaded.boosts && reloaded.votes.map.percent == 60, "Values lost on rewrite");
 
     // steam_token: empty (anonymous) unless set, kept on a rewrite, and only letters and digits.
     // (The maps are not loaded yet, so config_error has another complaint: look for this one.)
-    const auto token_refused = [](const ServerConfig& c) { return config_error(c).find("steam_token") != std::string::npos; };
+    const auto token_refused = [](const ServerConfig &c) { return config_error(c).find("steam_token") != std::string::npos; };
     check(has("server.steam_token") && config.steam_token.empty() && !token_refused(config), "steam_token is not a new, empty setting");
     auto tokened = reloaded;
     tokened.steam_token = "0123456789ABCDEF0123456789ABCDEF";
@@ -100,7 +100,7 @@ int run() {
         slots.max_players = 4;
         const std::uint64_t vip = 76561198000000001ULL, admin = 76561198000000002ULL, anyone = 76561198000000003ULL;
         check(may_join(slots, anyone, 3) && !may_join(slots, anyone, 4) && !may_join(slots, vip, 4) && extra_slots(slots) == 0,
-            "A server with nothing reserved did not fill up plainly");
+              "A server with nothing reserved did not fill up plainly");
         // Nothing is held back from anyone; the listed players and the admins have a slot each past the last.
         const std::uint64_t vip2 = 76561198000000004ULL;
         slots.reserved = {vip, vip2};
@@ -112,18 +112,18 @@ int run() {
         check(!may_join(slots, vip, 7) && !may_join(slots, admin, 7), "More joined than there are extra slots");
         ServerConfig brim;
         brim.max_players = static_cast<unsigned>(dingosdk::multiplayer::max_players) - 2;
-        brim.reserved = { vip, vip2 };
+        brim.reserved = {vip, vip2};
         check(extra_slots(brim) == 1 && may_join(brim, vip, brim.max_players) && !may_join(brim, vip2, brim.max_players + 1),
-            "Extra slots went past what a session can hold");
-        const auto refused = [](const ServerConfig& c) { return config_error(c).find("reserved") != std::string::npos; };
+              "Extra slots went past what a session can hold");
+        const auto refused = [](const ServerConfig &c) { return config_error(c).find("reserved") != std::string::npos; };
         check(!refused(slots), "Valid reserved slots were refused");
-        slots.reserved = { vip, 42 };
+        slots.reserved = {vip, 42};
         check(refused(slots), "A reserved entry that is not a player was accepted");
         auto kept = reloaded;
-        kept.reserved = { vip };
+        kept.reserved = {vip};
         save_config(kept);
         const auto back = load_config(file);
-        check(back.reserved == std::vector<std::uint64_t>{vip}&& text(file).find("\"reserved_slots\"") == std::string::npos, "Reserved slots were not kept");
+        check(back.reserved == std::vector<std::uint64_t>{vip} && text(file).find("\"reserved_slots\"") == std::string::npos, "Reserved slots were not kept");
         save_config(reloaded);
     }
     // object_limit: 100 unless set (0 is no limit), and kept on a rewrite.
@@ -139,13 +139,13 @@ int run() {
 
     // Server names: letters, digits, spaces and - _ / [ ] ( ) only.
     check(valid_server_name("Old Server") && valid_server_name("[EU] Skate_Park-2 (24x7)") && valid_server_name("a") &&
-        valid_server_name("EU/West 24/7") && !valid_server_name("///") && !valid_server_name("a\\b"),
-        "A plain server name was refused");
+              valid_server_name("EU/West 24/7") && !valid_server_name("///") && !valid_server_name("a\\b"),
+          "A plain server name was refused");
     check(!valid_server_name("") && !valid_server_name(std::string(65, 'a')) && !valid_server_name("Best! Server") &&
-        !valid_server_name("caf\xC3\xA9") && !valid_server_name("a.b") && !valid_server_name("<b>x</b>") &&
-        !valid_server_name(" padded") && !valid_server_name("padded ") && !valid_server_name("[]--()") &&
-        !valid_server_name("two\nlines"),
-        "A server name with other characters was accepted");
+              !valid_server_name("caf\xC3\xA9") && !valid_server_name("a.b") && !valid_server_name("<b>x</b>") &&
+              !valid_server_name(" padded") && !valid_server_name("padded ") && !valid_server_name("[]--()") &&
+              !valid_server_name("two\nlines"),
+          "A server name with other characters was accepted");
 
     // An up-to-date file is left alone.
     const auto before = std::filesystem::last_write_time(file);
@@ -157,14 +157,14 @@ int run() {
     check(reloaded.score_check == "warn" && reloaded.score_allow.empty(), "Scoring check defaults wrong");
     auto scoring = reloaded;
     scoring.score_check = "kick";
-    scoring.score_allow = { 0x00c0ffee12345678ULL, 0xffffffffffffffffULL };
+    scoring.score_allow = {0x00c0ffee12345678ULL, 0xffffffffffffffffULL};
     save_config(scoring);
     const auto saved = load_config(file);
     check(saved.score_check == "kick" && saved.score_allow == scoring.score_allow, "Scoring check settings lost");
     check(scoring_text(0x00c0ffee12345678ULL) == "00c0ffee12345678", "Fingerprint not written as 16 hex digits");
     check(parse_scoring("00C0FFEE12345678") == 0x00c0ffee12345678ULL && !parse_scoring("0") && !parse_scoring("xyz") &&
-        !parse_scoring("123456789abcdef01"),
-        "Fingerprint text not read back, or a bad one accepted");
+              !parse_scoring("123456789abcdef01"),
+          "Fingerprint text not read back, or a bad one accepted");
     std::ofstream(file, std::ios::binary) << R"({"score_check": "ban", "score_allow": ["nothex", "0", "abc"]})";
     const auto odd = load_config(file);
     check(odd.score_check == "warn" && odd.score_allow == std::vector<std::uint64_t>{0xabc}, "Bad scoring settings not cleaned");
@@ -189,22 +189,22 @@ int run() {
               "A config from before the sections lost a setting");
         const auto fresh_has = [&](std::string_view name) { return std::ranges::find(fresh, name) != fresh.end(); };
         check(!fresh_has("players.allow_no_bail") && !fresh_has("anti_cheat.modified_scoring") && !fresh_has("maps.pool") && !fresh_has("server.name") &&
-            fresh_has("network.pack_ms"),
-            "A moved setting was called new, or a new one was not");
+                  fresh_has("network.pack_ms"),
+              "A moved setting was called new, or a new one was not");
         const auto now = text(file);
         const auto at = [&](std::string_view what) { return now.find(what); };
         check(at("\"server\"") < at("\"access\"") && at("\"access\"") < at("\"maps\"") && at("\"maps\"") < at("\"players\"") &&
-            at("\"players\"") < at("\"anti_cheat\"") && at("\"anti_cheat\"") < at("\"network\"") && at("\"network\"") < at("\"votes\"") &&
-            at("\"votes\"") != std::string::npos && at("\"name\"") < at("\"password\"") && at("\"password\"") < at("\"welcome_message\""),
-            "The config was not written in sections, in reading order");
+                  at("\"players\"") < at("\"anti_cheat\"") && at("\"anti_cheat\"") < at("\"network\"") && at("\"network\"") < at("\"votes\"") &&
+                  at("\"votes\"") != std::string::npos && at("\"name\"") < at("\"password\"") && at("\"password\"") < at("\"welcome_message\""),
+              "The config was not written in sections, in reading order");
         check(at("\"no_bail\"") == std::string::npos && at("\"tps\"") == std::string::npos && at("\"score_check\"") == std::string::npos &&
-            at("\"reserved_slots\"") == std::string::npos && at("\"modified_scoring\": \"kick\"") != std::string::npos,
-            "Old names were left in the config");
+                  at("\"reserved_slots\"") == std::string::npos && at("\"modified_scoring\": \"kick\"") != std::string::npos,
+              "Old names were left in the config");
         std::vector<std::string> again;
         const auto back = load_config(file, &again);
         check(again.empty() && back.name == "Flat" && !back.no_bail && back.score_check == "kick" && back.map_pool.size() == 1 && back.reserved.size() == 1 &&
-            back.distances.half_rate_start == 70 && !back.votes.map.enabled && text(file) == now,
-            "A config in sections did not read back as it was written");
+                  back.distances.half_rate_start == 70 && !back.votes.map.enabled && text(file) == now,
+              "A config in sections did not read back as it was written");
         std::filesystem::remove_all(folder / "data");
     }
     // The away timer: off unless set, and no more than a day.
@@ -217,6 +217,15 @@ int run() {
         check(load_config(away.file).afk_kick == 15, "The away timer was not kept");
         away.afk_kick = 1441;
         check(config_error(away).find("afk_kick_minutes") != std::string::npos, "An away timer over a day was accepted");
+        // How long a kick lasts: until the restart unless set, and no more than a day.
+        ServerConfig kicks;
+        check(kicks.kick_minutes == 0 && config_error(kicks).find("kick_minutes") == std::string::npos, "A kick does not last until the restart by default");
+        kicks.file = folder / "kicks.json";
+        kicks.kick_minutes = 10;
+        save_config(kicks);
+        check(load_config(kicks.file).kick_minutes == 10, "The kick time was not kept");
+        kicks.kick_minutes = 1441;
+        check(config_error(kicks).find("kick_minutes") != std::string::npos, "A kick time over a day was accepted");
         ServerConfig words;
         check(words.word_warnings == 3 && config.word_warnings == 3, "word_warnings is not 3 unless set");
         words.word_warnings = 11;
@@ -231,7 +240,7 @@ int run() {
         plain.sync_effects = false;
         save_config(plain);
         check(!load_config(plain.file).sync_effects && text(plain.file).find("\"sync_effects\": false") != std::string::npos,
-            "The skater effects setting was not kept");
+              "The skater effects setting was not kept");
         std::filesystem::remove_all(folder / "data");
     }
     // Object scaling: allowed unless turned off, and kept in the file.
@@ -242,14 +251,14 @@ int run() {
         sized.object_scaling = false;
         save_config(sized);
         check(!load_config(sized.file).object_scaling && text(sized.file).find("\"allow_object_scaling\": false") != std::string::npos,
-            "The object scaling setting was not kept");
+              "The object scaling setting was not kept");
         std::filesystem::remove_all(folder / "data");
     }
     // The server's chat colours: violet and lavender unless set, red first as written.
     {
         ServerConfig colours;
         check(colours.chat_color == "#8E5CFF" && parse_colour(colours.chat_color) == 0xffff5c8eU && parse_colour("d9c8ff") == 0xffffc8d9U,
-            "The default chat colours are not violet and lavender");
+              "The default chat colours are not violet and lavender");
         check(!parse_colour("#12345") && !parse_colour("#12345G") && !parse_colour("") && !parse_colour("#1234567"), "A bad colour was read");
         colours.chat_text_color = "blue";
         check(config_error(colours).find("chat_text_color") != std::string::npos, "A chat colour that is not one was accepted");
@@ -263,7 +272,7 @@ int run() {
         std::stringstream now;
         now << std::ifstream(file, std::ios::binary).rdbuf();
         check(std::filesystem::exists(bans_file(old)) && now.str().find("\"bans\"") == std::string::npos, "Bans were not moved to data/bans.json");
-        old.bans.push_back({ 76561198000000002ULL, "B", 6 });
+        old.bans.push_back({76561198000000002ULL, "B", 6});
         save_config(old);
         const auto again = load_config(file);
         check(again.bans.size() == 2 && again.bans[1].name == "B" && again.bans[1].added == 6, "Bans were not kept in their own file");
@@ -271,24 +280,24 @@ int run() {
         bool refused_bans{};
         try {
             static_cast<void>(load_config(file));
-        } catch (const std::exception&) {
+        } catch (const std::exception &) {
             refused_bans = true;
         }
         check(refused_bans, "A server started without its bans");
         std::filesystem::remove_all(folder / "data");
     }
     // A port outside 1-65535 is refused, not wrapped to another port, and the file keeps the typo.
-    const auto refused = [&](const char* json) {
+    const auto refused = [&](const char *json) {
         std::ofstream(file, std::ios::binary) << json;
         try {
             static_cast<void>(load_config(file));
-        } catch (const std::exception&) {
+        } catch (const std::exception &) {
             return text(file) == json;
         }
         return false;
-        };
+    };
     check(refused(R"({"query_port": 70000})") && refused(R"({"port": 65536})") && refused(R"({"port": 0})"),
-        "An out-of-range port was accepted or the file rewritten");
+          "An out-of-range port was accepted or the file rewritten");
     std::ofstream(file, std::ios::binary) << R"({"port": 65535, "query_port": 1})";
     const auto edges = load_config(file);
     check(edges.port == 65535 && edges.query_port == 1, "Ports at the ends of the range refused");
@@ -299,30 +308,30 @@ int run() {
         ServerConfig elsewhere;
         elsewhere.map = "Levels/Game/NotHere/NotHere";
         check(config_error(elsewhere).find("not a map this server has") != std::string::npos && !installed_map(elsewhere.map),
-            "A map the server does not have was accepted");
+              "A map the server does not have was accepted");
         check(installed_map("Isle of Grom") && installed_map("Levels/Game/DingoLevel_MPR/DingoLevel_MPR"), "One of the game's own maps was refused");
     }
     ServerConfig pool;
     check(pool_levels(pool).size() == levels().size() && in_map_pool(pool, "Stadium 2"),
-        "An empty pool does not allow every map");
-    pool.map_pool = { "Isle", "Isle of Grom", "San Vansterdam", "Stadium 1" };
+          "An empty pool does not allow every map");
+    pool.map_pool = {"Isle", "Isle of Grom", "San Vansterdam", "Stadium 1"};
     check(pool_levels(pool).size() == 3, "Pool maps not resolved once each");
     check(in_map_pool(pool, "San Vansterdam") && in_map_pool(pool, "Levels/Game/DingoLevel_SDM/DingoLevel_SDM_Int_001/DingoLevel_SDM_Int_001") &&
-        !in_map_pool(pool, "Super Ultra Mega Resort") && !in_map_pool(pool, "Nowhere"),
-        "Pool membership wrong");
+              !in_map_pool(pool, "Super Ultra Mega Resort") && !in_map_pool(pool, "Nowhere"),
+          "Pool membership wrong");
     const auto next = [&](std::string_view map) {
-        const auto* level = next_pool_map(pool, map);
+        const auto *level = next_pool_map(pool, map);
         return level ? level->name : std::string{};
-        };
+    };
     check(next("Isle of Grom") == "San Vansterdam" && next("Stadium 1") == "Isle of Grom" &&
-        next("Super Ultra Mega Resort") == "Isle of Grom",
-        "Rotation does not follow the pool's order");
-    pool.map_pool = { "Isle of Grom" };
+              next("Super Ultra Mega Resort") == "Isle of Grom",
+          "Rotation does not follow the pool's order");
+    pool.map_pool = {"Isle of Grom"};
     check(next("Isle of Grom").empty() && next("San Vansterdam") == "Isle of Grom", "A one-map pool rotated to itself");
     check(config_error(pool).empty(), "A valid pool refused");
-    pool.map_pool = { "Isle of Grom", "Nowhere" };
+    pool.map_pool = {"Isle of Grom", "Nowhere"};
     check(!config_error(pool).empty(), "An unknown pool map accepted");
-    pool.map_pool = { "Isle of Grom", "Stadium 1" };
+    pool.map_pool = {"Isle of Grom", "Stadium 1"};
     pool.map_rotation = 15;
     pool.file = file;
     save_config(pool);
@@ -330,8 +339,8 @@ int run() {
     check(rotating.map_pool == pool.map_pool && rotating.map_rotation == 15, "Map pool or rotation lost on save");
     std::ofstream(file, std::ios::binary) << R"({"map_pool": ["Isle of Grom", 7, ""], "map_rotation_minutes": 5000})";
     const auto odd_pool = load_config(file);
-    check(odd_pool.map_pool == std::vector<std::string>{"Isle of Grom"}&& odd_pool.map_rotation == 1440,
-        "Bad pool entries kept, or rotation not capped");
+    check(odd_pool.map_pool == std::vector<std::string>{"Isle of Grom"} && odd_pool.map_rotation == 1440,
+          "Bad pool entries kept, or rotation not capped");
 
     // Each vote's own limits, polls, custom votes and announcements are kept on a rewrite.
     check(config.votes.polls == "admins" && config.votes.poll_seconds == 60 && config.votes.starter_votes_yes &&
@@ -547,7 +556,7 @@ int run() {
 int main() {
     try {
         return run();
-    } catch (const std::exception& e) {
+    } catch (const std::exception &e) {
         std::cerr << "FAIL: " << e.what() << '\n';
         return 1;
     }

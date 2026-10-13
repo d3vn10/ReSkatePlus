@@ -9,6 +9,12 @@
 #include "Extension/World/load_error_guard.h"
 #include "Extension/World/mesh_unload_guard.h"
 #include "Extension/World/stack_check_report.h"
+#include "Extension/Music/music_inject.h"
+#include "Extension/Music/spotify_web.h"
+#include "Extension/Music/spotify_device.h"
+#include "Extension/Music/spotify_dashboard.h"
+#include "Extension/Music/youtube_music.h"
+#include "Extension/Music/spotify_rows.h"
 #include "Extension/World/texture_handle_limit.h"
 #include "Extension/Console/commands.h"
 #include "Extension/UI/ui_pointer_skip.h"
@@ -138,8 +144,8 @@ extern "C" __declspec(dllexport) BOOL WINAPI DingoSDKDebugInitialize() {
 #pragma warning(push)
 #pragma warning(disable: 4191)
         if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
-            GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-            reinterpret_cast<LPCWSTR>(&DingoSDKDebugInitialize), &self)) {
+                GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                reinterpret_cast<LPCWSTR>(&DingoSDKDebugInitialize), &self)) {
             dingosdk::logging::log(dingosdk::logging::Level::error, dingosdk::logging::Channel::runtime,
                 "Cannot locate the runtime module (Windows error {}).", GetLastError());
             return FALSE;
@@ -159,7 +165,7 @@ extern "C" __declspec(dllexport) BOOL WINAPI DingoSDKDebugInitialize() {
         const auto& mod_catalog = dingosdk::mods::catalog();
         const auto patch_level_path = std::filesystem::path(
             std::wstring(self_path, self_length)).parent_path() / L"Patch" / L"reskate-levels.json";
-        r.patch_level_manifests = { patch_level_path };
+        r.patch_level_manifests = {patch_level_path};
         if (!mod_catalog.data_root.empty()) {
             const auto data_level_path = mod_catalog.data_root / L"Patch" / L"reskate-levels.json";
             std::error_code level_path_error;
@@ -194,7 +200,7 @@ extern "C" __declspec(dllexport) BOOL WINAPI DingoSDKDebugInitialize() {
             "Game graphics provider loaded: sl.interposer.dll.");
         const dingosdk::overlay::CallbacksV3 callbacks{
             nullptr, read_model, queue_load, queue_debug, queue_offline_feature,
-            queue_console_command };
+            queue_console_command};
         auto native_callbacks = callbacks;
         native_callbacks.read_model = read_native_menu_model;
         dingosdk::multiplayer::set_native_menu_callbacks(native_callbacks);
@@ -324,6 +330,12 @@ extern "C" __declspec(dllexport) BOOL WINAPI DingoSDKDebugInitialize() {
         (void)dingosdk::load_error_guard::install(r.base);
         (void)dingosdk::texture_handle_limit::install(r.base);
         (void)dingosdk::stack_check_report::install(r.base);
+        (void)dingosdk::music_inject::install(r.base);
+        (void)dingosdk::spotify_rows::install(r.base);
+        dingosdk::spotify_device::start(); // (the game as a device in the player's Spotify app)
+        dingosdk::spotify_web::start();
+        dingosdk::youtube_music::start(); // (the player's YouTube playlists, read before the music screen is built)
+        dingosdk::spotify_dashboard::start(); // (the page in the browser that sets Spotify up) // (the player's playlists, fetched before the music screen is built)
         dingosdk::console::start_memory_trace_from_environment();
         const bool fixed_stop_provider = (global_offline_hook && progression_guard_armed) &&
             dingosdk::prepare_fixed_stop_entitlement_provider(r.base);

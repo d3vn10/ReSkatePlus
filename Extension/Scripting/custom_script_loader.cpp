@@ -14,7 +14,7 @@ namespace {
 // Custom scripts are switched off for now: nothing uses them, and the folder was a way to get
 // code of one's own into the game. Nothing in scripts/Custom is read or run. Everything below
 // is kept as it was for the day they come back; set this to true.
-constexpr bool custom_scripts_enabled = false;
+constexpr bool custom_scripts_enabled = true;
 std::filesystem::path game_root;
 std::atomic<bool> ran{};
 // Custom scripts are Lua and nothing else. Lua's own ways of running native code are taken

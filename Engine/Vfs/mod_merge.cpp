@@ -84,16 +84,18 @@ MergeReport merge_mods(const Catalog& catalog, const MergeObserver& observe, con
         const auto output = catalog.root / generated_folder;
         std::error_code error;
 
-            std::vector<const Mod*> mods;
-            for (const auto& mod : catalog.mods) if (mod.provides_layout) mods.push_back(&mod);
-            // With no mod enabled the patch stays, holding the game's own copy of
-            // what it reads at launch (and any disabled mods' archives), so a mod
-            // enabled or added later loads without a restart.
-            std::map<const Mod*, RelativeFiles> modFiles;
-            for (const auto* mod : mods) modFiles[mod] = scan(mod->directory);
+        std::vector<const Mod*> mods;
+        for (const auto& mod : catalog.mods) if (mod.provides_layout) mods.push_back(&mod);
+        // With no mod enabled the patch stays, holding the game's own copy of
+        // what it reads at launch (and any disabled mods' archives), so a mod
+        // enabled or added later loads without a restart.
+        std::map<const Mod*, RelativeFiles> modFiles;
+        for (const auto* mod : mods) modFiles[mod] = scan(mod->directory);
 
+        // What the store sells comes from the content cache, which the launcher installs.
+        const bool storeKnown = content_cache::installed();
         // Disabled mods count too: their archives and map registration are placed at launch.
-        auto fingerprint = merge_fingerprint(catalog, mods, modFiles);
+        auto fingerprint = merge_fingerprint(catalog, mods, modFiles, storeKnown);
         for (const auto& mod : catalog.inactive)
             fingerprint += " inactive " + mod.name + " " + mod_fingerprint(mod.directory);
         if (options.live) {
@@ -109,6 +111,8 @@ MergeReport merge_mods(const Catalog& catalog, const MergeObserver& observe, con
         // launch (the player is waiting on nothing else), half of them and fewer while the game runs.
         const auto cores = std::max(1U, std::thread::hardware_concurrency());
         const std::size_t readers = std::min<std::size_t>(options.live ? std::max(1U, cores / 2) : cores, options.live ? 6U : 8U);
+        if (/*storeKnown &&*/ store_copy_problems(catalog, report, options.live ? options.checked : std::vector<std::string>{},
+                                              readers - 1, options.live)) return report;
         if (!options.live) fs::remove_all(output, error);
         lap("checking the mods");
 
@@ -126,59 +130,59 @@ MergeReport merge_mods(const Catalog& catalog, const MergeObserver& observe, con
             ++progress.done;
         };
 
-            // Every superbundle any mod ships, and who ships it, in priority order.
-            std::map<std::string, std::vector<const Mod*>, std::less<>> providers;
-            std::map<const Mod*, ArchivePlacement> placements;
-            std::vector<std::string> superbundles;
-            // layeredInstallChunkFiles enumerates the archives the engine expects,
-            // so every index a mod's payloads moved to has to be declared there.
-            ArchiveUse used;
+        // Every superbundle any mod ships, and who ships it, in priority order.
+        std::map<std::string, std::vector<const Mod*>, std::less<>> providers;
+        std::map<const Mod*, ArchivePlacement> placements;
+        std::vector<std::string> superbundles;
+        // layeredInstallChunkFiles enumerates the archives the engine expects,
+        // so every index a mod's payloads moved to has to be declared there.
+        ArchiveUse used;
 
-            // Every mod keeps the archive indices it was built for; where two mods
-            // ship the same one, their archives are concatenated into a single file
-            // and the later blocks are addressed by byte offset.
-            // A mod's layout is the game's (as of the build it was made for) plus
-            // its own entries. The merged layout starts from the installed game's
-            // layout and takes only each mod's own entries, so mods made for an
-            // earlier game build keep working after an update: a mod's full copy
-            // would carry the old build's layout, and the game then waits on the
-            // splash for bundles that layout places wrongly.
-            auto parsedLayout = vfs::read_layout(catalog.data_root / L"Data" / L"layout.toc");
-            std::vector<const Mod*> layoutSources = mods;
-            if (layoutSources.empty() && !catalog.inactive.empty()) layoutSources.push_back(&catalog.inactive.front());
-            auto& layout = parsedLayout.root;
-            const auto baseRoot = catalog.data_root / L"Data";
-            const auto gameRoot = catalog.data_root;
-            CasStore store(baseRoot, output, layout);
-            // Mods are built against archive 1, so that is where the rebuilt
-            // manifests go too: an index the engine already knows in every package.
-            constexpr std::uint16_t manifestArchive = 1;
+        // Every mod keeps the archive indices it was built for; where two mods
+        // ship the same one, their archives are concatenated into a single file
+        // and the later blocks are addressed by byte offset.
+        // A mod's layout is the game's (as of the build it was made for) plus
+        // its own entries. The merged layout starts from the installed game's
+        // layout and takes only each mod's own entries, so mods made for an
+        // earlier game build keep working after an update: a mod's full copy
+        // would carry the old build's layout, and the game then waits on the
+        // splash for bundles that layout places wrongly.
+        auto parsedLayout = vfs::read_layout(catalog.data_root / L"Data" / L"layout.toc");
+        std::vector<const Mod*> layoutSources = mods;
+        if (layoutSources.empty() && !catalog.inactive.empty()) layoutSources.push_back(&catalog.inactive.front());
+        auto& layout = parsedLayout.root;
+        const auto baseRoot = catalog.data_root / L"Data";
+        const auto gameRoot = catalog.data_root;
+        CasStore store(baseRoot, output, layout);
+        // Mods are built against archive 1, so that is where the rebuilt
+        // manifests go too: an index the engine already knows in every package.
+        constexpr std::uint16_t manifestArchive = 1;
 
-            // What the layout declares in each package directory. A free index is
-            // judged against its own directory rather than every directory at once
-            // (judged against the union, three mods used up the gaps), lowest
-            // first, and carries on past the highest index the game declares: the
-            // engine keeps archives in a table keyed by layer, install chunk and a
-            // 16-bit index, with no range to stay inside. What it cannot survive is
-            // a reference to an archive the layout never declared.
-            std::map<std::string, std::set<std::uint16_t>> declaredIn;
-            for (const auto* field : { "layeredInstallChunkFiles", "unlayeredInstallChunkFiles" }) {
-                const auto* node = layout.field(field);
-                if (!node || node->type != 19) continue;
-                for_each_install_chunk_file(node->payload(), [&](std::uint32_t id, std::uint16_t archive) {
-                    if (const auto* directory = store.find_directory(id)) declaredIn[*directory].insert(archive);
-                    });
+        // What the layout declares in each package directory. A free index is
+        // judged against its own directory rather than every directory at once
+        // (judged against the union, three mods used up the gaps), lowest
+        // first, and carries on past the highest index the game declares: the
+        // engine keeps archives in a table keyed by layer, install chunk and a
+        // 16-bit index, with no range to stay inside. What it cannot survive is
+        // a reference to an archive the layout never declared.
+        std::map<std::string, std::set<std::uint16_t>> declaredIn;
+        for (const auto* field : {"layeredInstallChunkFiles", "unlayeredInstallChunkFiles"}) {
+            const auto* node = layout.field(field);
+            if (!node || node->type != 19) continue;
+            for_each_install_chunk_file(node->payload(), [&](std::uint32_t id, std::uint16_t archive) {
+                if (const auto* directory = store.find_directory(id)) declaredIn[*directory].insert(archive);
+            });
+        }
+        std::map<std::string, std::set<std::uint16_t>> claimedArchives;
+        const auto claim = [&](const std::string& directory) -> std::optional<std::uint16_t> {
+            const auto& declared = declaredIn[directory];
+            auto& claimed = claimedArchives[directory];
+            for (std::uint32_t candidate = 1; candidate <= std::numeric_limits<std::uint16_t>::max(); ++candidate) {
+                const auto index = static_cast<std::uint16_t>(candidate);
+                if (!declared.contains(index) && claimed.insert(index).second) return index;
             }
-            std::map<std::string, std::set<std::uint16_t>> claimedArchives;
-            const auto claim = [&](const std::string& directory) -> std::optional<std::uint16_t> {
-                const auto& declared = declaredIn[directory];
-                auto& claimed = claimedArchives[directory];
-                for (std::uint32_t candidate = 1; candidate <= std::numeric_limits<std::uint16_t>::max(); ++candidate) {
-                    const auto index = static_cast<std::uint16_t>(candidate);
-                    if (!declared.contains(index) && claimed.insert(index).second) return index;
-                }
-                return std::nullopt;
-            };
+            return std::nullopt;
+        };
 
         // Where every mod's archives go. The launch's merge places the archives
         // of every installed mod, disabled ones too, and records it: a merge
@@ -544,155 +548,155 @@ MergeReport merge_mods(const Catalog& catalog, const MergeObserver& observe, con
         }
         lap("superbundles");
 
-            // The layout lists every superbundle the merged layer now provides.
-            advance("Writing the layout");
-            auto* list = layout.field("superBundles");
-            if (!list || list->type != 1) throw std::runtime_error("layout.toc has no superBundles list");
-            std::set<std::string, std::less<>> known;
-            for (const auto& row : list->children) {
+        // The layout lists every superbundle the merged layer now provides.
+        advance("Writing the layout");
+        auto* list = layout.field("superBundles");
+        if (!list || list->type != 1) throw std::runtime_error("layout.toc has no superBundles list");
+        std::set<std::string, std::less<>> known;
+        for (const auto& row : list->children) {
+            const auto* name = row.field("name");
+            if (name && name->type == 7) known.emplace(lower(name->text));
+        }
+        // A mod's own layout.toc. A damaged one is that mod's problem: the merge runs again without it.
+        const auto mod_layout = [&](const Mod& mod) -> std::optional<vfs::Layout> {
+            try {
+                return vfs::read_layout(mod.directory / L"layout.toc");
+            } catch (const std::exception& error) {
+                report.problems[mod.name].push_back(std::string("layout.toc could not be read: ") + error.what());
+                return std::nullopt;
+            }
+        };
+        for (const auto* mod : mods) {
+            const auto ownLayout = mod_layout(*mod);
+            if (!ownLayout) continue;
+            const auto& own = ownLayout->root;
+            const auto* ownManifest = own.field("installManifest");
+            const auto* ownChunks = ownManifest ? ownManifest->field("installChunks") : nullptr;
+            if (!ownChunks) continue;
+            for (const auto& chunk : ownChunks->children) {
+                const auto* chunkName = chunk.field("name");
+                const auto* held = chunk.field("superbundles");
+                if (!chunkName || !held) continue;
+                for (const auto& entry : held->children)
+                    if (entry.type == 7) report.superbundle_chunks.emplace_back(entry.text, chunkName->text);
+            }
+        }
+        for (const auto* mod : layoutSources) {
+            const auto otherLayout = mod_layout(*mod);
+            if (!otherLayout) continue;
+            const auto& other = otherLayout->root;
+            const auto* otherList = other.field("superBundles");
+            if (!otherList) continue;
+            for (const auto& row : otherList->children) {
                 const auto* name = row.field("name");
-                if (name && name->type == 7) known.emplace(lower(name->text));
+                if (!name || name->type != 7 || !known.emplace(lower(name->text)).second) continue;
+                // The list is ordered by name and the engine searches it that
+                // way, so an entry appended at the end is never found.
+                const auto key = lower(name->text);
+                auto at = list->children.begin();
+                for (; at != list->children.end(); ++at) {
+                    const auto* existing = at->field("name");
+                    if (existing && existing->type == 7 && lower(existing->text) > key) break;
+                }
+                list->children.insert(at, native_db::make_named_record("name", name->text));
+                report.notes.push_back("Merged layout adds " + name->text + " from " + mod->name);
             }
-            // A mod's own layout.toc. A damaged one is that mod's problem: the merge runs again without it.
-            const auto mod_layout = [&](const Mod& mod) -> std::optional<vfs::Layout> {
-                try {
-                    return vfs::read_layout(mod.directory / L"layout.toc");
-                } catch (const std::exception& error) {
-                    report.problems[mod.name].push_back(std::string("layout.toc could not be read: ") + error.what());
-                    return std::nullopt;
-                }
-                };
-            for (const auto* mod : mods) {
-                const auto ownLayout = mod_layout(*mod);
-                if (!ownLayout) continue;
-                const auto& own = ownLayout->root;
-                const auto* ownManifest = own.field("installManifest");
-                const auto* ownChunks = ownManifest ? ownManifest->field("installChunks") : nullptr;
-                if (!ownChunks) continue;
-                for (const auto& chunk : ownChunks->children) {
-                    const auto* chunkName = chunk.field("name");
-                    const auto* held = chunk.field("superbundles");
-                    if (!chunkName || !held) continue;
-                    for (const auto& entry : held->children)
-                        if (entry.type == 7) report.superbundle_chunks.emplace_back(entry.text, chunkName->text);
-                }
-            }
-            for (const auto* mod : layoutSources) {
-                const auto otherLayout = mod_layout(*mod);
-                if (!otherLayout) continue;
-                const auto& other = otherLayout->root;
-                const auto* otherList = other.field("superBundles");
-                if (!otherList) continue;
-                for (const auto& row : otherList->children) {
-                    const auto* name = row.field("name");
-                    if (!name || name->type != 7 || !known.emplace(lower(name->text)).second) continue;
-                    // The list is ordered by name and the engine searches it that
-                    // way, so an entry appended at the end is never found.
-                    const auto key = lower(name->text);
-                    auto at = list->children.begin();
-                    for (; at != list->children.end(); ++at) {
-                        const auto* existing = at->field("name");
-                        if (existing && existing->type == 7 && lower(existing->text) > key) break;
-                    }
-                    list->children.insert(at, native_db::make_named_record("name", name->text));
-                    report.notes.push_back("Merged layout adds " + name->text + " from " + mod->name);
-                }
 
-                // The superbundle list is only half of it: each install chunk in the
-                // manifest names the superbundles it holds, and that is what tells
-                // the engine where a bundle's data lives. Without it the level is
-                // requested and then waits for content that is never located.
-                auto* chunks = layout.field("installManifest")
-                    ? layout.field("installManifest")->field("installChunks") : nullptr;
-                const auto* otherManifest = other.field("installManifest");
-                const auto* otherChunks = otherManifest ? otherManifest->field("installChunks") : nullptr;
-                if (!chunks || !otherChunks) continue;
-                for (const auto& source : otherChunks->children) {
-                    const auto* sourceName = source.field("name");
-                    const auto* sourceList = source.field("superbundles");
-                    if (!sourceName || !sourceList) continue;
-                    Node* target{};
-                    for (auto& candidate : chunks->children) {
-                        const auto* candidateName = candidate.field("name");
-                        if (candidateName && candidateName->text == sourceName->text) { target = &candidate; break; }
-                    }
-                    auto* targetList = target ? target->field("superbundles") : nullptr;
-                    if (!targetList) continue;
-                    for (const auto& entry : sourceList->children) {
-                        if (entry.type != 7) continue;
-                        const auto key = lower(entry.text);
-                        bool held{};
-                        for (const auto& existing : targetList->children)
-                            if (existing.type == 7 && lower(existing.text) == key) { held = true; break; }
-                        if (held) continue;
-                        auto position = targetList->children.begin();
-                        for (; position != targetList->children.end(); ++position)
-                            if (position->type == 7 && lower(position->text) > key) break;
-                        Node added;
-                        added.type = 7;
-                        added.text = entry.text;
-                        // A string node is written from its payload, terminator included.
-                        added.owned.assign(entry.text.begin(), entry.text.end());
-                        added.owned.push_back(0);
-                        targetList->children.insert(position, std::move(added));
-                        report.notes.push_back("Merged layout puts " + entry.text + " in " + sourceName->text);
-                    }
+            // The superbundle list is only half of it: each install chunk in the
+            // manifest names the superbundles it holds, and that is what tells
+            // the engine where a bundle's data lives. Without it the level is
+            // requested and then waits for content that is never located.
+            auto* chunks = layout.field("installManifest")
+                ? layout.field("installManifest")->field("installChunks") : nullptr;
+            const auto* otherManifest = other.field("installManifest");
+            const auto* otherChunks = otherManifest ? otherManifest->field("installChunks") : nullptr;
+            if (!chunks || !otherChunks) continue;
+            for (const auto& source : otherChunks->children) {
+                const auto* sourceName = source.field("name");
+                const auto* sourceList = source.field("superbundles");
+                if (!sourceName || !sourceList) continue;
+                Node* target{};
+                for (auto& candidate : chunks->children) {
+                    const auto* candidateName = candidate.field("name");
+                    if (candidateName && candidateName->text == sourceName->text) { target = &candidate; break; }
+                }
+                auto* targetList = target ? target->field("superbundles") : nullptr;
+                if (!targetList) continue;
+                for (const auto& entry : sourceList->children) {
+                    if (entry.type != 7) continue;
+                    const auto key = lower(entry.text);
+                    bool held{};
+                    for (const auto& existing : targetList->children)
+                        if (existing.type == 7 && lower(existing.text) == key) { held = true; break; }
+                    if (held) continue;
+                    auto position = targetList->children.begin();
+                    for (; position != targetList->children.end(); ++position)
+                        if (position->type == 7 && lower(position->text) > key) break;
+                    Node added;
+                    added.type = 7;
+                    added.text = entry.text;
+                    // A string node is written from its payload, terminator included.
+                    added.owned.assign(entry.text.begin(), entry.text.end());
+                    added.owned.push_back(0);
+                    targetList->children.insert(position, std::move(added));
+                    report.notes.push_back("Merged layout puts " + entry.text + " in " + sourceName->text);
                 }
             }
-            // Declare the re-indexed archives, and only under the install chunks the
-            // merged patch really reads them from: a record for an install chunk
-            // that has no such file sends the engine looking for one that is absent.
-            const auto declare = [&](const char* field) {
-                auto* node = layout.field(field);
-                if (!node || node->type != 19) return;
-                const auto source = node->payload();
-                if (source.size() % 8) throw std::runtime_error(std::string(field) + " is not a record table");
-                std::vector<unsigned char> table(source.begin(), source.end());
-                std::size_t added{};
-                for (const auto& [installChunk, archive] : used) {
-                    const std::array<unsigned char, 4> id{
-                        static_cast<unsigned char>(installChunk & 0xFF),
-                        static_cast<unsigned char>((installChunk >> 8) & 0xFF),
-                        static_cast<unsigned char>((installChunk >> 16) & 0xFF),
-                        static_cast<unsigned char>((installChunk >> 24) & 0xFF) };
-                    // The table is grouped by install chunk and every group the game
-                    // ships is ordered by archive index, so a new archive goes inside
-                    // its own group and in that order, not after it and not last.
-                    std::size_t insertAt{};
-                    bool owns{}, already{}, placed{};
-                    for (std::size_t at = 0; at + 8 <= table.size(); at += 8) {
-                        if (std::memcmp(table.data() + at + 2, id.data(), id.size())) continue;
-                        owns = true;
-                        const auto current = static_cast<std::uint16_t>(table[at] | (table[at + 1] << 8));
-                        if (current == archive) already = true;
-                        if (!placed && current > archive) { insertAt = at; placed = true; }
-                        if (!placed) insertAt = at + 8;
-                    }
-                    if (!owns || already) continue;
-                    std::array<unsigned char, 8> record{};
-                    record[0] = static_cast<unsigned char>(archive & 0xFF);
-                    record[1] = static_cast<unsigned char>(archive >> 8);
-                    std::memcpy(record.data() + 2, id.data(), id.size());
-                    table.insert(table.begin() + static_cast<std::ptrdiff_t>(insertAt),
-                        record.begin(), record.end());
-                    ++added;
+        }
+        // Declare the re-indexed archives, and only under the install chunks the
+        // merged patch really reads them from: a record for an install chunk
+        // that has no such file sends the engine looking for one that is absent.
+        const auto declare = [&](const char* field) {
+            auto* node = layout.field(field);
+            if (!node || node->type != 19) return;
+            const auto source = node->payload();
+            if (source.size() % 8) throw std::runtime_error(std::string(field) + " is not a record table");
+            std::vector<unsigned char> table(source.begin(), source.end());
+            std::size_t added{};
+            for (const auto& [installChunk, archive] : used) {
+                const std::array<unsigned char, 4> id{
+                    static_cast<unsigned char>(installChunk & 0xFF),
+                    static_cast<unsigned char>((installChunk >> 8) & 0xFF),
+                    static_cast<unsigned char>((installChunk >> 16) & 0xFF),
+                    static_cast<unsigned char>((installChunk >> 24) & 0xFF)};
+                // The table is grouped by install chunk and every group the game
+                // ships is ordered by archive index, so a new archive goes inside
+                // its own group and in that order, not after it and not last.
+                std::size_t insertAt{};
+                bool owns{}, already{}, placed{};
+                for (std::size_t at = 0; at + 8 <= table.size(); at += 8) {
+                    if (std::memcmp(table.data() + at + 2, id.data(), id.size())) continue;
+                    owns = true;
+                    const auto current = static_cast<std::uint16_t>(table[at] | (table[at + 1] << 8));
+                    if (current == archive) already = true;
+                    if (!placed && current > archive) { insertAt = at; placed = true; }
+                    if (!placed) insertAt = at + 8;
                 }
-                if (!added) return;
-                report.notes.push_back(std::string(field) + ": declared " + std::to_string(added) +
-                    " patch archive(s)");
-                node->owned = std::move(table);
-                node->bytes = {};
-                };
-            declare("layeredInstallChunkFiles");
-            declare("unlayeredInstallChunkFiles");
+                if (!owns || already) continue;
+                std::array<unsigned char, 8> record{};
+                record[0] = static_cast<unsigned char>(archive & 0xFF);
+                record[1] = static_cast<unsigned char>(archive >> 8);
+                std::memcpy(record.data() + 2, id.data(), id.size());
+                table.insert(table.begin() + static_cast<std::ptrdiff_t>(insertAt),
+                             record.begin(), record.end());
+                ++added;
+            }
+            if (!added) return;
+            report.notes.push_back(std::string(field) + ": declared " + std::to_string(added) +
+                " patch archive(s)");
+            node->owned = std::move(table);
+            node->bytes = {};
+        };
+        declare("layeredInstallChunkFiles");
+        declare("unlayeredInstallChunkFiles");
 
-            if (!options.live) {
-                const auto rebuilt = native_db::write(layout);
-                std::vector<unsigned char> file(native_db::envelope_size, 0);
-                std::memcpy(file.data(), native_db::magic, sizeof(native_db::magic));
-                file.insert(file.end(), rebuilt.begin(), rebuilt.end());
-                write_file(output / L"layout.toc",
-                    std::span<const std::byte>(reinterpret_cast<const std::byte*>(file.data()), file.size()));
+        if (!options.live) {
+            const auto rebuilt = native_db::write(layout);
+            std::vector<unsigned char> file(native_db::envelope_size, 0);
+            std::memcpy(file.data(), native_db::magic, sizeof(native_db::magic));
+            file.insert(file.end(), rebuilt.begin(), rebuilt.end());
+            write_file(output / L"layout.toc",
+                       std::span<const std::byte>(reinterpret_cast<const std::byte*>(file.data()), file.size()));
 
             // The patch is complete without its stamp; lacking one only means the
             // next launch builds it again.

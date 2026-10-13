@@ -19,7 +19,7 @@ namespace dingosdk::multiplayer {
 // not join them. And one of players who may not host a lobby (banned_host, below).
 enum class IdentityList : std::uint8_t { developer, homie, content_creator, centrix, banned, official_server, staff, blocked_server, banned_host, count };
 using IdentityLists = std::array<std::vector<std::uint64_t>, static_cast<std::size_t>(IdentityList::count)>;
-inline constexpr std::string_view identity_lists_url = "https://raw.githubusercontent.com/imDevn/ReSkatePlus/refs/heads/main/External/steam_networking/config";
+inline constexpr std::string_view identity_lists_url = "https://raw.githubusercontent.com/d3vn10/ReSkatePlus/refs/heads/main/External/steam_networking/config";
 
 // The game's way of reading them (the dedicated server's is Server/global_bans.h). Called
 // every client tick: reads the lists in the background, at startup and every ten

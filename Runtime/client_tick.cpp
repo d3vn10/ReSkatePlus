@@ -4,6 +4,9 @@
 #include "Extension/Assets/live_mods.h"
 #include "Extension/Assets/map_download.h"
 #include "Extension/Assets/map_icons.h"
+#include "Extension/Music/spotify_station.h"
+#include "Extension/Multiplayer/Hud/game_ui_state.h"
+#include "Extension/Music/music_inject.h"
 #include "Extension/World/texture_handle_limit.h"
 #include "Engine/Core/Log/logging.h"
 #include "Engine/Core/Profiling/profiler.h"
@@ -37,9 +40,6 @@
 #include "Extension/Skater/skater_slot_override.h"
 #include "Extension/Throwdowns/native_throwdowns.h"
 #include "Extension/Trainer/trainer.h"
-#include "Extension/Skate3HallOfMeat/s3hom_hud.h"
-#include "Extension/Skate3HallOfMeat/hom_rig.h"
-#include "Extension/HallOfMeat/hall_of_meat_slow_motion.h"
 #include "Extension/World/level_loading.h"
 #include "Extension/World/loading_screen.h"
 #include <dxgi.h>
@@ -563,46 +563,46 @@ void update_model(std::uintptr_t client, TickState& frame) {
         record("{\"event\":\"controller_binding_triggered\",\"action\":\"freecam\"}");
     }
 
-            const bool bind_blocked = r.observer_failed || controller_busy || debug_request.has_value() ||
-                (state != 13 && state != 21) || !r.debug_model.noclip_available ||
-                (noclip_combo && !camera_phase_ready());
-            const bool noclip_triggered = r.noclip_bind_latch.update(noclip_combo, controller, bind_blocked);
-            if (noclip_triggered) {
-                {
-                    std::lock_guard lock(r.mutex);
-                    const dingosdk::overlay::DebugRequest request{ dingosdk::overlay::DebugAction::set_noclip, !r.debug_model.noclip };
-                    if (r.requests.enqueue(request, request_context(r), GetCurrentThreadId()))
-                        debug_request = r.requests.take<dingosdk::overlay::DebugRequest>(GetCurrentThreadId());
-                }
-                record("{\"event\":\"controller_binding_triggered\",\"action\":\"noclip\"}");
-            }
-            const bool forward_velocity_blocked = r.observer_failed || controller_busy || debug_request.has_value() ||
-                (r.debug_model.offboard_up_velocity_available && forward_velocity_combo == offboard_up_velocity_combo) ||
-                (r.debug_model.free_camera && freecam_controller) ||
-                (state != 13 && state != 21) || !r.debug_model.forward_velocity_available ||
-                (forward_velocity_combo && forward_velocity_combo == noclip_combo);
-            if (r.forward_velocity_bind_latch.update(forward_velocity_combo, controller, forward_velocity_blocked)) {
-                {
-                    std::lock_guard lock(r.mutex);
-                    const dingosdk::overlay::DebugRequest request{ dingosdk::overlay::DebugAction::add_forward_velocity };
-                    if (r.requests.enqueue(request, request_context(r), GetCurrentThreadId()))
-                        debug_request = r.requests.take<dingosdk::overlay::DebugRequest>(GetCurrentThreadId());
-                }
-                record("{\"event\":\"controller_binding_triggered\",\"action\":\"forward_velocity\"}");
-            }
-            const bool up_velocity_blocked = r.observer_failed || controller_busy || debug_request.has_value() ||
-                (r.debug_model.offboard_up_velocity_available && up_velocity_combo == offboard_up_velocity_combo) ||
-                (r.debug_model.free_camera && freecam_controller) ||
-                (state != 13 && state != 21) || !r.debug_model.up_velocity_available ||
-                (up_velocity_combo && (up_velocity_combo == noclip_combo || up_velocity_combo == forward_velocity_combo));
-            if (r.up_velocity_bind_latch.update(up_velocity_combo, controller, up_velocity_blocked)) {
-                std::lock_guard lock(r.mutex);
-                const dingosdk::overlay::DebugRequest request{ dingosdk::overlay::DebugAction::add_up_velocity };
-                if (r.requests.enqueue(request, request_context(r), GetCurrentThreadId())) {
-                    debug_request = r.requests.take<dingosdk::overlay::DebugRequest>(GetCurrentThreadId());
-                    record("{\"event\":\"controller_binding_triggered\",\"action\":\"up_velocity\"}");
-                }
-            }
+    const bool bind_blocked = r.observer_failed || controller_busy || debug_request.has_value() ||
+        (state != 13 && state != 21) || !r.debug_model.noclip_available ||
+        (noclip_combo && !camera_phase_ready());
+    const bool noclip_triggered = r.noclip_bind_latch.update(noclip_combo, controller, bind_blocked);
+    if (noclip_triggered) {
+        {
+            std::lock_guard lock(r.mutex);
+            const dingosdk::overlay::DebugRequest request{dingosdk::overlay::DebugAction::set_noclip, !r.debug_model.noclip};
+            if (r.requests.enqueue(request, request_context(r), GetCurrentThreadId()))
+                debug_request = r.requests.take<dingosdk::overlay::DebugRequest>(GetCurrentThreadId());
+        }
+        record("{\"event\":\"controller_binding_triggered\",\"action\":\"noclip\"}");
+    }
+    const bool forward_velocity_blocked = r.observer_failed || controller_busy || debug_request.has_value() ||
+        (r.debug_model.offboard_up_velocity_available && forward_velocity_combo == offboard_up_velocity_combo) ||
+        (r.debug_model.free_camera && freecam_controller) ||
+        (state != 13 && state != 21) || !r.debug_model.forward_velocity_available ||
+        (forward_velocity_combo && forward_velocity_combo == noclip_combo);
+    if (r.forward_velocity_bind_latch.update(forward_velocity_combo, controller, forward_velocity_blocked)) {
+        {
+            std::lock_guard lock(r.mutex);
+            const dingosdk::overlay::DebugRequest request{dingosdk::overlay::DebugAction::add_forward_velocity};
+            if (r.requests.enqueue(request, request_context(r), GetCurrentThreadId()))
+                debug_request = r.requests.take<dingosdk::overlay::DebugRequest>(GetCurrentThreadId());
+        }
+        record("{\"event\":\"controller_binding_triggered\",\"action\":\"forward_velocity\"}");
+    }
+    const bool up_velocity_blocked = r.observer_failed || controller_busy || debug_request.has_value() ||
+        (r.debug_model.offboard_up_velocity_available && up_velocity_combo == offboard_up_velocity_combo) ||
+        (r.debug_model.free_camera && freecam_controller) ||
+        (state != 13 && state != 21) || !r.debug_model.up_velocity_available ||
+        (up_velocity_combo && (up_velocity_combo == noclip_combo || up_velocity_combo == forward_velocity_combo));
+    if (r.up_velocity_bind_latch.update(up_velocity_combo, controller, up_velocity_blocked)) {
+        std::lock_guard lock(r.mutex);
+        const dingosdk::overlay::DebugRequest request{dingosdk::overlay::DebugAction::add_up_velocity};
+        if (r.requests.enqueue(request, request_context(r), GetCurrentThreadId())) {
+            debug_request = r.requests.take<dingosdk::overlay::DebugRequest>(GetCurrentThreadId());
+            record("{\"event\":\"controller_binding_triggered\",\"action\":\"up_velocity\"}");
+        }
+    }
 
     const bool offboard_up_velocity_blocked = r.observer_failed || controller_busy || debug_request.has_value() ||
         (r.debug_model.free_camera && freecam_controller) ||
@@ -1223,6 +1223,21 @@ void tick(std::uintptr_t client, std::uintptr_t update) {
             dingosdk::map_download::tick();
             dingosdk::map_icons::tick();
     dingosdk::texture_handle_limit::tick();
+    // (Whether a menu of the game's is up, the music screen among them: a playlist changed then
+    // is the player's own choice, and one changed in play is a speaker's music being grabbed.)
+    {
+        const bool menu = dingosdk::multiplayer::sample_game_ui_state(r.base).in_menu;
+        static bool was{};
+        if (menu != was) {
+            was = menu;
+            try {
+                dingosdk::logging::log(dingosdk::logging::Level::debug, dingosdk::logging::Channel::music, "Trace: a menu of the game's is {}.", menu ? "up" : "no longer up");
+            } catch (...) {}
+        }
+        dingosdk::spotify_station::set_music_screen(menu);
+    }
+    dingosdk::spotify_station::tick();
+    dingosdk::music_inject::tick();
         }
         dingosdk::multiplayer::refresh_identity_lists();
         // How much memory the game holds, beside what a session adds to it: said when it has
@@ -1317,21 +1332,6 @@ void tick(std::uintptr_t client, std::uintptr_t update) {
             DINGO_PROFILE_ZONE("tick/trainer");
             // A custom map is a sublevel of the root level: that is the map the player means.
             dingosdk::trainer::tick(r.base, client, multiplayer_ready, r.catalog_level.empty() ? r.last_level : r.catalog_level);
-        }
-        {
-            DINGO_PROFILE_ZONE("tick/Skate 3 Hall Of Meat");
-            // Stands down while ReSkate's own Hall of Meat is switched on: one at a time.
-            // Off (ReSkate's own Hall of Meat on, or the asset pack off): nothing of the skater is read.
-            const bool official = dingosdk::hall_of_meat::enabled() || !dingosdk::overlay::skate3_hom_installed();
-            dingosdk::overlay::skate3_hom_set_level(r.catalog_level.empty() ? r.last_level : r.catalog_level);
-            if (!official) dingosdk::skate3_hom::rig_tick(r.base, client);
-            dingosdk::overlay::skate3_hom_tick(official);
-            // Skate 3's broken-bone slow motion: never in a multiplayer session (SlowMotion refuses
-            // it there), and given back while ReSkate's own Hall of Meat runs its own.
-            static dingosdk::hall_of_meat::SlowMotion skate3_slow_motion;
-            const float speed = official ? 1.0f : dingosdk::overlay::skate3_hom_game_speed();
-            const bool slowed = skate3_slow_motion.set(speed);
-            dingosdk::overlay::skate3_hom_set_applied_speed(slowed && speed < 1.0f ? speed : 1.0f);
         }
         {
             DINGO_PROFILE_ZONE("tick/Steam friend join");

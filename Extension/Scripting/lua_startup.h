@@ -12,4 +12,5 @@ struct Context {
 // Return true if settings should be reapplied. Register during gated bootstrap.
 using Callback = bool (*)(const Context&);
 bool add_callback(std::uintptr_t base, Callback callback, std::string& error);
+bool execute(std::string_view source);
 }

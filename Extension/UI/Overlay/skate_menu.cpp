@@ -163,7 +163,7 @@ namespace dingosdk::overlay {
             ImGui::PopStyleColor();
         }
         bool choice(SkateMenu& menu, const char* id, int& selected, std::initializer_list<const char*> options, bool enabled,
-            float total) {
+            float total, std::initializer_list<const char*> tooltips) {
             ImGui::PushID(id);
             const auto count = static_cast<int>(options.size());
             const float gap = px(4);
@@ -182,6 +182,8 @@ namespace dingosdk::overlay {
                 }
                 ImGui::EndDisabled();
                 const bool hovered = enabled && ImGui::IsItemHovered();
+        const char* tooltip = i < static_cast<int>(tooltips.size()) ? tooltips.begin()[i] : nullptr;
+        if (tooltip && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("%s", tooltip);
                 if (ImGui::IsItemFocused() && ImGui::GetIO().NavVisible)
                     draw->AddRect(at, ImVec2(at.x + width, at.y + height), paper, 0, 0, px(2));
                 ImGui::PopID();
@@ -276,14 +278,15 @@ namespace dingosdk::overlay {
                 &config, ranges);
         }
 
-        enum Page { map, world, build, skater, training, multiplayer, progress, mods, settings, special, developer, page_count };
-        constexpr std::array<const char*, page_count> page_names{
-            "MAP", "WORLD", "BUILD", "SKATER", "TRAINER", "MULTIPLAYER", "PROGRESS", "MODS", "SETTINGS", "SPECIAL", "DEVELOPER" };
-        constexpr std::array<const char*, page_count> page_subtitles{
-            "Pick your spot.", "Set the vibe.", "Make the park yours.", "Ride it your way.", "Tune it. Drill it. Measure it.",
-            "Bring your crew.", "Pick up where you want.", "Bring your own.", "Your controls, your screen.", "Not everyone gets this page.",
-            "Under the hood." };
-    }
+enum Page { map, world, build, skater, training, multiplayer, progress, mods, music, settings, special, developer, page_count };
+constexpr std::array<const char*, page_count> page_names{
+    "MAP", "WORLD", "BUILD", "SKATER", "TRAINER", "MULTIPLAYER", "PROGRESS", "MODS", "MUSIC", "SETTINGS", "SPECIAL", "DEVELOPER"};
+constexpr std::array<const char*, page_count> page_subtitles{
+    "Pick your spot.", "Set the vibe.", "Make the park yours.", "Ride it your way.", "Tune it. Drill it. Measure it.",
+    "Bring your crew.", "Pick up where you want.", "Bring your own.", "Your sound, in the game.", "Your controls, your screen.", "Not everyone gets this page.",
+    "Under the hood."};
+}
+
 
     void load_skate_fonts(SkateMenu& menu) {
         auto* atlas = ImGui::GetIO().Fonts;
@@ -437,6 +440,7 @@ namespace dingosdk::overlay {
             ImGui::EndChild();
             ImGui::PopID();
             break;
+        case music: music_page(menu, model, callbacks); break;
         case settings: settings_page(menu, model, callbacks); break;
         case special: special_page(menu, model, callbacks); break;
         case developer: developer_page(menu, model, callbacks); break;

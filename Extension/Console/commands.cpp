@@ -227,7 +227,6 @@ const Commands &game_commands() {
         register_trainer_commands(*result);
         register_hall_of_meat_commands(*result);
         register_road_rash_commands(*result);
-        register_skate3_hom_commands(*result);
         register_board_break_commands(*result);
         register_grind_exit_commands(*result);
         return result;
