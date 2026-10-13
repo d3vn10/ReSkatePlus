@@ -103,48 +103,48 @@ struct GamepadValues {
 };
 using GamepadFilter = void (*)(unsigned user, GamepadValues& pad) noexcept;
 
-    struct DebugModel {
-        bool available = false;
-        bool camera_available = false;
-        bool ui_available = false;
-        bool free_camera = false;
-        bool first_person = false;
-        // Vertical degrees applied to the first-person view; 0 keeps the camera's own.
-        float first_person_fov = 0;
-        float free_camera_fov = 0;  // 0 = the game's own FOV
-        first_person::Settings first_person_arm;
-        bool park_editor = false;
-        bool camera_transform_valid = false;
-        std::array<float, 16> camera_transform{};
-        float camera_fov = 55;
-        bool noclip = false, noclip_available = false;
-        bool forward_velocity_available = false;
-        bool up_velocity_available = false;
-        bool offboard_up_velocity_available = false;
-        std::string camera_unavailable = "Waiting for local controls.";
-        std::string noclip_unavailable = "Waiting for local controls.";
-        std::string forward_velocity_unavailable = "Waiting for local controls.";
-        std::string up_velocity_unavailable = "Waiting for local controls.";
-        std::string offboard_up_velocity_unavailable = "Waiting for local controls.";
-        bool no_bail = false, no_bail_available = false, no_bail_active = false;
-        std::uint64_t noclip_velocity_updates = 0, noclip_motion_updates = 0;
-        std::uint64_t forward_velocity_updates = 0;
-        std::uint64_t up_velocity_updates = 0;
-        std::uint64_t offboard_up_velocity_updates = 0;
-        bool game_ui_hidden = false;
-        bool settings_owned = false;
-        // ReSkate free-flight speed in world units per second.
-        float camera_speed = 15.0f;
-        float forward_velocity_speed = 20.0f;
-        float up_velocity_speed = 20.0f;
-        float offboard_up_velocity_speed = 20.0f;
-        bool camera_position_valid = false;
-        bool skater_position_valid = false;
-        std::array<float, 3> camera_position{};
-        std::array<float, 3> skater_position{};
-        std::uintptr_t skater_identity = 0;
-        std::string status;
-    };
+struct DebugModel {
+    bool available = false;
+    bool camera_available = false;
+    bool ui_available = false;
+    bool free_camera = false;
+    bool first_person = false;
+    // Vertical degrees applied to the first-person view; 0 keeps the camera's own.
+    float first_person_fov = 0;
+    float free_camera_fov = 0;  // 0 = the game's own FOV
+    first_person::Settings first_person_arm;
+    bool park_editor = false;
+    bool camera_transform_valid = false;
+    std::array<float, 16> camera_transform{};
+    float camera_fov = 55;
+    bool noclip = false, noclip_available = false;
+    bool forward_velocity_available = false;
+    bool up_velocity_available = false;
+    bool offboard_up_velocity_available = false;
+    std::string camera_unavailable = "Waiting for local controls.";
+    std::string noclip_unavailable = "Waiting for local controls.";
+    std::string forward_velocity_unavailable = "Waiting for local controls.";
+    std::string up_velocity_unavailable = "Waiting for local controls.";
+    std::string offboard_up_velocity_unavailable = "Waiting for local controls.";
+    bool no_bail = false, no_bail_available = false, no_bail_active = false;
+    std::uint64_t noclip_velocity_updates = 0, noclip_motion_updates = 0;
+    std::uint64_t forward_velocity_updates = 0;
+    std::uint64_t up_velocity_updates = 0;
+    std::uint64_t offboard_up_velocity_updates = 0;
+    bool game_ui_hidden = false;
+    bool settings_owned = false;
+    // ReSkate free-flight speed in world units per second.
+    float camera_speed = 15.0f;
+    float forward_velocity_speed = 20.0f;
+    float up_velocity_speed = 20.0f;
+    float offboard_up_velocity_speed = 20.0f;
+    bool camera_position_valid = false;
+    bool skater_position_valid = false;
+    std::array<float, 3> camera_position{};
+    std::array<float, 3> skater_position{};
+    std::uintptr_t skater_identity = 0;
+    std::string status;
+};
 
     enum class OfflineFeatureGroup {
         activities,
@@ -239,6 +239,7 @@ struct BoardBreakModel {
 struct GrindExitModel {
     bool available = false, enabled = false, toe_heel = true;
     int stance = 0;
+    int strength = 100; // pop-out strength, percent (10-100)
 };
 
 struct Model {
@@ -342,6 +343,13 @@ void set_map_vote_icons(const std::vector<MapVoteIcon>& icons) noexcept;
 // That vote's popup (map_download_card.cpp), for the runtime, which reads the controller and
 // holds the game's input while it is up: whether it is, moving the pick, voting for the pick
 // (the popup then closes), and closing it without a vote. Any thread.
+// A message the player has to see and say OK to, in the middle of the screen (message_card.cpp):
+// that they were kicked or banned from a server, and why. One at a time: a new one takes the
+// place of one still up. For the runtime, which reads the controller and holds the game's input
+// while it is up, as for the vote below: whether it is, and closing it. Any thread.
+void show_message(std::string title, std::string text) noexcept;
+bool message_asking() noexcept;
+void message_dismiss() noexcept;
 bool map_vote_asking() noexcept;
 void map_vote_move(int by) noexcept;
 void map_vote_take() noexcept;

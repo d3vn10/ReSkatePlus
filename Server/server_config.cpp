@@ -170,28 +170,29 @@ namespace dingosdk::server {
             vote("kick", c.votes.kick);
             vote("time_of_day", c.votes.time);
     vote("extend_map", c.votes.extend);
-            votes.set("seconds", c.votes.seconds);
-            votes.set("cooldown_seconds", c.votes.cooldown);
-            votes.set("starter_votes_yes", c.votes.starter_votes_yes);
-            votes.set("polls", c.votes.polls);
-            votes.set("poll_seconds", c.votes.poll_seconds);
-            auto custom = Json::array();
-            for (const auto& v : c.votes.custom) {
-                auto item = Json::object();
-                item["name"] = v.name;
-                item["description"] = v.description;
-                item["command"] = v.command;
-                auto choices = Json::array();
-                for (const auto& choice : v.choices) choices.push_back(choice);
-                item["choices"] = std::move(choices);
-                item["enabled"] = v.setting.enabled;
-                item["percent"] = v.setting.percent;
-                item["seconds"] = v.setting.seconds;
-                item["cooldown_seconds"] = v.setting.cooldown;
-                item["min_players"] = v.setting.min_players;
-                custom.push_back(std::move(item));
-            }
-            votes.set("custom", std::move(custom));
+    votes.set("seconds", c.votes.seconds);
+    votes.set("cooldown_seconds", c.votes.cooldown);
+    votes.set("kick_minutes", c.votes.kick_minutes);
+    votes.set("starter_votes_yes", c.votes.starter_votes_yes);
+    votes.set("polls", c.votes.polls);
+    votes.set("poll_seconds", c.votes.poll_seconds);
+    auto custom = Json::array();
+    for (const auto &v : c.votes.custom) {
+        auto item = Json::object();
+        item["name"] = v.name;
+        item["description"] = v.description;
+        item["command"] = v.command;
+        auto choices = Json::array();
+        for (const auto &choice : v.choices) choices.push_back(choice);
+        item["choices"] = std::move(choices);
+        item["enabled"] = v.setting.enabled;
+        item["percent"] = v.setting.percent;
+        item["seconds"] = v.setting.seconds;
+        item["cooldown_seconds"] = v.setting.cooldown;
+        item["min_players"] = v.setting.min_players;
+        custom.push_back(std::move(item));
+    }
+    votes.set("custom", std::move(custom));
 
     auto &announcements = root.section("announcements");
     auto messages = Json::array();
@@ -366,6 +367,7 @@ ServerConfig load_config(const std::filesystem::path &file, std::vector<std::str
     c.parties = get("players", "allow_parties", c.parties, {"parties"});
     c.party_size = std::clamp(get("players", "party_size", c.party_size), 2U, 8U);
     c.afk_kick = get("players", "afk_kick_minutes", c.afk_kick);
+    c.kick_minutes = get("players", "kick_minutes", c.kick_minutes);
     c.word_warnings = get("players", "word_warnings", c.word_warnings);
     c.global_words = get("players", "use_global_word_filter", c.global_words);
     c.voice_chat = get("players", "allow_voice_chat", c.voice_chat, {"voice_chat"});
@@ -430,30 +432,31 @@ ServerConfig load_config(const std::filesystem::path &file, std::vector<std::str
         read_vote("kick", c.votes.kick);
         read_vote("time_of_day", c.votes.time);
     read_vote("extend_map", c.votes.extend);
-        for (const char* key : { "seconds", "cooldown_seconds", "starter_votes_yes", "polls", "poll_seconds", "custom" })
-            if (!votes.contains(key)) missing.push_back(std::string("votes.") + key);
-        c.votes.seconds = std::clamp(votes.value("seconds", c.votes.seconds), 10U, 300U);
-        c.votes.cooldown = std::clamp(votes.value("cooldown_seconds", c.votes.cooldown), 0U, 3600U);
-        c.votes.starter_votes_yes = votes.value("starter_votes_yes", c.votes.starter_votes_yes);
-        c.votes.polls = votes.value("polls", c.votes.polls);
-        if (c.votes.polls != "off" && c.votes.polls != "admins" && c.votes.polls != "everyone") c.votes.polls = "admins";
-        c.votes.poll_seconds = std::clamp(votes.value("poll_seconds", c.votes.poll_seconds), 10U, 600U);
-        if (votes.contains("custom") && votes.at("custom").is_array())
-            for (const auto& item : votes.at("custom")) {
-                if (!item.is_object()) throw std::runtime_error("votes.custom must be a list of votes, each a JSON object.");
-                // A vote the owner writes in needs no more than its name and command.
-                CustomVote v;
-                v.name = item.value("name", std::string{});
-                v.description = item.value("description", std::string{});
-                v.command = item.value("command", std::string{});
-                if (item.contains("choices") && item.at("choices").is_array())
-                    for (const auto& choice : item.at("choices"))
-                        if (choice.is_string()) v.choices.push_back(choice.string());
-                v.setting.enabled = item.value("enabled", v.setting.enabled);
-                v.setting.percent = std::clamp(item.value("percent", v.setting.percent), 1U, 100U);
-                vote_limits(item, v.setting);
-                c.votes.custom.push_back(std::move(v));
-            }
+    for (const char *key : {"seconds", "cooldown_seconds", "kick_minutes", "starter_votes_yes", "polls", "poll_seconds", "custom"})
+        if (!votes.contains(key)) missing.push_back(std::string("votes.") + key);
+    c.votes.seconds = std::clamp(votes.value("seconds", c.votes.seconds), 10U, 300U);
+    c.votes.cooldown = std::clamp(votes.value("cooldown_seconds", c.votes.cooldown), 0U, 3600U);
+    c.votes.kick_minutes = votes.value("kick_minutes", c.votes.kick_minutes);
+    c.votes.starter_votes_yes = votes.value("starter_votes_yes", c.votes.starter_votes_yes);
+    c.votes.polls = votes.value("polls", c.votes.polls);
+    if (c.votes.polls != "off" && c.votes.polls != "admins" && c.votes.polls != "everyone") c.votes.polls = "admins";
+    c.votes.poll_seconds = std::clamp(votes.value("poll_seconds", c.votes.poll_seconds), 10U, 600U);
+    if (votes.contains("custom") && votes.at("custom").is_array())
+        for (const auto &item : votes.at("custom")) {
+            if (!item.is_object()) throw std::runtime_error("votes.custom must be a list of votes, each a JSON object.");
+            // A vote the owner writes in needs no more than its name and command.
+            CustomVote v;
+            v.name = item.value("name", std::string{});
+            v.description = item.value("description", std::string{});
+            v.command = item.value("command", std::string{});
+            if (item.contains("choices") && item.at("choices").is_array())
+                for (const auto &choice : item.at("choices"))
+                    if (choice.is_string()) v.choices.push_back(choice.string());
+            v.setting.enabled = item.value("enabled", v.setting.enabled);
+            v.setting.percent = std::clamp(item.value("percent", v.setting.percent), 1U, 100U);
+            vote_limits(item, v.setting);
+            c.votes.custom.push_back(std::move(v));
+        }
 
     // Announcements came after the sections.
     const Json no_announcements = Json::object();
@@ -757,7 +760,7 @@ bool custom_command_name_free(std::string_view name) noexcept {
     // The chat's own commands, then the server commands admins type as /<command>.
     for (const std::string_view taken :
          {"help", "party", "p", "w", "whisper", "tell", "poll", "vote", "yes", "y", "no", "n", "tp",
-          "activity-log", "admin", "admins", "afk-kick", "role", "roles", "announce", "announce-throwdowns", "announce-to", "announcements",
+          "activity-log", "admin", "admins", "afk-kick", "kick-time", "role", "roles", "announce", "announce-throwdowns", "announce-to", "announcements",
           "ban", "bans", "board-check", "bone-scale", "boosts", "boosts-allow", "chat-color", "chat-colour", "clear-objects", "crowd",
           "distances", "effects", "kick", "layer", "layer-sync", "layers", "listed", "map", "map-pool", "maps", "msg",
           "msg-admins", "msg-party", "name", "net", "nobail", "nobail-allow", "noclip", "noclip-allow", "object-limit",
@@ -828,6 +831,7 @@ std::string config_error(const ServerConfig &c) {
     if (!parse_colour(c.chat_color)) return "chat_color must be a colour like #8E5CFF.";
     if (c.afk_kick > 1440) return "afk_kick_minutes must be 0 (never) to 1440.";
     if (c.kick_minutes > 1440) return "kick_minutes must be 0 (until the server restarts) to 1440.";
+    if (c.votes.kick_minutes > 1440) return "votes.kick_minutes must be 0 (until the server restarts) to 1440.";
     if (c.word_warnings > 10) return "word_warnings must be 0 (words are not checked) to 10.";
     if (!parse_colour(c.chat_text_color)) return "chat_text_color must be a colour like #D9C8FF.";
     if (!valid_server_name(c.name)) return std::string("name must be ") + server_name_rule + ".";

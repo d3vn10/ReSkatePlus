@@ -26,22 +26,22 @@ inline constexpr std::string_view attach_advice =
 
 inline Problem explain(std::string_view raw) {
     // Most specific first: the later rules match whole families of failures.
-    if (mentions(raw, "must be beside ReSkatePlusLauncher.exe"))
+    if (mentions(raw, "must be beside 'ReSkate+ Launcher.exe'"))
         return {"ReSkate is not in your skate. folder",
-                "Put ReSkatePlusLauncher.exe and ReSkatePlus.dll beside Skate.exe, in the folder Steam opens with "
+                "Put 'ReSkate+ Launcher.exe' and 'ReSkate+.dll' beside 'Skate.exe', in the folder Steam opens with "
                 "skate. > Manage > Browse local files."};
-    if (mentions(raw, "ReSkatePlus.dll is missing"))
-        return {"ReSkatePlus.dll is missing",
-                "Extract ReSkatePlusLauncher.exe and ReSkatePlus.dll from the same release zip into this folder, "
+    if (mentions(raw, "ReSkate+.dll is missing"))
+        return {"ReSkate+.dll is missing",
+                "Extract 'ReSkate+ Launcher.exe' and 'ReSkate+.dll' from the same release zip into this folder, "
                 "then press RETRY."};
-    if (mentions(raw, "ReSkatePlus.dll is not an x64") || mentions(raw, "DingoSDKDebugInitialize is outside"))
-        return {"ReSkatePlus.dll is damaged",
+    if (mentions(raw, "ReSkate+.dll is not an x64") || mentions(raw, "DingoSDKDebugInitialize is outside"))
+        return {"ReSkate+.dll is damaged",
                 "Download the release zip again and extract both files over this folder. Your anti-virus may "
                 "also have quarantined part of it."};
     if (mentions(raw, "Skate.exe is missing"))
         return {"Skate.exe is not in this folder",
                 "Run the launcher from your skate. folder, or press INSTALL to download the game here."};
-    if (mentions(raw, "steam_api64.dll is missing") || mentions(raw, "steam_api64"))
+    if (mentions(raw, "'steam_api64.dll' is missing") || mentions(raw, "steam_api64"))
         return {"The original steam_api64.dll is missing",
                 "Verify the game files in Steam, or press DOWNLOAD to fetch the supported build again."};
     if (mentions(raw, "This launcher is out of date"))

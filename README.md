@@ -55,31 +55,33 @@ Older/newer versions _should_ work unless the packet structure or SteamAPI hands
 
 ## Getting started
 
-1. Download the latest `ReSkatePlus-<version>.zip` from
+1. Download the latest `ReSkate+_<version>.zip` from
    [Releases](https://github.com/d3vn10/ReSkatePlus/releases).
-2. Extract `ReSkatePlusLauncher.exe` and `ReSkatePlus.dll` into either folder:
-   - **your skate. folder**, beside `Skate.exe` (Steam → skate. → Manage → Browse local files); or
-   - **an empty folder**, where the launcher installs the game for you (about 14 GB).
-3. Run `ReSkatePlusLauncher.exe`.
-   - It checks for ReSkate+ updates, then checks the game files against the supported build.
-   - If the game is missing, or Steam has updated it past the supported build, sign in when asked. You
-     can scan a QR code with the Steam app, or use your username and password with Steam Guard. It then
-     downloads only the files it needs.
+2. Extract `ReSkate+ Launcher.exe` and `ReSkate+.dll` into **a new, empty folder of their own**, for
+   example `C:\Games\ReSkatePlus`. Do **not** put them in Steam's skate. folder: ReSkate+ keeps its own
+   copy of the game there, so Steam updating skate. cannot break it.
+3. Run `ReSkate+ Launcher.exe`.
+   - It checks for ReSkate+ updates, then installs the supported build of the game into that folder
+     (about 14 GB of free space).
+   - Sign in to Steam when asked, with the account that owns skate. You can scan a QR code with the
+     Steam app, or use your username and password with Steam Guard.
+   - On later runs it checks the game files and downloads only what is missing.
 4. Press **PLAY**.
 
-ReSkate supports one game build at a time (Steam build `25414733`).
+ReSkate+ supports one game build at a time (Steam build `25414733`).
 
 ### Linux (Proton)
 
-1. Install skate. with Steam and put `ReSkatePlusLauncher.exe` and `ReSkatePlus.dll` beside `Skate.exe`
+1. Install skate. with Steam and put `ReSkate+ Launcher.exe` and `ReSkate+.dll` beside `Skate.exe`
    (step 2 above, first option).
 2. In Steam → skate. → Properties → Launch Options, enter:
 
    ```
-   bash -c 'exec "${@/EAAntiCheat.GameServiceLauncher.exe/ReSkateLauncher.exe}"' -- %command%
+   bash -c 'exec "${@/*EAAntiCheat.GameServiceLauncher.exe//home/you/Games/ReSkatePlus/ReSkate+ Launcher.exe}"' -- %command%
    ```
 
-3. Press **Play** on skate. in your Steam library.
+3. Press **Play** on skate. in your Steam library. The launcher installs its own copy of the game
+   into that folder the first time.
 
 Steam starts EA's anti-cheat launcher (`EAAntiCheat.GameServiceLauncher.exe`), not `Skate.exe`, and the
 anti-cheat refuses to run under Proton (*E111000B … Wine, Proton, and Steam Deck are not supported*).
@@ -87,8 +89,9 @@ The launch option swaps it for ReSkate's launcher, which starts the game itself.
 own Steam entry, rather than adding the launcher as a non-Steam game, keeps skate.'s app ID and its
 Proton prefix.
 
-Tested with ReSkate 1.1.3 and Proton Experimental on CachyOS: the launcher, the server browser, joining
-a public server and hosting a lobby. Steam Deck should work the same way but is untested. If you load a
+The launcher in a folder of its own is new and has not been tested on Proton yet. With the launcher
+beside `Skate.exe`, as it was set up before, ReSkate 1.1.3 was tested with Proton Experimental on
+CachyOS: the launcher, the server browser, joining a public server and hosting a lobby. Steam Deck should work the same way but is untested. If you load a
 custom map and then join a server on another map, the screen can stay black
 ([#31](https://github.com/Dingo-Shenanigans/ReSkate/issues/31)): load the server's map first.
 
@@ -134,7 +137,7 @@ accepts `park random` from its console or an admin.
   switches to it and downloads any of its mods you do not have; every mod stays installed once. **COPY CODE**
   and **SAVE FILE** share a profile, and **IMPORT CODE** and **IMPORT FILE** take one in. The codes and
   `.r2z` files are r2modman's, so the two managers read each other's.
-- In game, the **MODS** tab of the ReSkate menu (**Insert**) turns mods on and off and applies the changes.
+- In game, the **MODS** tab of the ReSkate+ menu (**Insert**) turns mods on and off and applies the changes.
 - Mods are checked against the game build they were made for. Outdated mods, or mods that can't be merged
   cleanly, are left out with a message naming them, and the rest still load.
 - A mod that adds songs can give them their own playlist in the game's music screen with a
@@ -211,8 +214,8 @@ The files are written to `build/vs2022-x64/Release/`:
 
 | File | What it is |
 |---|---|
-| `ReSkatePlusLauncher.exe` | the launcher (also hosts crash reporting) |
-| `ReSkatePlus.dll` | the runtime the launcher loads into the game |
+| `ReSkate+ Launcher.exe` | the launcher (also hosts crash reporting) |
+| `ReSkate+.dll` | the runtime the launcher loads into the game |
 | `ReSkateServer.exe` | the dedicated server |
 | `ReSkateEmotePacker.exe` | builds the chat emote pack in `assets/emotes` |
 
@@ -221,7 +224,9 @@ To work in Visual Studio, open `build/vs2022-x64/DingoSDK.sln` after configuring
 
 ### Running your build
 
-Close the game. Copy `ReSkatePlusLauncher.exe` and `ReSkatePlus.dll` beside `Skate.exe`, then run the launcher.
+Close the game. Copy `ReSkate+ Launcher.exe` and `ReSkate+.dll` into your ReSkate+ folder (the one the
+launcher installed the game into, beside `Skate.exe`), then run the launcher.
+
 
 Local builds never replace themselves. They only report that an update exists, so a release can't
 overwrite the DLL you are testing.

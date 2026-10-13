@@ -182,8 +182,8 @@ namespace dingosdk::overlay {
                 }
                 ImGui::EndDisabled();
                 const bool hovered = enabled && ImGui::IsItemHovered();
-        const char* tooltip = i < static_cast<int>(tooltips.size()) ? tooltips.begin()[i] : nullptr;
-        if (tooltip && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("%s", tooltip);
+                const char* tooltip = i < static_cast<int>(tooltips.size()) ? tooltips.begin()[i] : nullptr;
+                if (tooltip && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("%s", tooltip);
                 if (ImGui::IsItemFocused() && ImGui::GetIO().NavVisible)
                     draw->AddRect(at, ImVec2(at.x + width, at.y + height), paper, 0, 0, px(2));
                 ImGui::PopID();
@@ -261,7 +261,7 @@ namespace dingosdk::overlay {
     }
 
     namespace {
-        // The menu fonts are built into ReSkatePlus.dll (External/fonts, shared with the
+        // The menu fonts are built into ReSkate+.dll (External/fonts, shared with the
         // launcher); Windows fonts are the fallback.
         ImFont* embedded_font(const wchar_t* name, float size, const ImWchar* ranges) {
             HMODULE module{};
@@ -278,14 +278,14 @@ namespace dingosdk::overlay {
                 &config, ranges);
         }
 
-enum Page { map, world, build, skater, training, multiplayer, progress, mods, music, settings, special, developer, page_count };
-constexpr std::array<const char*, page_count> page_names{
-    "MAP", "WORLD", "BUILD", "SKATER", "TRAINER", "MULTIPLAYER", "PROGRESS", "MODS", "MUSIC", "SETTINGS", "SPECIAL", "DEVELOPER"};
-constexpr std::array<const char*, page_count> page_subtitles{
-    "Pick your spot.", "Set the vibe.", "Make the park yours.", "Ride it your way.", "Tune it. Drill it. Measure it.",
-    "Bring your crew.", "Pick up where you want.", "Bring your own.", "Your sound, in the game.", "Your controls, your screen.", "Not everyone gets this page.",
-    "Under the hood."};
-}
+        enum Page { map, world, build, skater, training, multiplayer, progress, mods, music, settings, special, developer, page_count };
+        constexpr std::array<const char*, page_count> page_names{
+            "MAP", "WORLD", "BUILD", "SKATER", "TRAINER", "MULTIPLAYER", "PROGRESS", "MODS", "MUSIC", "SETTINGS", "SPECIAL", "DEVELOPER" };
+        constexpr std::array<const char*, page_count> page_subtitles{
+            "Pick your spot.", "Set the vibe.", "Make the park yours.", "Ride it your way.", "Tune it. Drill it. Measure it.",
+            "Bring your crew.", "Pick up where you want.", "Bring your own.", "Your sound, in the game.", "Your controls, your screen.", "Not everyone gets this page.",
+            "Under the hood." };
+    }
 
 
     void load_skate_fonts(SkateMenu& menu) {
@@ -372,9 +372,11 @@ constexpr std::array<const char*, page_count> page_subtitles{
             draw->AddText(menu.body, px(12), ImVec2(origin.x + px(18), origin.y + px(66)), muted, "YOUR SESSION. YOUR RULES.");
             if (trainer_page_wanted()) menu.page = training;
             menu.page = std::clamp(menu.page, 0, static_cast<int>(page_count) - 1);
-            // Offline there is no Multiplayer.
+            // Developer (the network view) is hidden for now; offline there is no Multiplayer either.
+            // Special is only there for a player the backend lists.
             const auto hidden = [&](int page) {
-                return (model.steam_offline && page == multiplayer);
+                return page == /*developer ||*/ (model.steam_offline && page == multiplayer) /*||
+                       (page == special && model.multiplayer.identity_tag.empty())*/;
                 };
             if (hidden(menu.page)) menu.page = map;
             ImGui::SetCursorPos(ImVec2(px(10), px(96)));
@@ -408,66 +410,66 @@ constexpr std::array<const char*, page_count> page_subtitles{
                 keycap(draw, menu.bold, ui_scale, ImVec2(origin.x + px(16), origin.y + size.y - px(34)), label.c_str(), "Close");
             }
 
-        // Page header: brushed title like the game's "HUB", with its subtitle.
-        {
-            const int start = draw->VtxBuffer.Size;
-            const ImVec2 at(origin.x + sidebar + px(22), origin.y + px(12));
-            draw->AddText(menu.title, px(44), ImVec2(at.x + px(2), at.y + px(3)), IM_COL32(0, 0, 0, 160), page_names[menu.page]);
-            draw->AddText(menu.title, px(44), at, paper, page_names[menu.page]);
-            const auto extent = menu.title->CalcTextSizeA(px(44), FLT_MAX, 0, page_names[menu.page]);
-            skate_theme::rotate_since(draw, start, -3.0f, ImVec2(at.x + extent.x * .5f, at.y + extent.y * .5f));
-            draw->AddText(menu.body, px(14), ImVec2(at.x + extent.x + px(18), at.y + px(22)), muted, page_subtitles[menu.page]);
-        }
-        ImGui::SetCursorPos(ImVec2(size.x - px(44), px(16)));
-        if (ImGui::Button("X", ImVec2(px(28), px(28)))) visible = false;
-        ImGui::SetCursorPos(ImVec2(sidebar + px(20), px(76)));
-        ImGui::BeginChild("page", ImVec2(size.x - sidebar - px(40), size.y - px(96)), ImGuiChildFlags_None);
-        switch (menu.page) {
-        case map: map_page(menu, model, callbacks); break;
-        case world: world_page(menu, model, callbacks); break;
-        case build: build_page(menu, model, callbacks); break;
-        case skater: skater_page(menu, model, callbacks); break;
-        case training: trainer_page(menu, model, callbacks); break;
-        case multiplayer: multiplayer_page(menu, model, callbacks); break;
-        case progress: progression_page(menu, model, callbacks); break;
-        case mods:
-            // The SCRIPTS tab (custom Lua scripts, modding_menu.cpp) is not offered for now:
-            // nothing uses them. The page is the installed mods.
-            menu.mods_tab = 0;
-            ImGui::PushID(menu.mods_tab);
-            ImGui::BeginChild("mods-tab", ImVec2(0, page_body_height(menu)));
-            draw_modding_menu(menu, menu.mods_tab, model, callbacks);
+            // Page header: brushed title like the game's "HUB", with its subtitle.
+            {
+                const int start = draw->VtxBuffer.Size;
+                const ImVec2 at(origin.x + sidebar + px(22), origin.y + px(12));
+                draw->AddText(menu.title, px(44), ImVec2(at.x + px(2), at.y + px(3)), IM_COL32(0, 0, 0, 160), page_names[menu.page]);
+                draw->AddText(menu.title, px(44), at, paper, page_names[menu.page]);
+                const auto extent = menu.title->CalcTextSizeA(px(44), FLT_MAX, 0, page_names[menu.page]);
+                skate_theme::rotate_since(draw, start, -3.0f, ImVec2(at.x + extent.x * .5f, at.y + extent.y * .5f));
+                draw->AddText(menu.body, px(14), ImVec2(at.x + extent.x + px(18), at.y + px(22)), muted, page_subtitles[menu.page]);
+            }
+            ImGui::SetCursorPos(ImVec2(size.x - px(44), px(16)));
+            if (ImGui::Button("X", ImVec2(px(28), px(28)))) visible = false;
+            ImGui::SetCursorPos(ImVec2(sidebar + px(20), px(76)));
+            ImGui::BeginChild("page", ImVec2(size.x - sidebar - px(40), size.y - px(96)), ImGuiChildFlags_None);
+            switch (menu.page) {
+            case map: map_page(menu, model, callbacks); break;
+            case world: world_page(menu, model, callbacks); break;
+            case build: build_page(menu, model, callbacks); break;
+            case skater: skater_page(menu, model, callbacks); break;
+            case training: trainer_page(menu, model, callbacks); break;
+            case multiplayer: multiplayer_page(menu, model, callbacks); break;
+            case progress: progression_page(menu, model, callbacks); break;
+            case mods:
+                // The SCRIPTS tab (custom Lua scripts, modding_menu.cpp) is not offered for now:
+                // nothing uses them. The page is the installed mods.
+                menu.mods_tab = 0;
+                ImGui::PushID(menu.mods_tab);
+                ImGui::BeginChild("mods-tab", ImVec2(0, page_body_height(menu)));
+                draw_modding_menu(menu, menu.mods_tab, model, callbacks);
+                ImGui::EndChild();
+                ImGui::PopID();
+                break;
+            case music: music_page(menu, model, callbacks); break;
+            case settings: settings_page(menu, model, callbacks); break;
+            case special: special_page(menu, model, callbacks); break;
+            case developer: developer_page(menu, model, callbacks); break;
+            }
+            if (!menu.feedback.empty() && ImGui::GetTime() < menu.feedback_until) {
+                // The feedback line sits in a dark strip with a blue edge, like the game's toasts.
+                ImGui::Spacing();
+                const auto& result = (menu.page == skater || (menu.page == settings && menu.settings_tab == 1)) &&
+                    !model.debug.status.empty() && ImGui::GetTime() > menu.feedback_until - 5.75 ? model.debug.status : menu.feedback;
+                const auto at = ImGui::GetCursorScreenPos();
+                const float width = ImGui::GetContentRegionAvail().x;
+                const float text_height = ImGui::CalcTextSize(result.c_str(), nullptr, false, width - px(24)).y;
+                auto* page = ImGui::GetWindowDrawList();
+                page->AddRectFilled(at, ImVec2(at.x + width, at.y + text_height + px(12)), skate_theme::tile);
+                page->AddRectFilled(at, ImVec2(at.x + px(4), at.y + text_height + px(12)), blue);
+                ImGui::SetCursorScreenPos(ImVec2(at.x + px(14), at.y + px(6)));
+                ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + width - px(24));
+                ImGui::TextUnformatted(result.c_str());
+                ImGui::PopTextWrapPos();
+            }
             ImGui::EndChild();
-            ImGui::PopID();
-            break;
-        case music: music_page(menu, model, callbacks); break;
-        case settings: settings_page(menu, model, callbacks); break;
-        case special: special_page(menu, model, callbacks); break;
-        case developer: developer_page(menu, model, callbacks); break;
         }
-        if (!menu.feedback.empty() && ImGui::GetTime() < menu.feedback_until) {
-            // The feedback line sits in a dark strip with a blue edge, like the game's toasts.
-            ImGui::Spacing();
-            const auto& result = (menu.page == skater || (menu.page == settings && menu.settings_tab == 1)) &&
-                !model.debug.status.empty() && ImGui::GetTime() > menu.feedback_until - 5.75 ? model.debug.status : menu.feedback;
-            const auto at = ImGui::GetCursorScreenPos();
-            const float width = ImGui::GetContentRegionAvail().x;
-            const float text_height = ImGui::CalcTextSize(result.c_str(), nullptr, false, width - px(24)).y;
-            auto* page = ImGui::GetWindowDrawList();
-            page->AddRectFilled(at, ImVec2(at.x + width, at.y + text_height + px(12)), skate_theme::tile);
-            page->AddRectFilled(at, ImVec2(at.x + px(4), at.y + text_height + px(12)), blue);
-            ImGui::SetCursorScreenPos(ImVec2(at.x + px(14), at.y + px(6)));
-            ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + width - px(24));
-            ImGui::TextUnformatted(result.c_str());
-            ImGui::PopTextWrapPos();
-        }
-        ImGui::EndChild();
+        ImGui::End();
+        ImGui::PopStyleColor(colours);
+        ImGui::PopStyleVar(9);
+        ImGui::PopFont();
+        io.FontGlobalScale = restore_font_scale;
     }
-    ImGui::End();
-    ImGui::PopStyleColor(colours);
-    ImGui::PopStyleVar(9);
-    ImGui::PopFont();
-    io.FontGlobalScale = restore_font_scale;
-}
 }
 

@@ -20,6 +20,8 @@
 #include <cstdint>
 #include <filesystem>
 #include <format>
+#include "Engine/Game/Build/supported_build.h"
+#include <algorithm>
 #include <fstream>
 #include <optional>
 #include <sstream>
@@ -181,11 +183,13 @@ namespace {
         for (const auto character : value) {
             if (character == L'\\') {
                 ++slashes;
-            } else if (character == L'\"') {
+            }
+            else if (character == L'\"') {
                 output.append(slashes * 2 + 1, L'\\');
                 output.push_back(character);
                 slashes = 0;
-            } else {
+            }
+            else {
                 output.append(slashes, L'\\');
                 slashes = 0;
                 output.push_back(character);
@@ -268,7 +272,8 @@ namespace {
                 token.find_first_not_of("0123456789") == std::string::npos) {
                 current = std::stoull(token);
                 if (!first) first = current;
-            } else if (_stricmp(token.c_str(), "MostRecent") == 0 && current &&
+            }
+            else if (_stricmp(token.c_str(), "MostRecent") == 0 && current &&
                 line.find("\"1\"", close) != std::string::npos) {
                 recent = current;
             }
@@ -351,7 +356,7 @@ namespace {
             nt.OptionalHeader.SizeOfImage != dingosdk::launcher::expected_game_image_size)
             throw std::runtime_error("Created process has the wrong loaded image identity");
 
-        // The same code fingerprints ReSkatePlus.dll checks before it initializes.
+        // The same code fingerprints ReSkate+.dll checks before it initializes.
         namespace image = dingosdk::addr::runtime;
         if (!remote_matches(process, base + image::client_tick, image::client_tick_prefix))
             throw std::runtime_error("Created process failed the loaded-image fingerprint");
@@ -395,7 +400,7 @@ namespace {
     RemoteModule find_remote_module(HANDLE process, const fs::path& path) {
         for (const auto& module : remote_modules(process))
             if (same_file(path, module.path)) return module;
-        throw std::runtime_error("Injected ReSkatePlus.dll is not present in the child module list");
+        throw std::runtime_error("Injected ReSkate+.dll is not present in the child module list");
     }
 
     DWORD run_remote_thread(HANDLE process, std::uintptr_t start, void* parameter,
@@ -429,7 +434,7 @@ namespace {
         RemoteAllocation remote_path(process, byte_count);
         SIZE_T written{};
         if (!WriteProcessMemory(process, remote_path.get(), path.c_str(), byte_count, &written) ||
-            written != byte_count) win32_failure(L"WriteProcessMemory(ReSkatePlus.dll path)");
+            written != byte_count) win32_failure(L"WriteProcessMemory(ReSkate+.dll path)");
         std::string hook_note;
         const auto loader = dingosdk::launcher::validated_remote_load_library(process, &hook_note);
         if (!hook_note.empty())
@@ -442,7 +447,7 @@ namespace {
         // success and obtain the full module base from the target's module list.
         const auto module = find_remote_module(process, dll);
         std::wostringstream loaded;
-        loaded << L"ReSkatePlus.dll loaded at 0x" << std::hex << module.base
+        loaded << L"ReSkate+.dll loaded at 0x" << std::hex << module.base
             << L" (LoadLibraryW low result 0x" << loader_result << L')';
         dingosdk::logging::write(dingosdk::logging::Level::info, dingosdk::logging::Channel::launcher, loaded.str());
         return module;
@@ -454,7 +459,7 @@ namespace dingosdk::launcher_app {
 
     Session open_session(const std::string& log_level) {
         Session session;
-        session.self = canonical_file(module_path(), L"ReSkatePlusLauncher.exe");
+        session.self = canonical_file(module_path(), L"ReSkate+ Launcher.exe");
         session.paths = launcher::sibling_paths(session.self);
         session.paths.logs = logging::log_directory(session.paths.directory);
         logging::Options logging_options;
@@ -468,6 +473,34 @@ namespace dingosdk::launcher_app {
         return session;
     }
 
+    std::string game_data_build(const launcher::SiblingPaths& paths) {
+        try {
+            std::ifstream file(paths.directory / L"Data" / L"layout.toc", std::ios::binary);
+            if (!file) return {};
+            const std::string bytes{ std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>() };
+            // The number follows its name as text, after a few bytes that say what kind of value it is.
+            constexpr std::string_view name = "pipelineCodeChangelists";
+            const auto at = bytes.find(name);
+            if (at == std::string::npos) return {};
+            const auto is_digit = [](char c) { return c >= '0' && c <= '9'; };
+            auto from = at + name.size();
+            const auto limit = std::min(bytes.size(), from + 16);
+            while (from < limit && !is_digit(bytes[from])) ++from;
+            auto to = from;
+            while (to < bytes.size() && to - from < 16 && is_digit(bytes[to])) ++to;
+            return to - from >= 6 ? bytes.substr(from, to - from) : std::string{};
+        }
+        catch (...) {
+            return {};
+        }
+    }
+    bool game_data_mismatched(const launcher::SiblingPaths& paths) {
+        std::error_code error;
+        if (!fs::is_regular_file(paths.directory / L"Data" / L"layout.toc", error)) return true;
+        const auto build = game_data_build(paths);
+        return !build.empty() && build != supported_build::game_data_changelist;
+    }
+
     bool game_files_supported(const launcher::SiblingPaths& paths) {
         std::error_code error;
         if (!fs::is_regular_file(paths.game, error)) {
@@ -477,8 +510,17 @@ namespace dingosdk::launcher_app {
         try {
             launcher::validate_game_file(paths.game);
             launcher::validate_steam_api_file(paths.steam_api);
+            // The right Skate.exe over another build's data is no supported game: its mods are
+            // left out and it may not load (seen 2026-10-13, after a Steam update of the game).
+            if (game_data_mismatched(paths)) {
+                const auto build = game_data_build(paths);
+                logging::log(logging::Level::warning, logging::Channel::launcher, "Game files are not the supported build: Skate.exe is, but the game's data is {} (supported: {}).",
+                    build.empty() ? std::string("missing") : "build " + build, supported_build::game_data_changelist);
+                return false;
+            }
             return true;
-        } catch (const std::exception& exception) {
+        }
+        catch (const std::exception& exception) {
             logging::log(logging::Level::warning, logging::Channel::launcher,
                 "Game files are not the supported build: {}", exception.what());
             return false;
@@ -508,58 +550,58 @@ namespace dingosdk::launcher_app {
         CloseHandle(process.hProcess);
     }
 
-bool under_wine() {
-    const auto ntdll = GetModuleHandleW(L"ntdll.dll");
-    const auto kernel32 = GetModuleHandleW(L"kernel32.dll");
-    return (ntdll && GetProcAddress(ntdll, "wine_get_version")) ||
-           (kernel32 && GetProcAddress(kernel32, "wine_get_dos_file_name"));
-}
-
-// MangoHud's Vulkan layer draws into every swapchain of a process it is on for,
-// and the launcher's window crashes with it. The layer reads its switches from
-// the Linux environment, which Wine fixes when the process starts, so turning it
-// off takes a restart. start_game hands MangoHud back to the game.
-bool relaunch_without_mangohud(const fs::path& self, const std::vector<std::wstring>& arguments) {
-    if (!under_wine()) return false;
-    if (GetEnvironmentVariableW(L"RESKATE_MANGOHUD_HELD", nullptr, 0)) {
-        logging::write(logging::Level::info, logging::Channel::launcher,
-            "MangoHud is off for the launcher window; the game still gets it.");
-        return false;
+    bool under_wine() {
+        const auto ntdll = GetModuleHandleW(L"ntdll.dll");
+        const auto kernel32 = GetModuleHandleW(L"kernel32.dll");
+        return (ntdll && GetProcAddress(ntdll, "wine_get_version")) ||
+            (kernel32 && GetProcAddress(kernel32, "wine_get_dos_file_name"));
     }
-    wchar_t enabled[8]{};
-    const auto length = GetEnvironmentVariableW(L"MANGOHUD", enabled, 8);
-    if (length != 1 || enabled[0] != L'1' || GetEnvironmentVariableW(L"DISABLE_MANGOHUD", nullptr, 0)) return false;
-    set_environment(L"DISABLE_MANGOHUD", L"1");
-    set_environment(L"RESKATE_MANGOHUD_HELD", L"1");
-    relaunch(self, arguments);
-    return true;
-}
 
-std::wstring steam_offline_reason() {
-    const auto pid = registry_dword(steam_process_key, L"pid");
-    if (!pid || !*pid) return L"no Steam client is registered as running (ActiveProcess pid is 0)";
-    if (!active_steam_id()) return L"Steam reports no signed-in account (ActiveProcess ActiveUser is 0)";
-    Handle process(OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, *pid));
-    if (!process.get())
-        return std::format(L"the registered Steam process {} cannot be opened (Windows error {})", *pid, GetLastError());
-    DWORD code{};
-    if (!GetExitCodeProcess(process.get(), &code) || code != STILL_ACTIVE)
-        return std::format(L"the registered Steam process {} is no longer running", *pid);
-    std::wstring image(MAX_PATH, L'\0');
-    DWORD length = static_cast<DWORD>(image.size());
-    if (!QueryFullProcessImageNameW(process.get(), 0, image.data(), &length))
-        return std::format(L"the registered Steam process {} cannot be identified (Windows error {})", *pid,
-                           GetLastError());
-    image.resize(length);
-    const auto name = fs::path(image).filename().wstring();
-    if (_wcsicmp(name.c_str(), L"steam.exe") != 0)
-        return std::format(L"the registered Steam process {} is {}, not steam.exe", *pid, name);
-    return {};
-}
+    // MangoHud's Vulkan layer draws into every swapchain of a process it is on for,
+    // and the launcher's window crashes with it. The layer reads its switches from
+    // the Linux environment, which Wine fixes when the process starts, so turning it
+    // off takes a restart. start_game hands MangoHud back to the game.
+    bool relaunch_without_mangohud(const fs::path& self, const std::vector<std::wstring>& arguments) {
+        if (!under_wine()) return false;
+        if (GetEnvironmentVariableW(L"RESKATE_MANGOHUD_HELD", nullptr, 0)) {
+            logging::write(logging::Level::info, logging::Channel::launcher,
+                "MangoHud is off for the launcher window; the game still gets it.");
+            return false;
+        }
+        wchar_t enabled[8]{};
+        const auto length = GetEnvironmentVariableW(L"MANGOHUD", enabled, 8);
+        if (length != 1 || enabled[0] != L'1' || GetEnvironmentVariableW(L"DISABLE_MANGOHUD", nullptr, 0)) return false;
+        set_environment(L"DISABLE_MANGOHUD", L"1");
+        set_environment(L"RESKATE_MANGOHUD_HELD", L"1");
+        relaunch(self, arguments);
+        return true;
+    }
 
-bool steam_signed_in() {
-    return steam_offline_reason().empty();
-}
+    std::wstring steam_offline_reason() {
+        const auto pid = registry_dword(steam_process_key, L"pid");
+        if (!pid || !*pid) return L"no Steam client is registered as running (ActiveProcess pid is 0)";
+        if (!active_steam_id()) return L"Steam reports no signed-in account (ActiveProcess ActiveUser is 0)";
+        Handle process(OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, *pid));
+        if (!process.get())
+            return std::format(L"the registered Steam process {} cannot be opened (Windows error {})", *pid, GetLastError());
+        DWORD code{};
+        if (!GetExitCodeProcess(process.get(), &code) || code != STILL_ACTIVE)
+            return std::format(L"the registered Steam process {} is no longer running", *pid);
+        std::wstring image(MAX_PATH, L'\0');
+        DWORD length = static_cast<DWORD>(image.size());
+        if (!QueryFullProcessImageNameW(process.get(), 0, image.data(), &length))
+            return std::format(L"the registered Steam process {} cannot be identified (Windows error {})", *pid,
+                GetLastError());
+        image.resize(length);
+        const auto name = fs::path(image).filename().wstring();
+        if (_wcsicmp(name.c_str(), L"steam.exe") != 0)
+            return std::format(L"the registered Steam process {} is {}, not steam.exe", *pid, name);
+        return {};
+    }
+
+    bool steam_signed_in() {
+        return steam_offline_reason().empty();
+    }
 
     std::string steam_persona_name() {
         if (!steam_signed_in()) return {};
@@ -612,7 +654,7 @@ bool steam_signed_in() {
             // Windows resolves this API set itself. Only Wine/Proton needs a file
             // beside Skate.exe; copying a system DLL under an API-set name on
             // Windows creates an unnecessary executable that looks suspicious.
-        if (!under_wine()) return;
+            if (!under_wine()) return;
             const auto shim = game_directory / L"api-ms-win-core-debug-minidump-l1-1-0.dll";
             std::error_code ec;
             if (fs::exists(shim, ec)) return;
@@ -628,16 +670,17 @@ bool steam_signed_in() {
             else if (ec)
                 logging::log(logging::Level::warning, logging::Channel::launcher,
                     "Could not create the MiniDumpWriteDump API-set shim beside Skate.exe: {}", ec.message());
-        } catch (...) {}
+        }
+        catch (...) {}
     }
 
     DWORD start_game(const Session& session, const launcher::LaunchOptions& options,
         const std::function<void(DWORD)>& created) {
-    trace::Scope timing("launcher.start_game", "app.start");
-	const auto& self = session.self;
+        trace::Scope timing("launcher.start_game", "app.start");
+        const auto& self = session.self;
         auto paths = session.paths;
         paths.game = canonical_file(paths.game, L"Skate.exe");
-        paths.dll = canonical_file(paths.dll, L"ReSkatePlus.dll");
+        paths.dll = canonical_file(paths.dll, L"ReSkate+.dll");
         paths.steam_api = canonical_file(paths.steam_api, L"steam_api64.dll");
 
         std::error_code path_error;
@@ -645,7 +688,7 @@ bool steam_signed_in() {
             !fs::equivalent(paths.dll.parent_path(), paths.directory, path_error) || path_error ||
             !fs::equivalent(paths.steam_api.parent_path(), paths.directory, path_error) || path_error)
             throw std::runtime_error(
-                "Skate.exe, ReSkatePlus.dll, and the original steam_api64.dll must be beside ReSkatePlusLauncher.exe");
+                "'Skate.exe', 'ReSkate+.dll', and the original 'steam_api64.dll' must be beside 'ReSkate+ Launcher.exe'");
 
         // Satisfy Skate.exe's MiniDumpWriteDump API-set import under Wine/Proton.
         ensure_minidump_apiset_shim(paths.directory);
@@ -660,127 +703,132 @@ bool steam_signed_in() {
         if (!dll_info.pe64 || dll_info.machine != IMAGE_FILE_MACHINE_AMD64 ||
             !(dll_info.characteristics & IMAGE_FILE_DLL) ||
             !(dll_info.characteristics & IMAGE_FILE_EXECUTABLE_IMAGE))
-            throw std::runtime_error("ReSkatePlus.dll is not an x64 Windows DLL");
+            throw std::runtime_error("ReSkate+.dll is not an x64 Windows DLL");
         const auto initialize_rva = launcher::exported_function_rva(
             paths.dll, "DingoSDKDebugInitialize");
         if (initialize_rva >= dll_info.image_size)
             throw std::runtime_error("DingoSDKDebugInitialize is outside the DLL image");
 
-    // Park thumbnails are read from the game's own data now; the pack older
-    // launchers downloaded is no longer used.
-    {
-        std::array<wchar_t, 32768> local{};
-        const auto length = GetEnvironmentVariableW(L"LOCALAPPDATA", local.data(), static_cast<DWORD>(local.size()));
-        std::error_code ignored;
-        if (length && length < local.size())
-            fs::remove(fs::path(local.data()) / L"ReSkate" / L"profiles" / L"offline" / L"ReSkate-Object-Previews.bin", ignored);
-    }
-    // Catalogues (item names, challenges, entitlements) are read from the live
-    // game's content cache for this build, installed once into Local AppData.
-    const auto cache = content_cache::ensure_installed();
-    using CacheStatus = content_cache::InstallStatus;
-    if (cache.status == CacheStatus::installed) {
-        logging::write(logging::Level::info, logging::Channel::assets, "Game content cache ready.");
-    } else if (cache.status == CacheStatus::downloaded) {
-        logging::write(logging::Level::info, logging::Channel::assets, "Game content cache downloaded and installed.");
-    } else {
-        logging::log(logging::Level::error, logging::Channel::assets,
-            "Game content cache {} (HTTP {}; Windows error {}).",
-            cache.status == CacheStatus::busy ? "is being installed by another launcher" : "could not be installed",
-            cache.http_status, cache.error);
-        throw std::runtime_error(cache.status == CacheStatus::busy ?
-            "Another ReSkate launcher is installing the game content cache. Try again when it finishes." :
-            "ReSkate needs to download the game content cache once. Check your internet connection and try again.");
-    }
-    // World layers are read from the level data; the first launch of a build
-    // scans it here so the game does not wait on it. The runtime rescans if
-    // this cache is missing, so a failure is not fatal.
-    try {
-        const auto layers = world_layer_scan::load_or_scan(paths.directory, world_layer_scan::cache_file());
-        logging::log(logging::Level::info, logging::Channel::world, "World layers ready: {} layers.", layers.layers.size());
-    } catch (const std::exception& error) {
-        logging::log(logging::Level::warning, logging::Channel::world, "World layers could not be read: {}", error.what());
-    }
-    configure_environment(paths.logs);
-    bool loose_files = options.loose_files && initfs::loose_files_preference(paths.directory);
-    if (loose_files) {
-        try {
-            fs::create_directories(paths.directory / L"scripts" / L"Custom");
-            const auto exported = initfs::export_files(paths.game,
-                initfs::data_directory(paths.directory, options.game_arguments), paths.directory, true);
-            if (exported.already_exported) {
-                logging::write(logging::Level::info, logging::Channel::assets,
-                    "Using existing scripts/ and config/ export; edits and removed files are preserved.");
-            } else {
-                logging::log(logging::Level::info, logging::Channel::assets,
-                    "InitFS exported: {} Lua, {} configs; {} created, {} existing files preserved, {} skipped.",
-                    exported.scripts, exported.configs, exported.created, exported.preserved, exported.skipped);
-            }
-        } catch (const std::exception& failure) {
-            // An install under Program Files is the usual reason. Skate plays
-            // without loose scripts; only editing them is lost.
-            loose_files = false;
-            logging::log(logging::Level::warning, logging::Channel::assets,
-                "Loose files are off for this launch: scripts/ and config/ could not be exported ({}). Skate still "
-                "starts; editing them needs a folder ReSkate is allowed to write to.", failure.what());
+        // Park thumbnails are read from the game's own data now; the pack older
+        // launchers downloaded is no longer used.
+        {
+            std::array<wchar_t, 32768> local{};
+            const auto length = GetEnvironmentVariableW(L"LOCALAPPDATA", local.data(), static_cast<DWORD>(local.size()));
+            std::error_code ignored;
+            if (length && length < local.size())
+                fs::remove(fs::path(local.data()) / L"ReSkate" / L"profiles" / L"offline" / L"ReSkate-Object-Previews.bin", ignored);
         }
-    }
-    set_environment(L"RESKATE_LOOSE_FILES", loose_files ? L"1" : L"0");
-    set_environment(L"RESKATE_LOG_CONSOLE", options.window_console ? L"1" : L"0");
-    set_environment(L"RESKATE_LOG_LEVEL", widen(options.log_level).c_str());
-    set_environment(L"RESKATE_FORCE_WINDOWED", options.force_windowed ? L"1" : L"0");
-    set_environment(L"RESKATE_WINDOW_WIDTH", options.force_windowed ? std::to_wstring(options.width).c_str() : nullptr);
-    set_environment(L"RESKATE_WINDOW_HEIGHT", options.force_windowed ? std::to_wstring(options.height).c_str() : nullptr);
-    std::wstring command = quote_argument(paths.game.wstring());
-    for (const auto& argument : options.game_arguments) {
-        command.push_back(L' ');
-        command += quote_argument(argument);
-    }
-    set_environment(L"RESKATE_GPU_DIAGNOSTICS", options.gpu_diagnostics ? L"1" : L"0");
-    // -map: the game loads it once it is up, as the console's "load" would (client_tick.cpp),
-    // ahead of any startup commands already asked for.
-    if (!options.map.empty()) {
-        std::wstring commands = L"load " + options.map;
-        std::wstring already(4096, L'\0');
-        const auto length = GetEnvironmentVariableW(L"RESKATE_STARTUP_COMMANDS", already.data(), 4096);
-        if (length && length < 4096) commands += L";" + already.substr(0, length);
-        set_environment(L"RESKATE_STARTUP_COMMANDS", commands.c_str());
-    }
-    set_environment(L"RESKATE_DISCORD", options.discord ? L"1" : L"0");
-    if (options.menu_key == options.console_key)
-        throw std::runtime_error("The menu and console need different keys. Change one in Settings.");
-    set_environment(L"RESKATE_MENU_KEY", std::to_wstring(options.menu_key).c_str());
-    set_environment(L"RESKATE_CONSOLE_KEY", std::to_wstring(options.console_key).c_str());
-    const auto steam_reason = options.offline ? std::wstring{} : launcher_app::steam_offline_reason();
-    const bool offline = options.offline || !steam_reason.empty();
-    set_environment(L"RESKATE_OFFLINE", offline ? L"1" : L"0");
-    const auto steam_id = offline ? last_steam_id() : std::nullopt;
-    set_environment(L"RESKATE_OFFLINE_STEAM_ID", steam_id ? std::to_wstring(*steam_id).c_str() : nullptr);
-    if (offline)
-        logging::write(logging::Level::info, logging::Channel::launcher, options.offline ?
-            std::wstring(L"Offline mode: requested; Steam is not used") :
-            L"Offline mode: Steam is not running or not signed in: " + steam_reason);
-    logging::write(logging::Level::info, logging::Channel::launcher, std::wstring(L"Graphics options: DRED=") +
-        (options.gpu_diagnostics ? L"enabled" : L"default"));
-    if (options.force_windowed)
-        logging::write(logging::Level::info, logging::Channel::launcher, L"Requested windowed resolution: " + std::to_wstring(options.width) +
-            L"x" + std::to_wstring(options.height));
-    else logging::write(logging::Level::info, logging::Channel::launcher, L"Display settings: using the game's saved preferences");
-    command += launcher::windowed_arguments(options);
-    const auto mod_arguments = launcher::mod_data_arguments(paths.directory, options.game_arguments);
-    command += mod_arguments;
-    if (!mod_arguments.empty()) logging::write(logging::Level::info, logging::Channel::launcher, L"ModData folder detected; loading ModData/Default");
-    logging::write(logging::Level::info, logging::Channel::launcher, L"Child command: " + command);
-    if (GetEnvironmentVariableW(L"RESKATE_MANGOHUD_HELD", nullptr, 0)) {
-        // Held off for the launcher's own window only (relaunch_without_mangohud).
-        set_environment(L"DISABLE_MANGOHUD", nullptr);
-        set_environment(L"RESKATE_MANGOHUD_HELD", nullptr);
-    }
-    std::vector<wchar_t> command_buffer(command.begin(), command.end());
-    command_buffer.push_back(L'\0');
-    STARTUPINFOW startup{sizeof(startup)};
-    PROCESS_INFORMATION process{};
-    if (!CreateProcessW(paths.game.c_str(), command_buffer.data(), nullptr, nullptr, FALSE,
+        // Catalogues (item names, challenges, entitlements) are read from the live
+        // game's content cache for this build, installed once into Local AppData.
+        const auto cache = content_cache::ensure_installed();
+        using CacheStatus = content_cache::InstallStatus;
+        if (cache.status == CacheStatus::installed) {
+            logging::write(logging::Level::info, logging::Channel::assets, "Game content cache ready.");
+        }
+        else if (cache.status == CacheStatus::downloaded) {
+            logging::write(logging::Level::info, logging::Channel::assets, "Game content cache downloaded and installed.");
+        }
+        else {
+            logging::log(logging::Level::error, logging::Channel::assets,
+                "Game content cache {} (HTTP {}; Windows error {}).",
+                cache.status == CacheStatus::busy ? "is being installed by another launcher" : "could not be installed",
+                cache.http_status, cache.error);
+            throw std::runtime_error(cache.status == CacheStatus::busy ?
+                "Another ReSkate launcher is installing the game content cache. Try again when it finishes." :
+                "ReSkate needs to download the game content cache once. Check your internet connection and try again.");
+        }
+        // World layers are read from the level data; the first launch of a build
+        // scans it here so the game does not wait on it. The runtime rescans if
+        // this cache is missing, so a failure is not fatal.
+        try {
+            const auto layers = world_layer_scan::load_or_scan(paths.directory, world_layer_scan::cache_file());
+            logging::log(logging::Level::info, logging::Channel::world, "World layers ready: {} layers.", layers.layers.size());
+        }
+        catch (const std::exception& error) {
+            logging::log(logging::Level::warning, logging::Channel::world, "World layers could not be read: {}", error.what());
+        }
+        configure_environment(paths.logs);
+        bool loose_files = options.loose_files && initfs::loose_files_preference(paths.directory);
+        if (loose_files) {
+            try {
+                fs::create_directories(paths.directory / L"scripts" / L"Custom");
+                const auto exported = initfs::export_files(paths.game,
+                    initfs::data_directory(paths.directory, options.game_arguments), paths.directory, true);
+                if (exported.already_exported) {
+                    logging::write(logging::Level::info, logging::Channel::assets,
+                        "Using existing scripts/ and config/ export; edits and removed files are preserved.");
+                }
+                else {
+                    logging::log(logging::Level::info, logging::Channel::assets,
+                        "InitFS exported: {} Lua, {} configs; {} created, {} existing files preserved, {} skipped.",
+                        exported.scripts, exported.configs, exported.created, exported.preserved, exported.skipped);
+                }
+            }
+            catch (const std::exception& failure) {
+                // An install under Program Files is the usual reason. Skate plays
+                // without loose scripts; only editing them is lost.
+                loose_files = false;
+                logging::log(logging::Level::warning, logging::Channel::assets,
+                    "Loose files are off for this launch: scripts/ and config/ could not be exported ({}). Skate still "
+                    "starts; editing them needs a folder ReSkate is allowed to write to.", failure.what());
+            }
+        }
+        set_environment(L"RESKATE_LOOSE_FILES", loose_files ? L"1" : L"0");
+        set_environment(L"RESKATE_LOG_CONSOLE", options.window_console ? L"1" : L"0");
+        set_environment(L"RESKATE_LOG_LEVEL", widen(options.log_level).c_str());
+        set_environment(L"RESKATE_FORCE_WINDOWED", options.force_windowed ? L"1" : L"0");
+        set_environment(L"RESKATE_WINDOW_WIDTH", options.force_windowed ? std::to_wstring(options.width).c_str() : nullptr);
+        set_environment(L"RESKATE_WINDOW_HEIGHT", options.force_windowed ? std::to_wstring(options.height).c_str() : nullptr);
+        std::wstring command = quote_argument(paths.game.wstring());
+        for (const auto& argument : options.game_arguments) {
+            command.push_back(L' ');
+            command += quote_argument(argument);
+        }
+        set_environment(L"RESKATE_GPU_DIAGNOSTICS", options.gpu_diagnostics ? L"1" : L"0");
+        // -map: the game loads it once it is up, as the console's "load" would (client_tick.cpp),
+        // ahead of any startup commands already asked for.
+        if (!options.map.empty()) {
+            std::wstring commands = L"load " + options.map;
+            std::wstring already(4096, L'\0');
+            const auto length = GetEnvironmentVariableW(L"RESKATE_STARTUP_COMMANDS", already.data(), 4096);
+            if (length && length < 4096) commands += L";" + already.substr(0, length);
+            set_environment(L"RESKATE_STARTUP_COMMANDS", commands.c_str());
+        }
+        set_environment(L"RESKATE_DISCORD", options.discord ? L"1" : L"0");
+        if (options.menu_key == options.console_key)
+            throw std::runtime_error("The menu and console need different keys. Change one in Settings.");
+        set_environment(L"RESKATE_MENU_KEY", std::to_wstring(options.menu_key).c_str());
+        set_environment(L"RESKATE_CONSOLE_KEY", std::to_wstring(options.console_key).c_str());
+        const auto steam_reason = options.offline ? std::wstring{} : launcher_app::steam_offline_reason();
+        const bool offline = options.offline || !steam_reason.empty();
+        set_environment(L"RESKATE_OFFLINE", offline ? L"1" : L"0");
+        const auto steam_id = offline ? last_steam_id() : std::nullopt;
+        set_environment(L"RESKATE_OFFLINE_STEAM_ID", steam_id ? std::to_wstring(*steam_id).c_str() : nullptr);
+        if (offline)
+            logging::write(logging::Level::info, logging::Channel::launcher, options.offline ?
+                std::wstring(L"Offline mode: requested; Steam is not used") :
+                L"Offline mode: Steam is not running or not signed in: " + steam_reason);
+        logging::write(logging::Level::info, logging::Channel::launcher, std::wstring(L"Graphics options: DRED=") +
+            (options.gpu_diagnostics ? L"enabled" : L"default"));
+        if (options.force_windowed)
+            logging::write(logging::Level::info, logging::Channel::launcher, L"Requested windowed resolution: " + std::to_wstring(options.width) +
+                L"x" + std::to_wstring(options.height));
+        else logging::write(logging::Level::info, logging::Channel::launcher, L"Display settings: using the game's saved preferences");
+        command += launcher::windowed_arguments(options);
+        const auto mod_arguments = launcher::mod_data_arguments(paths.directory, options.game_arguments);
+        command += mod_arguments;
+        if (!mod_arguments.empty()) logging::write(logging::Level::info, logging::Channel::launcher, L"ModData folder detected; loading ModData/Default");
+        logging::write(logging::Level::info, logging::Channel::launcher, L"Child command: " + command);
+        if (GetEnvironmentVariableW(L"RESKATE_MANGOHUD_HELD", nullptr, 0)) {
+            // Held off for the launcher's own window only (relaunch_without_mangohud).
+            set_environment(L"DISABLE_MANGOHUD", nullptr);
+            set_environment(L"RESKATE_MANGOHUD_HELD", nullptr);
+        }
+        std::vector<wchar_t> command_buffer(command.begin(), command.end());
+        command_buffer.push_back(L'\0');
+        STARTUPINFOW startup{ sizeof(startup) };
+        PROCESS_INFORMATION process{};
+        if (!CreateProcessW(paths.game.c_str(), command_buffer.data(), nullptr, nullptr, FALSE,
             CREATE_SUSPENDED | CREATE_UNICODE_ENVIRONMENT, nullptr, paths.directory.c_str(),
             &startup, &process)) win32_failure(L"CreateProcessW(Skate.exe)");
         ChildProcess child(process);
@@ -812,7 +860,7 @@ bool steam_signed_in() {
         const auto initialized = run_remote_thread(child.process(), initialize_address, nullptr,
             L"DingoSDKDebugInitialize", initialize_wait_ms);
         if (!initialized) throw std::runtime_error("DingoSDKDebugInitialize returned FALSE");
-        logging::write(logging::Level::info, logging::Channel::launcher, L"ReSkatePlus.dll initialization confirmed");
+        logging::write(logging::Level::info, logging::Channel::launcher, L"ReSkate+.dll initialization confirmed");
 
         loader_gate.resume();
         child.release();
