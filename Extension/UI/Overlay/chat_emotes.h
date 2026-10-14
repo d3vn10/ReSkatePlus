@@ -7,7 +7,7 @@
 #include <string_view>
 #include <vector>
 
-// Chat emotes, written in chat as :name:. The pack is built into ReSkate+.dll from the
+// Chat emotes, written in chat as :name:. The pack is built into ReSkatePlus.dll from the
 // repository's assets/emotes/emotes.json and emotes.png (cmake/Runtime.cmake), in Better Chat's
 // format (github.com/codecat/tm-better-chat):
 //   {"name": "...", "texture": "...", "emotes": {

@@ -113,8 +113,8 @@ bool free_offer(const Fields& offer) {
             return cost.kind == "res" && (cost.id == "influence" || cost.id == "skatepass_currency");
         })) return false;
     const auto prerequisites = grants(offer, 8);
-    return std::none_of(prerequisites.begin(), prerequisites.end(), [](const Grant& /*prerequisite*/) {
-        return true;
+    return std::none_of(prerequisites.begin(), prerequisites.end(), [](const Grant& prerequisite) {
+        return lower(prerequisite.id).find("premium") != std::string::npos;
     });
 }
 void add_source(std::set<std::string>& open, const std::string& id, const Fields& record) {
@@ -123,7 +123,7 @@ void add_source(std::set<std::string>& open, const std::string& id, const Fields
             if (grant.kind == "own-create" && lower(grant.id.substr(0, 4)) == "own_") open.insert(lower(grant.id));
     };
     if (id.ends_with("Price")) {
-        /*if (free_offer(record))*/ open_grants(11);
+        if (free_offer(record)) open_grants(11);
         return;
     }
     open_grants(8);

@@ -311,38 +311,35 @@ NeighborhoodUnlockOverrideObservation neighborhood_unlock_override_observation()
     auto& state = neighborhood_unlock_state();
     const auto gate = state.gate.load(std::memory_order_acquire);
     const bool enabled = state.enabled.load(std::memory_order_acquire);
-    //const auto invocations = state.invocations.load(std::memory_order_relaxed);
+    const auto invocations = state.invocations.load(std::memory_order_relaxed);
     const auto matches = state.target_matches.load(std::memory_order_relaxed);
     const auto overrides = state.overrides.load(std::memory_order_relaxed);
-    //const auto native = state.native_forwards.load(std::memory_order_relaxed);
+    const auto native = state.native_forwards.load(std::memory_order_relaxed);
     const auto bad_headers = state.unreadable_headers.load(std::memory_order_relaxed);
     const auto bad_mappings = state.rejected_input_mappings.load(std::memory_order_relaxed);
     const auto bad_inputs = state.unreadable_inputs.load(std::memory_order_relaxed);
-    //const auto preactive = state.preactive_forwards.load(std::memory_order_relaxed);
+    const auto preactive = state.preactive_forwards.load(std::memory_order_relaxed);
 
     NeighborhoodUnlockOverrideObservation observation;
     observation.prepared = gate == GateStatus::prepared;
     observation.enabled = enabled;
-    //observation.invocations = invocations;
+    observation.invocations = invocations;
     observation.target_matches = matches;
     observation.overrides = overrides;
 
     std::ostringstream json;
-    // Omit volatile invocation/native counters from the JSON to avoid
-    // producing a distinct string on every hook call. Keep match/override
-    // counts and diagnostics that are meaningful to the overlay/status.
     json << "{\"event\":\"neighborhood_unlock_override_observation\",\"gate\":\""
          << gate_name(gate) << "\",\"enabled\":" << (enabled ? "true" : "false")
          << ",\"binder_rva\":\"0x" << std::hex << unlock::binder << std::dec << "\""
          << ",\"serialized_hash\":\"0x22cc3916\""
-		//<< ",\"invocations\":" << invocations
+         << ",\"invocations\":" << invocations
          << ",\"target_matches\":" << matches
          << ",\"overrides\":" << overrides
-		//<< ",\"native_forwards\":" << native
+         << ",\"native_forwards\":" << native
          << ",\"unreadable_headers\":" << bad_headers
          << ",\"rejected_input_mappings\":" << bad_mappings
-         << ",\"unreadable_inputs\":" << bad_inputs << '}';
-		//<< ",\"preactive_forwards\":" << preactive << '}';
+         << ",\"unreadable_inputs\":" << bad_inputs
+         << ",\"preactive_forwards\":" << preactive << '}';
 
     std::ostringstream detail;
     detail << "Neighborhood unlock override: " << gate_name(gate)

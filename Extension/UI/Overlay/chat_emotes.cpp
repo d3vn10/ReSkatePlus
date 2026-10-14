@@ -65,7 +65,7 @@ bool valid_name(std::string_view name) {
     return !name.empty() && name.size() <= 32 &&
            std::all_of(name.begin(), name.end(), [](char c) { return std::isalnum(static_cast<unsigned char>(c)) || c == '_'; });
 }
-// A resource built into ReSkate+.dll (cmake/Runtime.cmake); it lives as long as the DLL.
+// A resource built into ReSkatePlus.dll (cmake/Runtime.cmake); it lives as long as the DLL.
 std::span<const unsigned char> embedded(const wchar_t *name) {
     HMODULE module{};
     if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
@@ -110,7 +110,7 @@ std::optional<Frame> cut(const std::vector<unsigned char> &pixels, UINT width, U
                     pixels.data() + ((static_cast<std::size_t>(y) + row) * width + x) * 4, static_cast<std::size_t>(w) * 4);
     return frame;
 }
-// The pack built into ReSkate+.dll: assets/emotes/emotes.json and emotes.png in the repository.
+// The pack built into ReSkatePlus.dll: assets/emotes/emotes.json and emotes.png in the repository.
 Emotes read_embedded() {
     Emotes emotes;
     const auto json_bytes = embedded(L"EMOTES_JSON"), png = embedded(L"EMOTES_PNG");

@@ -89,7 +89,7 @@ class StoreMeshes final {
 public:
     // One level of detail of one of the game's meshes. `key`: the costume's item; any other
     // mesh of the game's (clothes, a free costume) is added as not sold, under any key.
-    void add(std::string_view key, bool /*sold*/, const std::vector<std::uint64_t>& points);
+    void add(std::string_view key, bool sold, const std::vector<std::uint64_t>& points);
     [[nodiscard]] bool empty() const noexcept { return owners_.empty(); }
     // The key of the store costume a mesh with these points takes from, or empty. It does when
     // enough of them (shared_least) are points only that one costume has, and they are a tenth

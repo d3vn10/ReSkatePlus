@@ -436,7 +436,7 @@ void settings_window(Launcher& launcher, const Fonts& fonts, ImVec2 size, Ui& ui
                       "Hide while you play and return when Skate closes. Turn off to close after a successful launch.",
                       settings.keep_open_after_launch);
         setting_check("Install ReSkate updates",
-                      "Turn off to keep the ReSkate+.dll and launcher you have, such as a test build someone gave you. "
+                      "Turn off to keep the ReSkatePlus.dll and launcher you have, such as a test build someone gave you. "
                       "Skate's own Steam updates are not affected.",
                       settings.updates);
         ImGui::Spacing();

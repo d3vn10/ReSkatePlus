@@ -261,7 +261,7 @@ namespace dingosdk::overlay {
     }
 
     namespace {
-        // The menu fonts are built into ReSkate+.dll (External/fonts, shared with the
+        // The menu fonts are built into ReSkatePlus.dll (External/fonts, shared with the
         // launcher); Windows fonts are the fallback.
         ImFont* embedded_font(const wchar_t* name, float size, const ImWchar* ranges) {
             HMODULE module{};
@@ -433,9 +433,7 @@ namespace dingosdk::overlay {
             case multiplayer: multiplayer_page(menu, model, callbacks); break;
             case progress: progression_page(menu, model, callbacks); break;
             case mods:
-                // The SCRIPTS tab (custom Lua scripts, modding_menu.cpp) is not offered for now:
-                // nothing uses them. The page is the installed mods.
-                menu.mods_tab = 0;
+                category_tabs(menu, menu.mods_tab, { "INSTALLED", "SCRIPTS" }, "mods-tabs");
                 ImGui::PushID(menu.mods_tab);
                 ImGui::BeginChild("mods-tab", ImVec2(0, page_body_height(menu)));
                 draw_modding_menu(menu, menu.mods_tab, model, callbacks);

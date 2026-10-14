@@ -353,7 +353,7 @@ void Launcher::run_check() {
     }
     std::error_code error;
     if (!fs::is_regular_file(session_.paths.dll, error)) {
-        fail("ReSkate+.dll is missing from the game folder.");
+        fail("ReSkatePlus.dll is missing from the game folder.");
         return;
     }
     set(Phase::ready, "Ready to skate", !config ? "Offline: Update check skipped."
