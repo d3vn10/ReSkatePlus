@@ -675,6 +675,11 @@ void chat_codec() {
     check(clean_chat_text(std::string(199, 'a') + "\xC3\xA9").size() == 199, "Chat cleaning cut a character in half");
     check(clean_chat_text("\x01\x02").empty(), "Chat cleaning left only controls");
     check(valid_chat_text(clean_chat_text("  typed \xE2\x80\x94 text  ")), "Cleaned chat text is not valid");
+    struct RestoreVersion {
+        std::uint16_t value;
+        ~RestoreVersion() { protocol_version = value; }
+    } restore{ protocol_version };
+    protocol_version = 51;
     Packet typing;
     typing.kind = PacketKind::typing; typing.session = 9; typing.epoch = 10; typing.map = 11;
     typing.source = 76561198000000001ULL; typing.typing = true;
@@ -692,6 +697,59 @@ void chat_codec() {
     auto bad = encode(typing);
     bad.back() = 2; // the on/off byte; anything but 0 or 1 is refused
     check(!decode(bad), "A typing notice with a bad flag decoded");
+}
+void protocol_version_wire_bytes() {
+    struct RestoreVersion {
+        std::uint16_t value;
+        ~RestoreVersion() { protocol_version = value; }
+    } restore{ protocol_version };
+    Packet p;
+    p.kind = PacketKind::away;
+    p.sequence = 13;
+    p.session = 9;
+    p.map = 11;
+    p.epoch = 10;
+    p.time_us = 14;
+    p.source = 15;
+    p.world = 12;
+    const std::vector<std::uint8_t> expected50{
+        0x52, 0x4d, 0x50, 0x31, 50, 0, 4, 0, 0, 0, 0, 0, 13, 0, 0, 0,
+        9, 0, 0, 0, 0, 0, 0, 0, 11, 0, 0, 0, 0, 0, 0, 0,
+        10, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 0, 0, 0,
+        15, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0
+    };
+    protocol_version = 50;
+    check(encode(p, false, 16667) == expected50, "Protocol 50 changed the expected packet bytes");
+    check(decode(expected50).has_value(), "Protocol 50 rejected its exact-byte fixture");
+
+    auto expected51 = expected50;
+    expected51[4] = 51;
+    protocol_version = 51;
+    check(encode(p, false, 16667) == expected51, "Protocol 51 changed the common packet layout");
+    check(decode(expected51).has_value(), "Protocol 51 rejected its exact-byte fixture");
+
+    p.kind = PacketKind::typing;
+    p.typing = true;
+    auto expectedTyping = expected51;
+    expectedTyping[6] = static_cast<std::uint8_t>(PacketKind::typing);
+    expectedTyping[8] = 1;
+    expectedTyping.push_back(1);
+    check(encode(p, false, 16667) == expectedTyping, "Protocol 51 changed the expected typing packet bytes");
+    const auto typed = decode(expectedTyping);
+    check(typed && typed->kind == PacketKind::typing && typed->typing, "Protocol 51 rejected its exact typing fixture");
+
+    protocol_version = 50;
+    auto unsupportedTyping = expectedTyping;
+    unsupportedTyping[4] = 50;
+    bool rejected{};
+    try { static_cast<void>(encode(p, false, 16667)); } catch (const std::invalid_argument&) { rejected = true; }
+    check(rejected && !decode(unsupportedTyping), "Protocol 50 accepted protocol 51 typing data");
+
+    protocol_version = 52;
+    p.kind = PacketKind::away;
+    rejected = false;
+    try { static_cast<void>(encode(p, false, 16667)); } catch (const std::invalid_argument&) { rejected = true; }
+    check(rejected && !decode(expected51), "An unsupported protocol version was accepted");
 }
 // Linked throwdowns: the packet carries one opaque message; the message codec is strict.
 void throwdown_codec() {
@@ -1262,6 +1320,7 @@ int main() {
         sound_codec_and_timing();
         object_codec();
         chat_codec();
+        protocol_version_wire_bytes();
         throwdown_codec();
         dedicated_server_codec();
         std::cout << "Multiplayer protocol: all checks passed (40,000 malformed/mutated inputs).\n";

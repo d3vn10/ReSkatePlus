@@ -408,10 +408,27 @@ void special_page(SkateMenu &menu, const Model &model, const CallbacksV3 &) {
     }
     bool tag = mp.identity_tag_shown;
     if (toggle_row(menu, "Show my tag",
-                   "Your tag and the color of your name, in chat and on your nametag. "
-                   "Off: your name looks like any other player's, to yourself and to everyone you skate with.",
-                   tag))
+        "Your tag and the color of your name, in chat and on your nametag. "
+        "Off: your name looks like any other player's, to yourself and to everyone you skate with.",
+        tag)) {
+		if (!tag) dingosdk::overlay::menu::current_identity = *dingosdk::multiplayer::identity_mark(model.multiplayer.local_id);
         send_private(menu, "mark-tag", tag ? "on" : "off", unused, false);
+    }
+
+    field(menu, "Current Identity");
+    if (!dingosdk::overlay::menu::current_identity) dingosdk::overlay::menu::current_identity = multiplayer::IdentityList::homie;
+    int current_id = static_cast<int>(*dingosdk::overlay::menu::current_identity);
+    if (choice(menu, "current-identity", current_id, { "Developer", "Homie", "Creator", "Centrix", "Server", "Staff" }, tag)) {
+        switch (current_id) {
+			case 0: dingosdk::overlay::menu::current_identity = multiplayer::IdentityList::developer; break;
+            default:
+			case 1: dingosdk::overlay::menu::current_identity = multiplayer::IdentityList::homie; break;
+			case 2: dingosdk::overlay::menu::current_identity = multiplayer::IdentityList::content_creator; break;
+			case 3: dingosdk::overlay::menu::current_identity = multiplayer::IdentityList::centrix; break;
+			case 4: dingosdk::overlay::menu::current_identity = multiplayer::IdentityList::official_server; break;
+			case 5: dingosdk::overlay::menu::current_identity = multiplayer::IdentityList::staff; break;
+        }
+    }
     end_card();
 
     begin_card(menu, "special-items", "YOUR ITEMS");
@@ -461,14 +478,14 @@ void special_page(SkateMenu &menu, const Model &model, const CallbacksV3 &) {
         // staff's to pick).
         field(menu, "Color");
         if (mp.identity_rainbow) {
-            static constexpr std::array<int, 5> modes{0, 4, 2, 3, 1};
+            static constexpr std::array<int, 5> modes{0, 2, 3, 1};
             int option = static_cast<int>(std::find(modes.begin(), modes.end(), style.mode) - modes.begin()) % 5;
-            if (choice(menu, "mode", option, {mp.identity_animation.c_str(), "RAINBOW", "GRADIENT", "SOLID", "OFF"}, shown))
+            if (choice(menu, "mode", option, {"RAINBOW", "GRADIENT", "SOLID", "OFF"}, shown))
                 send(modes[static_cast<std::size_t>(option)], style.speed);
         } else {
-            static constexpr std::array<int, 4> modes{0, 2, 3, 1};
+            static constexpr std::array<int, 4> modes{2, 3, 1};
             int option = static_cast<int>(std::find(modes.begin(), modes.end(), style.mode) - modes.begin()) % 4;
-            if (choice(menu, "mode", option, {mp.identity_animation.c_str(), "GRADIENT", "SOLID", "OFF"}, shown))
+            if (choice(menu, "mode", option, { "GRADIENT", "SOLID", "OFF"}, shown))
                 send(modes[static_cast<std::size_t>(option)], style.speed);
         }
         if (style.mode == 2 || style.mode == 3) {

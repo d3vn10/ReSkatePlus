@@ -26,7 +26,8 @@ namespace dingosdk::multiplayer {
 constexpr std::size_t max_skater_bones = 512, max_board_bones = 64;
 constexpr std::size_t max_packet = 24576;
 constexpr std::size_t packet_header_size = 64;
-constexpr std::uint16_t protocol_version = 51;
+extern std::uint16_t protocol_version;
+extern std::vector<std::uint16_t> supported_protocols;
 // How long a receiver keeps typing dots after the last "still typing" notice. The sender
 // clears them after three seconds without input; this only covers a lost "stopped" packet.
 constexpr std::uint64_t typing_hold_us = 4000000;
@@ -409,7 +410,7 @@ std::string clean_chat_text(std::string_view);
 // A player's name as a roster carries it (valid_roster): the same cleaning, at most 128 bytes.
 std::string clean_roster_name(std::string_view);
 bool valid_pose(const Pose &) noexcept;
-std::vector<std::uint8_t> encode(const Packet &, bool compact_pose = false);
+std::vector<std::uint8_t> encode_51(const Packet &, bool compact_pose = false);
 // Rounds every rotation in a pose to a multiple of 2^bits in the 16-bit form a compact pose
 // packs it in (the root to at most 2^6). The pose still encodes and decodes as any other;
 // what changes is that a bone turning by less than a step is the same bytes as before, so a
@@ -442,8 +443,11 @@ inline constexpr float client_bone_reach = 2.f, client_bone_scale = 8.f;
 void limit_bone_reach(Pose &pose, float limit) noexcept;
 // The same, with a pose encoded at another update interval (a recipient thinned by
 // distance) instead of the packet's own, so the packet need not be copied for it.
+std::vector<std::uint8_t> encode(const Packet &, bool compact_pose = false);
 std::vector<std::uint8_t> encode(const Packet &, bool compact_pose, std::uint32_t pose_interval_us);
 std::optional<Packet> decode(std::span<const std::uint8_t>) noexcept;
+std::optional<Packet> decode_50(std::span<const std::uint8_t>) noexcept;
+std::optional<Packet> decode_51(std::span<const std::uint8_t>) noexcept;
 bool newer_sequence(std::uint32_t candidate, std::uint32_t previous) noexcept;
 std::uint64_t map_hash(std::string_view) noexcept;
 bool valid_map_destination(std::string_view) noexcept;

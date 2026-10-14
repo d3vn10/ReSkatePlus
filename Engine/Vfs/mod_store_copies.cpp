@@ -541,15 +541,15 @@ const std::string* StoreItems::Parts::owner(std::string_view part) const {
     return found == sold.end() ? nullptr : &found->second;
 }
 
-void StoreItems::add(const ItemContent& item, bool /*sold*/) {
+void StoreItems::add(const ItemContent& item, bool sold) {
     const auto file = [&](Parts& parts, const std::string& part) {
-        /*if (sold) parts.sold.try_emplace(part, item.key);
-        else*/ parts.free.insert(part);
+        if (sold) parts.sold.try_emplace(part, item.key);
+        else parts.free.insert(part);
     };
     for (const auto& look : item.looks) file(looks_, look);
     // A store item with a look is told by that; its shape is anyone's to use. A whole
     // costume's is not: the shape is the costume's own mesh, with or without looks on it.
-    /*if (!sold || item.looks.empty() || item.costume)*/
+    if (!sold || item.looks.empty() || item.costume)
         for (const auto& shape : item.shapes) file(shapes_, shape);
     if (!item.data.empty()) file(data_, item.data);
 }
@@ -585,11 +585,11 @@ std::vector<std::uint64_t> mesh_points(const std::vector<std::array<float, 3>>& 
     return points;
 }
 
-void StoreMeshes::add(std::string_view key, bool /*sold*/, const std::vector<std::uint64_t>& points) {
+void StoreMeshes::add(std::string_view key, bool sold, const std::vector<std::uint64_t>& points) {
     auto found = by_key_.find(key);
     if (found == by_key_.end()) {
         found = by_key_.emplace(std::string(key), static_cast<std::uint32_t>(owners_.size())).first;
-        owners_.push_back({std::string(key), false, 0});
+        owners_.push_back({std::string(key), sold, 0});
     }
     const auto owner = found->second;
     owners_[owner].largest = std::max(owners_[owner].largest, points.size());

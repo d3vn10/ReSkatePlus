@@ -356,7 +356,7 @@ namespace {
             nt.OptionalHeader.SizeOfImage != dingosdk::launcher::expected_game_image_size)
             throw std::runtime_error("Created process has the wrong loaded image identity");
 
-        // The same code fingerprints ReSkate+.dll checks before it initializes.
+        // The same code fingerprints ReSkatePlus.dll checks before it initializes.
         namespace image = dingosdk::addr::runtime;
         if (!remote_matches(process, base + image::client_tick, image::client_tick_prefix))
             throw std::runtime_error("Created process failed the loaded-image fingerprint");
@@ -400,7 +400,7 @@ namespace {
     RemoteModule find_remote_module(HANDLE process, const fs::path& path) {
         for (const auto& module : remote_modules(process))
             if (same_file(path, module.path)) return module;
-        throw std::runtime_error("Injected ReSkate+.dll is not present in the child module list");
+        throw std::runtime_error("Injected ReSkatePlus.dll is not present in the child module list");
     }
 
     DWORD run_remote_thread(HANDLE process, std::uintptr_t start, void* parameter,
@@ -434,7 +434,7 @@ namespace {
         RemoteAllocation remote_path(process, byte_count);
         SIZE_T written{};
         if (!WriteProcessMemory(process, remote_path.get(), path.c_str(), byte_count, &written) ||
-            written != byte_count) win32_failure(L"WriteProcessMemory(ReSkate+.dll path)");
+            written != byte_count) win32_failure(L"WriteProcessMemory(ReSkatePlus.dll path)");
         std::string hook_note;
         const auto loader = dingosdk::launcher::validated_remote_load_library(process, &hook_note);
         if (!hook_note.empty())
@@ -447,7 +447,7 @@ namespace {
         // success and obtain the full module base from the target's module list.
         const auto module = find_remote_module(process, dll);
         std::wostringstream loaded;
-        loaded << L"ReSkate+.dll loaded at 0x" << std::hex << module.base
+        loaded << L"ReSkatePlus.dll loaded at 0x" << std::hex << module.base
             << L" (LoadLibraryW low result 0x" << loader_result << L')';
         dingosdk::logging::write(dingosdk::logging::Level::info, dingosdk::logging::Channel::launcher, loaded.str());
         return module;
@@ -459,7 +459,7 @@ namespace dingosdk::launcher_app {
 
     Session open_session(const std::string& log_level) {
         Session session;
-        session.self = canonical_file(module_path(), L"ReSkate+ Launcher.exe");
+        session.self = canonical_file(module_path(), L"ReSkatePlusLauncher");
         session.paths = launcher::sibling_paths(session.self);
         session.paths.logs = logging::log_directory(session.paths.directory);
         logging::Options logging_options;
@@ -680,7 +680,7 @@ namespace dingosdk::launcher_app {
         const auto& self = session.self;
         auto paths = session.paths;
         paths.game = canonical_file(paths.game, L"Skate.exe");
-        paths.dll = canonical_file(paths.dll, L"ReSkate+.dll");
+        paths.dll = canonical_file(paths.dll, L"ReSkatePlus.dll");
         paths.steam_api = canonical_file(paths.steam_api, L"steam_api64.dll");
 
         std::error_code path_error;
@@ -688,7 +688,7 @@ namespace dingosdk::launcher_app {
             !fs::equivalent(paths.dll.parent_path(), paths.directory, path_error) || path_error ||
             !fs::equivalent(paths.steam_api.parent_path(), paths.directory, path_error) || path_error)
             throw std::runtime_error(
-                "'Skate.exe', 'ReSkate+.dll', and the original 'steam_api64.dll' must be beside 'ReSkate+ Launcher.exe'");
+                "'Skate.exe', 'ReSkatePlus.dll', and the original 'steam_api64.dll' must be beside 'ReSkatePlusLauncher'");
 
         // Satisfy Skate.exe's MiniDumpWriteDump API-set import under Wine/Proton.
         ensure_minidump_apiset_shim(paths.directory);
@@ -703,7 +703,7 @@ namespace dingosdk::launcher_app {
         if (!dll_info.pe64 || dll_info.machine != IMAGE_FILE_MACHINE_AMD64 ||
             !(dll_info.characteristics & IMAGE_FILE_DLL) ||
             !(dll_info.characteristics & IMAGE_FILE_EXECUTABLE_IMAGE))
-            throw std::runtime_error("ReSkate+.dll is not an x64 Windows DLL");
+            throw std::runtime_error("ReSkatePlus.dll is not an x64 Windows DLL");
         const auto initialize_rva = launcher::exported_function_rva(
             paths.dll, "DingoSDKDebugInitialize");
         if (initialize_rva >= dll_info.image_size)
@@ -860,7 +860,7 @@ namespace dingosdk::launcher_app {
         const auto initialized = run_remote_thread(child.process(), initialize_address, nullptr,
             L"DingoSDKDebugInitialize", initialize_wait_ms);
         if (!initialized) throw std::runtime_error("DingoSDKDebugInitialize returned FALSE");
-        logging::write(logging::Level::info, logging::Channel::launcher, L"ReSkate+.dll initialization confirmed");
+        logging::write(logging::Level::info, logging::Channel::launcher, L"ReSkatePlus.dll initialization confirmed");
 
         loader_gate.resume();
         child.release();

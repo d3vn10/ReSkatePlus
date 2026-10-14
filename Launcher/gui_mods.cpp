@@ -2,9 +2,13 @@
 
 #include "mod_manager.h"
 
+#include "Engine/Vfs/mod_dump.h"
 #include "Engine/Core/Log/logging.h"
+#include "Engine/Core/Platform/path_text.h"
 
 #include <cstring>
+#include <cfloat>
+#include <cmath>
 #include <shobjidl.h>
 #include <wrl/client.h>
 
@@ -17,6 +21,64 @@ using Microsoft::WRL::ComPtr;
 // enabled state; GET MODS is Thunderstore (gui_mods_browse.cpp).
 namespace dingosdk::launcher_gui::detail {
 namespace {
+
+void start_dump(ModsPanel& panel, const mods::Mod& mod, const fs::path& parent);
+
+void dump_marquee(float height) {
+    const ImVec2 size(ImGui::GetContentRegionAvail().x, height);
+    const ImVec2 position = ImGui::GetCursorScreenPos();
+    auto* draw = ImGui::GetWindowDrawList();
+    const float rounding = height * 0.5f;
+    draw->AddRectFilled(position, ImVec2(position.x + size.x, position.y + size.y),
+        ImGui::GetColorU32(ImGuiCol_FrameBg), rounding);
+    const float segment = size.x * 0.28f;
+    const float travel = std::max(0.0f, size.x - segment);
+    const float phase = std::fmod(static_cast<float>(ImGui::GetTime()) * 0.8f, 2.0f);
+    const float offset = (phase <= 1.0f ? phase : 2.0f - phase) * travel;
+    draw->AddRectFilled(ImVec2(position.x + offset, position.y),
+        ImVec2(position.x + offset + segment, position.y + size.y),
+        ImGui::GetColorU32(ImGuiCol_ButtonHovered), rounding);
+    ImGui::Dummy(size);
+}
+
+std::string wrap_path_components(std::string_view path, float width) {
+    std::string wrapped;
+    std::string line;
+    auto* font = ImGui::GetFont();
+    const float font_size = ImGui::GetFontSize();
+    const auto text_width = [&](std::string_view text) {
+        return font->CalcTextSizeA(font_size, FLT_MAX, 0, text.data(), text.data() + text.size()).x;
+    };
+    for (std::size_t start = 0; start < path.size();) {
+        auto end = path.find_first_of("/\\", start);
+        if (end == std::string_view::npos) end = path.size();
+        else ++end;
+        const auto component = path.substr(start, end - start);
+        if (!line.empty() && text_width(line + std::string(component)) > width) {
+            wrapped += line;
+            wrapped += '\n';
+            line.clear();
+        }
+        line.append(component);
+        start = end;
+    }
+    wrapped += line;
+    return wrapped;
+}
+
+std::string dump_status_label(std::string_view status) {
+    for (const auto prefix : {std::string_view("Extracting "), std::string_view("Reading bundle "),
+                              std::string_view("Reading ")}) {
+        if (!status.starts_with(prefix)) continue;
+        auto path = status.substr(prefix.size());
+        const auto source = path.find(" from ");
+        if (source != std::string_view::npos) path = path.substr(0, source);
+        const auto separator = path.find_last_of("/\\");
+        if (separator != std::string_view::npos) path.remove_prefix(separator + 1);
+        return "./" + std::string(path);
+    }
+    return std::string(status);
+}
 
 void save(ModsPanel& panel) {
     try {
@@ -347,7 +409,8 @@ void carry_out(ModsPanel& panel, const thunderstore::Installed& installed, const
 // the switch on the right is whether it loads, and a click anywhere else opens
 // everything the mod says about itself.
 void installed_row(const Fonts& fonts, ModsPanel& panel, const thunderstore::Installed& installed,
-                   const std::vector<int>& view, int position, float tall, bool reorder, Request& request) {
+                   const std::vector<int>& view, int position, float tall, bool reorder, bool installing,
+                   HWND window, Request& request) {
     const int index = view[static_cast<std::size_t>(position)];
     auto& entry = panel.list.entries[static_cast<std::size_t>(index)];
     const auto& mod = entry.mod;
@@ -479,13 +542,23 @@ void installed_row(const Fonts& fonts, ModsPanel& panel, const thunderstore::Ins
         ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(color::danger));
         if (ImGui::MenuItem("Uninstall")) ask(Request::Kind::uninstall);
         ImGui::PopStyleColor();
+        if (!group) {
+            ImGui::Separator();
+            if (ImGui::MenuItem("Dump Mod...", nullptr, false, !installing && !panel.dumping)) {
+                const auto destination = pick_path(window, true, L"Choose a folder for the mod dump", nullptr, nullptr);
+                if (!destination.empty()) {
+                    start_dump(panel, mod, destination);
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+        }
         ImGui::EndPopup();
     }
     ImGui::PopID();
 }
 
 void installed_page(Launcher& launcher, const Fonts& fonts, ModsPanel& panel, const thunderstore::Installed& installed,
-                    float height, bool installing) {
+                    float height, bool installing, HWND window) {
     auto& entries = panel.list.entries;
     const float top = ImGui::GetCursorPosY();
 
@@ -635,7 +708,7 @@ void installed_page(Launcher& launcher, const Fonts& fonts, ModsPanel& panel, co
     const float row = S(68);
     ImGui::BeginDisabled(installing);
     virtual_rows(static_cast<int>(view.size()), [&](int) { return row; }, [&](int position, float tall) {
-        installed_row(fonts, panel, installed, view, position, tall, reorder, request);
+        installed_row(fonts, panel, installed, view, position, tall, reorder, installing, window, request);
     });
     ImGui::EndDisabled();
     keep_focus_in_list();
@@ -916,6 +989,132 @@ void start_install(ModsPanel& panel, const fs::path& source, bool replace) {
     });
 }
 
+namespace {
+
+void start_dump(ModsPanel& panel, const mods::Mod& mod, const fs::path& parent) {
+    if (panel.dumping) return;
+    if (panel.dump_worker.joinable()) panel.dump_worker.join();
+    const auto name = mod.name;
+    const auto mod_directory = mod.directory;
+    const auto destination = parent / fs::path(name);
+    panel.dumping = true;
+    panel.dump_dialog = true;
+    panel.dump_mod_name = name;
+    panel.dump_error.clear();
+    panel.dump_destination.clear();
+    {
+        std::lock_guard lock(panel.mutex);
+        panel.dump_status = "Preparing dump";
+        panel.dump_finished = false;
+    }
+    logging::write(logging::Level::info, logging::Channel::launcher,
+        std::string("Starting mod dump: ") + name + " from " + path_utf8(mod_directory));
+    try {
+        panel.dump_worker = std::thread([&panel, mod_directory, destination] {
+            std::string error;
+            fs::path output;
+            try {
+                const auto report = mods::dump_mod(mod_directory, destination, [&panel](std::string_view status) {
+                    {
+                        std::lock_guard lock(panel.mutex);
+                        panel.dump_status.assign(status);
+                    }
+                    logging::write(logging::Level::info, logging::Channel::launcher,
+                        "Mod dump progress: " + std::string(status));
+                });
+                output = report.directory;
+                logging::write(logging::Level::info, logging::Channel::launcher,
+                    std::string("Mod dump complete: ") + path_utf8(output) + " (" + std::to_string(report.ebx) + " EBX)");
+            } catch (const std::exception& failure) {
+                error = failure.what();
+                logging::write(logging::Level::error, logging::Channel::launcher,
+                    "Mod dump failed: " + error);
+            } catch (...) {
+                error = "The mod dump failed for an unknown reason.";
+                logging::write(logging::Level::error, logging::Channel::launcher,
+                    "Mod dump failed: " + error);
+            }
+            std::lock_guard lock(panel.mutex);
+            panel.dump_error = std::move(error);
+            panel.dump_destination = std::move(output);
+            panel.dump_status = panel.dump_error.empty() ? "Dump complete" : "Dump failed";
+            panel.dump_finished = true;
+        });
+    } catch (const std::exception& failure) {
+        std::lock_guard lock(panel.mutex);
+        panel.dump_status = "Dump failed";
+        panel.dump_error = failure.what();
+        panel.dump_finished = true;
+        logging::write(logging::Level::error, logging::Channel::launcher,
+            "Could not start mod dump: " + panel.dump_error);
+    }
+}
+
+void collect_dump(ModsPanel& panel) {
+    {
+        std::lock_guard lock(panel.mutex);
+        if (!panel.dump_finished) return;
+        panel.dump_finished = false;
+    }
+    if (panel.dump_worker.joinable()) panel.dump_worker.join();
+    panel.dumping = false;
+}
+
+void dump_modal(const Fonts& fonts, ModsPanel& panel) {
+    if (!panel.dump_dialog) return;
+    constexpr const char* title = "Dump Mod###dump_mod";
+    if (!ImGui::IsPopupOpen(title)) ImGui::OpenPopup(title);
+    ImGui::SetNextWindowSize(ImVec2(S(520), 0));
+    if (!ImGui::BeginPopupModal(title, nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove)) return;
+
+    std::string status, error;
+    fs::path destination;
+    {
+        std::lock_guard lock(panel.mutex);
+        status = panel.dump_status;
+        error = panel.dump_error;
+        destination = panel.dump_destination;
+    }
+    ImGui::PushFont(fonts.heading);
+    ImGui::TextUnformatted(panel.dumping ? "Dumping mod" : error.empty() ? "Mod dump complete" : "Mod dump failed");
+    ImGui::PopFont();
+    ImGui::Spacing();
+    ImGui::TextWrapped("%s", panel.dump_mod_name.c_str());
+    const auto status_label = dump_status_label(status);
+    ImGui::TextDisabled("%s", status_label.c_str());
+    if (panel.dumping) {
+        ImGui::Spacing();
+        dump_marquee(S(16));
+    } else if (!error.empty()) {
+        ImGui::Spacing();
+        ImGui::PushTextWrapPos(0);
+        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(color::danger), "%s", error.c_str());
+        ImGui::PopTextWrapPos();
+    } else {
+        ImGui::Spacing();
+        ImGui::TextUnformatted("Saved to:");
+        const auto path = wrap_path_components(utf8(destination.wstring()), ImGui::GetContentRegionAvail().x);
+        ImGui::TextUnformatted(path.c_str());
+    }
+    ImGui::Spacing();
+    ImGui::BeginDisabled(panel.dumping);
+    if (ImGui::Button("Close", ImVec2(S(110), 0))) {
+        panel.dump_dialog = false;
+        if (error.empty()) {
+            panel.message = "Dumped " + panel.dump_mod_name + " to " + utf8(destination.wstring());
+            panel.message_error = false;
+        } else {
+            panel.message = error;
+            panel.message_error = true;
+        }
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndDisabled();
+    ImGui::EndPopup();
+}
+
+} // namespace
+
 // What PLAY shows instead of launching when the merge left mods out. The game
 // would leave them out too, silently, three minutes into a loading screen.
 void mods_broken_window(Launcher& launcher, const Fonts& fonts, ImVec2 size, Ui& ui, ModsPanel& panel,
@@ -1071,6 +1270,7 @@ void mods_window(Launcher& launcher, const Fonts& fonts, ImVec2 size, Ui& ui, Mo
     const auto& session = launcher.session();
     if (!panel.scanned) scan(panel, session);
     collect_install(panel, session);
+    collect_dump(panel);
     settle_profile(panel);
     refresh_listing(panel, ImGui::GetTime());
     // A page, not a panel: the mod list and the Thunderstore browser both want
@@ -1114,7 +1314,7 @@ void mods_window(Launcher& launcher, const Fonts& fonts, ImVec2 size, Ui& ui, Mo
     const float body = ImGui::GetWindowHeight() - status;
     if (panel.tab == 1) browse_page(launcher, fonts, panel, body, installing);
     else if (panel.tab == 2) profiles_page(fonts, panel, window, body, installing);
-    else installed_page(launcher, fonts, panel, installed, body, installing);
+    else installed_page(launcher, fonts, panel, installed, body, installing, window);
     if (!panel.message.empty()) {
         ImGui::SetCursorPosY(ImGui::GetWindowHeight() - status + S(8));
         ImGui::PushTextWrapPos(0);
@@ -1229,6 +1429,7 @@ void mods_window(Launcher& launcher, const Fonts& fonts, ImVec2 size, Ui& ui, Mo
         pop_primary_button();
         ImGui::EndPopup();
     }
+    dump_modal(fonts, panel);
     profile_popups(panel);
     g_drag_allowed = !ImGui::IsAnyItemHovered() && !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId);
     ImGui::End();

@@ -14,6 +14,7 @@
 #include <utility>
 #include <algorithm>
 #include <charconv>
+#include <Extension/UI/Overlay/skate_menu_internal.h>
 
 namespace dingosdk::multiplayer::session_detail {
 // ---- saved host settings ("ReSkate.Host.*" in the local profile)
@@ -186,8 +187,12 @@ void publish(Session &s, const NativeFrame *local) {
                                identity_listed(social->local.id, IdentityList::homie);*/
 	view.steam_ids_shown = true;
     if (const auto social = steam_social_snapshot()) {
-		auto mark = identity_mark(social->local.id);
-		if (mark == std::nullopt) mark = IdentityList::homie;
+        if (!dingosdk::overlay::menu::current_identity) {
+            dingosdk::overlay::menu::current_identity = identity_mark(social->local.id);
+            if (!dingosdk::overlay::menu::current_identity)
+				dingosdk::overlay::menu::current_identity = IdentityList::homie;
+        }
+        auto& mark = dingosdk::overlay::menu::current_identity;
         std::tie(view.identity_tag_colour, view.identity_tag) = mark_role(*mark);
         view.identity_animation =
             *mark == IdentityList::developer ? "RAINBOW" : *mark == IdentityList::content_creator ? "RED" :
@@ -200,7 +205,7 @@ void publish(Session &s, const NativeFrame *local) {
         for (std::size_t i = 0; i < styles.size(); ++i) {
             // A cosmetic never given colours shows its list's own in the pickers.
             // The rainbow has no colours of its own to show either.
-            const bool rainbow = view.identity_rainbow && rainbow_style(styles[i]);
+            const bool rainbow = view.identity_rainbow&& rainbow_style(styles[i]);
             const bool picked = !rainbow && (styles[i].mode == MarkMode::gradient || styles[i].mode == MarkMode::solid ||
                                                 styles[i].from != styles[i].to || styles[i].from != std::array<std::uint8_t, 3>{});
             const auto &from = picked ? styles[i].from : standard.first, &to = picked ? styles[i].to : standard.second;
@@ -210,24 +215,6 @@ void publish(Session &s, const NativeFrame *local) {
             shown.speed = styles[i].speed;
             for (std::size_t part = 0; part < 3; ++part)
                 shown.from[part] = static_cast<float>(from[part]) / 255.f, shown.to[part] = static_cast<float>(to[part]) / 255.f;
-        }
-    }
-    if (view.identity_styles.empty()) {
-        const auto styles = developer_hoodie_detail::own_styles.load();
-        view.identity_styles.resize(styles.size());
-        constexpr std::array<std::uint8_t, 3> neutral{ 0xb3, 0xb3, 0xb3 };
-        for (std::size_t i = 0; i < styles.size(); ++i) {
-            const bool picked = styles[i].mode == MarkMode::gradient || styles[i].mode == MarkMode::solid || styles[i].from != styles[i].to || styles[i].from != std::array<std::uint8_t, 3>{};
-            const auto& from = picked ? styles[i].from : neutral;
-            const auto& to = picked ? styles[i].to : neutral;
-            auto& shown = view.identity_styles[i];
-            shown.name = mark_item_names[i];
-            shown.mode = static_cast<int>(styles[i].mode);
-            shown.speed = styles[i].speed;
-            for (std::size_t part = 0; part < 3; ++part) {
-                shown.from[part] = static_cast<float>(from[part]) / 255.f;
-                shown.to[part] = static_cast<float>(to[part]) / 255.f;
-            }
         }
     }
     view.identity_tag_shown = own_tag_shown();

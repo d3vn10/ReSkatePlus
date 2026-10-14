@@ -234,7 +234,7 @@ add_library(dingosdk_custom_level_manifest STATIC
 target_link_libraries(dingosdk_custom_level_manifest PUBLIC dingosdk_json)
 target_link_libraries(dingosdk_runtime PRIVATE dingosdk_custom_level_manifest)
 
-set_target_properties(dingosdk_runtime PROPERTIES OUTPUT_NAME "ReSkate+" PREFIX "")
+set_target_properties(dingosdk_runtime PROPERTIES OUTPUT_NAME "ReSkatePlus" PREFIX "")
 
 # The game as a Spotify Connect device (Extension/Music/spotify_device.h): SpotifyHelper/, a
 # Rust library on librespot, built by cargo and linked into ReSkate.dll. Without cargo the DLL
@@ -269,7 +269,7 @@ if(WIN32 AND DINGOSDK_CARGO AND EXISTS "${dingosdk_spotify_dir}/Cargo.toml")
 else()
     target_compile_definitions(dingosdk_runtime PRIVATE DINGOSDK_SPOTIFY_DEVICE=0)
 endif()
-dingosdk_version_info(dingosdk_runtime "ReSkate+ Mod Runtime" "ReSkate+.dll" VFT_DLL)
+dingosdk_version_info(dingosdk_runtime "ReSkate+ Mod Runtime" "ReSkatePlus.dll" VFT_DLL)
 target_include_directories(dingosdk_runtime SYSTEM PRIVATE "${PROJECT_SOURCE_DIR}/External/steam_networking")
 target_link_libraries(dingosdk_runtime PRIVATE dingosdk_lz4 dingosdk_zstd)
 
@@ -281,7 +281,7 @@ file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/generated/menu_fonts.rc"
     "FONT_BRUSH RCDATA \"${dingosdk_menu_fonts}/PermanentMarker-Regular.ttf\"\n")
 target_sources(dingosdk_runtime PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated/menu_fonts.rc")
 
-# The startup window's picture (PNG or JPEG), built into ReSkate+.dll when the
+# The startup window's picture (PNG or JPEG), built into ReSkatePlus.dll when the
 # repository has one. ReSkate.Splash.png/.jpg beside the DLL still takes
 # precedence at run time.
 set(dingosdk_startup_art "${PROJECT_SOURCE_DIR}/assets/startup_splash.png")

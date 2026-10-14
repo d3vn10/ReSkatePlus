@@ -301,7 +301,8 @@ bool objects_solid(Session &s, std::uint64_t id) {
     }
     return choice->second;
 }
-void send_typing(Session &s, bool on) {
+void send_typing(Session& s, bool on) {
+    if (std::to_string(dingosdk::multiplayer::protocol_version) == "50") return;
     if (s.mode != Mode::host && s.mode != Mode::join) return;
     const auto now = now_us();
     s.local_typing_until = on ? now + typing_hold_us : 0;
@@ -443,7 +444,7 @@ void broadcast(Session &s, const Packet &packet, bool reliable, bool fresh, std:
         auto &data = encoded[variant];
         if (!data.ready) {
             // Only a pose's encoding carries its interval.
-            data.raw = packet.kind == PacketKind::pose ? encode(packet, true, interval) : encode(packet, true);
+            data.raw = packet.kind == PacketKind::pose ? encode(packet, true, interval) : encode(packet, true, packet.pose_interval_us);
             data.wire = encode_wire_bytes(data.raw);
             data.ready = true;
         }
@@ -732,7 +733,7 @@ void send_local(Session &s, const NativeFrame &local, std::uint64_t now, std::ui
     ++s.local_pose_count;
     if (s.pose_dump.is_open()) {
         // A record: when it was captured (8 bytes), its length (4), and the compact encoding.
-        const auto raw = encode(p, true);
+        const auto raw = encode(p, true, p.pose_interval_us);
         const std::uint64_t time = p.time_us;
         const auto length = static_cast<std::uint32_t>(raw.size());
         s.pose_dump.write(reinterpret_cast<const char *>(&time), sizeof time);
@@ -751,7 +752,7 @@ void send_local(Session &s, const NativeFrame &local, std::uint64_t now, std::ui
         a.audio = std::move(samples);
         if (s.pose_dump.is_open()) {
             // The skater's sound is recorded with the poses, in the same records.
-            const auto raw = encode(a, true);
+            const auto raw = encode(a, true, a.pose_interval_us);
             const std::uint64_t time = a.time_us;
             const auto length = static_cast<std::uint32_t>(raw.size());
             s.pose_dump.write(reinterpret_cast<const char *>(&time), sizeof time);

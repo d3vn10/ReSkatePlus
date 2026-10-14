@@ -13,6 +13,8 @@
 namespace dingosdk::overlay {
     using namespace menu;
     namespace menu {
+        std::optional<multiplayer::IdentityList> current_identity;
+
         using namespace theme;
 
         // Set once per frame in draw_skate_menu, then read through px() while the menu
@@ -261,7 +263,7 @@ namespace dingosdk::overlay {
     }
 
     namespace {
-        // The menu fonts are built into ReSkate+.dll (External/fonts, shared with the
+        // The menu fonts are built into ReSkatePlus.dll (External/fonts, shared with the
         // launcher); Windows fonts are the fallback.
         ImFont* embedded_font(const wchar_t* name, float size, const ImWchar* ranges) {
             HMODULE module{};
@@ -306,7 +308,7 @@ namespace dingosdk::overlay {
             ImFontConfig config;
             config.SizePixels = size;
             return atlas->AddFontDefault(&config);
-            };
+        };
         // Every role has a Windows font and then ImGui's own font as fallbacks.
         atlas->AddFontDefault();
         menu.body = font(L"FONT_BODY", "arial.ttf", 17);
@@ -375,9 +377,8 @@ namespace dingosdk::overlay {
             // Developer (the network view) is hidden for now; offline there is no Multiplayer either.
             // Special is only there for a player the backend lists.
             const auto hidden = [&](int page) {
-                return page == /*developer ||*/ (model.steam_offline && page == multiplayer) /*||
-                       (page == special && model.multiplayer.identity_tag.empty())*/;
-                };
+                return (model.steam_offline && page == multiplayer);
+            };
             if (hidden(menu.page)) menu.page = map;
             ImGui::SetCursorPos(ImVec2(px(10), px(96)));
             ImGui::BeginChild("navigation", ImVec2(sidebar - px(20), size.y - px(140)), ImGuiChildFlags_None);
@@ -433,9 +434,7 @@ namespace dingosdk::overlay {
             case multiplayer: multiplayer_page(menu, model, callbacks); break;
             case progress: progression_page(menu, model, callbacks); break;
             case mods:
-                // The SCRIPTS tab (custom Lua scripts, modding_menu.cpp) is not offered for now:
-                // nothing uses them. The page is the installed mods.
-                menu.mods_tab = 0;
+                category_tabs(menu, menu.mods_tab, { "INSTALLED", "SCRIPTS" }, "mods-tabs");
                 ImGui::PushID(menu.mods_tab);
                 ImGui::BeginChild("mods-tab", ImVec2(0, page_body_height(menu)));
                 draw_modding_menu(menu, menu.mods_tab, model, callbacks);

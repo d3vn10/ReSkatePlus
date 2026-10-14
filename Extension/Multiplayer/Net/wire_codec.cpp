@@ -23,7 +23,7 @@ void put(std::vector<std::uint8_t> &bytes, std::size_t at, std::size_t value) {
 }
 } // namespace
 std::vector<std::uint8_t> encode_wire(const Packet &packet) {
-    return encode_wire_bytes(encode(packet, true));
+    return encode_wire_bytes(encode(packet, true, packet.pose_interval_us));
 }
 std::vector<std::uint8_t> encode_wire_bytes(std::span<const std::uint8_t> raw) {
     if (raw.size() < 256)

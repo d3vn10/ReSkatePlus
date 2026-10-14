@@ -298,6 +298,7 @@ void update_local_customization() noexcept {
     auto& s = local_runtime();
     if (!s.active.load(std::memory_order_acquire)) return;
     std::lock_guard lock(s.native_mutex);
+
     try {
         auto& c = cosmetic_runtime();
         const auto thread = GetCurrentThreadId();
@@ -307,10 +308,29 @@ void update_local_customization() noexcept {
             publish_cosmetic_catalog();
             publish_cosmetic_inventory();
         }
-    } catch (...) {
+    /*} catch (...) {
         cosmetic_runtime().catalog_failed = true;
         dingosdk::logging::event(dingosdk::logging::Channel::profile, "{\"event\":\"local_cosmetic_catalog_failed\"}");
+    }*/
+    } catch (const std::exception& e) {
+        cosmetic_runtime().catalog_failed = true;
+        dingosdk::logging::log(
+            dingosdk::logging::Level::error,
+            dingosdk::logging::Channel::profile,
+            "!!! LOOK HERE !!! > Local cosmetic catalog update failed: {}", e.what()
+        );
+        dingosdk::logging::event(
+            dingosdk::logging::Channel::profile,
+            "!!! LOOK HERE !!! > {\"event\":\"local_cosmetic_catalog_failed\"}"
+        );
+    } catch (...) {
+        cosmetic_runtime().catalog_failed = true;
+        dingosdk::logging::event(
+            dingosdk::logging::Channel::profile,
+            "!!! LOOK HERE !!! > {\"event\":\"local_cosmetic_catalog_failed\",\"reason\":\"unknown_exception\"}"
+        );
     }
+
     try { update_challenge_catalog(); update_challenge_requests(); update_selected_challenge_progress(); }
     catch (...) { dingosdk::logging::event(dingosdk::logging::Channel::profile, "{\"event\":\"local_challenge_update_failed\"}"); }
     try { update_location_travel(); }

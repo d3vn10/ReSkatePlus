@@ -26,47 +26,57 @@
 
 namespace dingosdk::frostbite::material_grid {
 
-inline constexpr std::uint32_t physicsResourceType = 0x41759364;
+    inline constexpr std::uint32_t physicsResourceType = 0x41759364;
 
-// How one mod's slot numbers land in the combined grid: `slots[s]` is where its
-// slot s now lives. Packed words whose slots are out of range fall to slot 0.
-struct SlotMap {
-    std::vector<std::uint32_t> slots;
+    // How one mod's slot numbers land in the combined grid: `slots[s]` is where its
+    // slot s now lives. Packed words whose slots are out of range fall to slot 0.
+    struct SlotMap {
+        std::vector<std::uint32_t> slots;
 
-    [[nodiscard]] bool identity() const noexcept;
-    [[nodiscard]] std::uint32_t remap(std::uint32_t packed) const noexcept;
-    // Everything past `baseSlots` goes to the default surface: for a grid that
-    // could not be combined, which beats reading past the live grid.
-    [[nodiscard]] static SlotMap to_default(std::size_t baseSlots, std::size_t slots);
-};
+        [[nodiscard]] bool identity() const noexcept;
+        [[nodiscard]] std::uint32_t remap(std::uint32_t packed) const noexcept;
+        // Everything past `baseSlots` goes to the default surface: for a grid that
+        // could not be combined, which beats reading past the live grid.
+        [[nodiscard]] static SlotMap to_default(std::size_t baseSlots, std::size_t slots);
+    };
 
-class Combiner final {
-public:
-    explicit Combiner(const ebx::Document& base);
+    class Combiner final {
+    public:
+        explicit Combiner(const ebx::Document& base);
 
-    // Appends what `edit` adds to the base grid. Throws, leaving the combined
-    // grid as it was, when the edit is not a copy of this base with additions.
-    SlotMap add(const ebx::Document& edit);
+        // Appends what `edit` adds to the base grid. Throws, leaving the combined
+        // grid as it was, when the edit is not a copy of this base with additions.
+        SlotMap add(const ebx::Document& edit);
 
-    [[nodiscard]] std::size_t base_slots() const noexcept { return baseSlots_; }
-    [[nodiscard]] std::size_t slots() const noexcept { return slots_; }
-    [[nodiscard]] std::size_t added_slots() const noexcept { return slots_ - baseSlots_; }
-    [[nodiscard]] std::size_t carried_instances() const noexcept { return carried_; }
-    [[nodiscard]] std::size_t reused_instances() const noexcept { return reused_; }
+        [[nodiscard]] std::size_t base_slots() const noexcept {
+            return baseSlots_;
+        }
+        [[nodiscard]] std::size_t slots() const noexcept {
+            return slots_;
+        }
+        [[nodiscard]] std::size_t added_slots() const noexcept {
+            return slots_ - baseSlots_;
+        }
+        [[nodiscard]] std::size_t carried_instances() const noexcept {
+            return carried_;
+        }
+        [[nodiscard]] std::size_t reused_instances() const noexcept {
+            return reused_;
+        }
 
-    // The combined grid, identity (file and root guid, name) unchanged.
-    [[nodiscard]] ebx::Document result() const;
+        // The combined grid, identity (file and root guid, name) unchanged.
+        [[nodiscard]] ebx::Document result() const;
 
-private:
-    ebx::Document combined_;
-    std::size_t baseSlots_{}, baseRows_{}, baseNetwork_{};
-    std::vector<std::uint64_t> baseIndexMap_, baseNetworkIds_;
-    std::size_t slots_{}, rows_{};
-    std::size_t carried_{}, reused_{};
-};
+    private:
+        ebx::Document combined_;
+        std::size_t baseSlots_{}, baseRows_{}, baseNetwork_{};
+        std::vector<std::uint64_t> baseIndexMap_, baseNetworkIds_;
+        std::size_t slots_{}, rows_{};
+        std::size_t carried_{}, reused_{};
+    };
 
-// Rewrites every part's packed material in a PhysicsResource payload (version 0
-// or 2) through `map`; returns how many parts changed.
-std::size_t remap_physics(std::span<std::byte> payload, const SlotMap& map);
+    // Rewrites every part's packed material in a PhysicsResource payload (version 0
+    // or 2) through `map`; returns how many parts changed.
+    std::size_t remap_physics(std::span<std::byte> payload, const SlotMap& map);
 
 } // namespace dingosdk::frostbite::material_grid

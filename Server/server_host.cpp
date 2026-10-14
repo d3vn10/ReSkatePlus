@@ -334,7 +334,7 @@ void Host::send_required(Guest &g, const std::vector<std::uint8_t> &bytes) {
         transport_.disconnect(g.member.id, "Cannot deliver required session data. Join again.");
 }
 void Host::measure_pose(Guest &from, const Packet &packet) {
-    auto raw = encode(packet, true);
+    auto raw = encode(packet, true, packet.pose_interval_us);
     // As DeltaSender would send it: the patch packed, behind its 34 byte header.
     const auto cost = [&](const Guest::Earlier &reference) -> std::uint64_t {
         if (reference.raw.empty()) return 0;
@@ -640,7 +640,7 @@ void Host::broadcast(const Packet &packet, bool reliable, bool fresh, std::uint6
                 if (config_.bone_scale_limit >= 1.f) limit_bone_scale(data.packet.pose, config_.bone_scale_limit);
                 limit_bone_reach(data.packet.pose, config_.bone_reach_limit);
             }
-            data.raw = encode(data.packet, true);
+            data.raw = encode(data.packet, true, data.packet.pose_interval_us);
             data.wire = encode_wire_bytes(data.raw);
         }
         outgoing.push_back({&p, id, p.sender.prepare(data.packet, data.raw, data.wire, data.deltas), delivery, slot ? slot : interval, variant});
@@ -1269,7 +1269,7 @@ void Host::receive(std::uint64_t peer, std::span<const std::uint8_t> bytes, std:
     // Grey dots above the sender. Not a chat line, and not logged. A player who may not
     // chat sends none. "On" is held to a few a second, and "off" is passed on only after an
     // "on", so neither can flood the relay.
-    if (p.kind == PacketKind::typing) {
+    if (std::to_string(dingosdk::multiplayer::protocol_version) == "51" && p.kind == PacketKind::typing) {
         if (!routed_source(p, link->member, peer, true, id_) || !may(peer, multiplayer::role_chat)) return;
         if (p.typing) {
             if (link->typing_notice && now_ < link->typing_notice + 200000) return;

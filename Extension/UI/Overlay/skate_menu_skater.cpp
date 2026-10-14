@@ -12,7 +12,7 @@ float trailing_width(const char* label) {
     return ImGui::CalcTextSize(label).x + ImGui::GetStyle().FramePadding.x * 2;
 }
 }
-void camera_controls(SkateMenu& menu, const Model& model, const CallbacksV3& callbacks) {
+static void camera_controls(SkateMenu& menu, const Model& model, const CallbacksV3& callbacks) {
     const auto& debug = model.debug;
     begin_card(menu, "freecam", "FREECAM");
     bool flight = debug.free_camera;
@@ -143,7 +143,7 @@ void camera_controls(SkateMenu& menu, const Model& model, const CallbacksV3& cal
     end_card();
 }
 
-void movement_controls(SkateMenu& menu, const Model& model, const CallbacksV3& callbacks) {
+static void movement_controls(SkateMenu& menu, const Model& model, const CallbacksV3& callbacks) {
     const auto& debug = model.debug;
     begin_card(menu, "movement", "FLIGHT & BAILS");
     bool noclip = debug.noclip;

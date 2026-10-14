@@ -6,10 +6,11 @@
 
 #include <algorithm>
 #include <array>
+#include <Extension/Multiplayer/Net/protocol.h>
 
 // The SETTINGS and DEVELOPER pages.
 namespace dingosdk::overlay::menu {
-    void ui_page(SkateMenu& menu, const Model& model, const CallbacksV3& callbacks) {
+    static void ui_page(SkateMenu& menu, const Model& model, const CallbacksV3& callbacks) {
         begin_card(menu, "music-playback", "MUSIC PLAYBACK");
         bool shuffle = dingosdk::profile_runtime::music_shuffle_enabled();
         if (toggle_row(menu, "Shuffle playlists", "Off plays songs in playlist order. On shuffles.", shuffle,
@@ -63,10 +64,22 @@ namespace dingosdk::overlay::menu {
             dingosdk::profiler::set_window(window);
         note("Console: perf, perf sample [seconds] [client|present|thread id], perf report, perf status.");
         end_card();
+
+        begin_card(menu, "protocol", "PROTOCOL");
+        int current_protocol = std::to_string(dingosdk::multiplayer::protocol_version) == "51" ? 1 : 0;
+        if (choice(menu, "protocol-version", current_protocol, { "50 (2.0.7)", "51 (2.0.8)" }, !model.multiplayer.active)) {
+            dingosdk::multiplayer::protocol_version = current_protocol == 1 ? 51 : 50;
+            std::string new_ver = "Protocol version has been changed to: " + std::to_string(dingosdk::multiplayer::protocol_version);
+            feedback(menu, new_ver.c_str());
+        }
+        
+        end_card();
+
+        multiplayer_network_page(menu, model, callbacks);
         if (!model.steam_offline) multiplayer_display_settings(menu, model);
     }
 
-    void binds_page(SkateMenu& menu, const Model& model, const CallbacksV3& callbacks) {
+    static void binds_page(SkateMenu& menu, const Model& model, const CallbacksV3& callbacks) {
         begin_card(menu, "controller-binds", "ACTION BINDS");
         const bool available = model.bindings.available && callbacks.queue_console_command;
         const auto save = [&](int action, std::uint32_t combo) {

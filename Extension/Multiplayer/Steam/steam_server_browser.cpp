@@ -164,7 +164,7 @@ std::optional<MultiplayerLobby> read_server_tags(std::string_view tags, std::uin
     row.code = format_invite({steam_id, secret});
     row.name = tidy(row.name, 64);
     row.map = tidy(row.map, 128);
-    if (row.name.empty()) row.name = "ReSkate server";
+    if (row.name.empty()) row.name = "ReSkate Server";
     return row;
 }
 

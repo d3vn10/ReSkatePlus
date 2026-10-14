@@ -6,8 +6,8 @@ if(WIN32)
         Launcher/updater.cpp Launcher/mod_manager.cpp Launcher/mod_profiles.cpp Launcher/thunderstore.cpp Launcher/problem.h)
     target_link_libraries(dingosdk_launcher PRIVATE dingosdk_logging dingosdk_content_cache_install dingosdk_world_layer_scan dingosdk_launcher_support dingosdk_initfs
         dingosdk_mod_list dingosdk_mods dingosdk_json dingosdk_miniz dingosdk_imgui dingosdk_playstation_input winhttp shell32 dwmapi windowscodecs ole32)
-    set_target_properties(dingosdk_launcher PROPERTIES OUTPUT_NAME "ReSkate+ Launcher")
-    dingosdk_version_info(dingosdk_launcher "ReSkate+ Launcher" "ReSkate+ Launcher.exe" VFT_APP)
+    set_target_properties(dingosdk_launcher PROPERTIES OUTPUT_NAME "ReSkatePlusLauncher")
+    dingosdk_version_info(dingosdk_launcher "ReSkatePlusLauncher" "ReSkatePlusLauncher.exe" VFT_APP)
 endif()
 
 option(DINGOSDK_BUILD_LAUNCHER_TESTS "Build launcher mod manager regression tests" OFF)
@@ -76,6 +76,10 @@ if(DINGOSDK_BUILD_LAUNCHER_TESTS AND WIN32)
     target_link_libraries(dingosdk_mod_music_tests PRIVATE dingosdk_mods)
     target_include_directories(dingosdk_mod_music_tests PRIVATE "${PROJECT_SOURCE_DIR}")
     add_test(NAME mod_music COMMAND dingosdk_mod_music_tests)
+    add_executable(dingosdk_mod_dump_tests Engine/Vfs/Test/mod_dump_tests.cpp)
+    target_link_libraries(dingosdk_mod_dump_tests PRIVATE dingosdk_mods)
+    target_include_directories(dingosdk_mod_dump_tests PRIVATE "${PROJECT_SOURCE_DIR}")
+    add_test(NAME mod_dump COMMAND dingosdk_mod_dump_tests)
     add_executable(dingosdk_music_safety_tests Extension/Music/Test/local_music_safety_tests.cpp)
     target_include_directories(dingosdk_music_safety_tests PRIVATE "${PROJECT_SOURCE_DIR}")
     dingosdk_configure_target(dingosdk_music_safety_tests)
@@ -158,7 +162,7 @@ if(WIN32)
 endif()
 
 # Off for local builds so a deployed development DLL is never replaced by a release.
-option(DINGOSDK_LAUNCHER_AUTO_UPDATE "Let the launcher replace itself and ReSkate+.dll from the launcher config" OFF)
+option(DINGOSDK_LAUNCHER_AUTO_UPDATE "Let the launcher replace itself and ReSkatePlus.dll from the launcher config" OFF)
 
 # Updates come from the public GitHub releases of DINGOSDK_RELEASE_REPO: the launcher and
 # server read launcher.json (game depot/manifest and the pinned downloads) from the latest

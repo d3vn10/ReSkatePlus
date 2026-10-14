@@ -548,8 +548,8 @@ void networking(Session &s, const NativeFrame &local, std::uint64_t now) {
     std::vector<Packet> batch;
     std::size_t batch_at{};
     for (std::size_t index = 0; index < messages.size(); batch_at < batch.size() ? index : ++index) {
-        const auto &message = messages[index];
-        auto *link = find_peer(s, message.peer);
+        const auto& message = messages[index];
+        auto* link = find_peer(s, message.peer);
         if (!link) {
             batch.clear();
             batch_at = 0;
@@ -560,15 +560,15 @@ void networking(Session &s, const NativeFrame &local, std::uint64_t now) {
         if (!resumed) {
             batch.clear();
             batch_at = 0;
-        if (!link->budget.accept(message.arrived ? message.arrived : now, message.bytes.size(),
-                                 s.mode == Mode::join && !direct_link ? max_remote_players : 1U)) {
-            disconnect(s, message.peer, "Peer exceeded the multiplayer packet limit.");
-            if (s.mode == Mode::off)
-                return;
-            continue;
-        }
-        if (stale[index])
-            continue;
+            if (!link->budget.accept(message.arrived ? message.arrived : now, message.bytes.size(),
+                s.mode == Mode::join && !direct_link ? max_remote_players : 1U)) {
+                disconnect(s, message.peer, "Peer exceeded the multiplayer packet limit.");
+                if (s.mode == Mode::off)
+                    return;
+                continue;
+            }
+            if (stale[index])
+                continue;
             // A dedicated server's own messages (pose_batch.h, sound_codec.h). Only what comes
             // from the server is read as one: sound_codec's first four bytes are also those of
             // the pose updates games send each other directly (delta_codec's "RMS1"), which
@@ -609,13 +609,14 @@ void networking(Session &s, const NativeFrame &local, std::uint64_t now) {
                     : std::format("it names another sender, {} (kind {})", decoded->source, static_cast<int>(decoded->kind)),
                     message.bytes.size(), start, direct_link ? "a direct" : "the host's", batch.empty() ? "" : ", one of a batch",
                     s.mode == Mode::join && dedicated_host(s) ? ", a dedicated server" : "");
-            } catch (...) {}
+            } catch (...) {
+            }
             disconnect(s, message.peer, "Join code, sender identity, or multiplayer protocol did not match.");
             if (s.mode == Mode::off)
                 return;
             continue;
         }
-        const auto &p = *decoded;
+        const auto& p = *decoded;
         // A dedicated server sends no poses; its roster and control traffic keep it alive.
         if (dedicated_host(s) && message.peer == s.host_id) link->last_packet = now;
         if (p.kind == PacketKind::world_state) {
@@ -627,7 +628,7 @@ void networking(Session &s, const NativeFrame &local, std::uint64_t now) {
                 continue;
             }
             if (p.world < s.world || (p.world == s.world && s.world_state_sequence &&
-                                     !newer_sequence(p.sequence, s.world_state_sequence)))
+                !newer_sequence(p.sequence, s.world_state_sequence)))
                 continue;
             if (p.world > s.world) {
                 clear_world(s, now);
@@ -661,7 +662,7 @@ void networking(Session &s, const NativeFrame &local, std::uint64_t now) {
             link->last_packet = now;
             if (s.travelling)
                 s.status = p.world_ready ? "Host map ready. Waiting for local loading..."
-                                        : "The host is changing maps. Your session stays connected.";
+                : "The host is changing maps. Your session stays connected.";
             continue;
         }
         if (p.kind == PacketKind::world_ready) {
@@ -682,7 +683,7 @@ void networking(Session &s, const NativeFrame &local, std::uint64_t now) {
             if (p.world_ready) link->travel_since = 0;
             if (arrived) {
                 send_required(s, message.peer, s.cosmetic_packet);
-                for (const auto &other : active_peers(s))
+                for (const auto& other : active_peers(s))
                     if (other.handshaken && other.member.id != message.peer)
                         send_required(s, message.peer, other.cosmetic_packet);
             }
@@ -772,7 +773,7 @@ void networking(Session &s, const NativeFrame &local, std::uint64_t now) {
             if (!world_playing(s, local)) continue;
             if (!direct_link || !link->handshaken ||
                 !greeting_error(p, s.secret, local.ready ? s.map : 0, supported_build::game_sha256_bytes,
-                                link->member.epoch)
+                link->member.epoch)
                      .empty()) {
                 disconnect(s, message.peer, "Direct peer is not admitted to this session.");
                 if (s.mode == Mode::off)
@@ -794,7 +795,7 @@ void networking(Session &s, const NativeFrame &local, std::uint64_t now) {
         if (p.kind == PacketKind::challenge) {
             if (s.mode != Mode::join || message.peer != s.host_id || p.source != s.host_id || !p.challenge ||
                 !greeting_error(p, s.secret, local.ready ? s.map : 0, supported_build::game_sha256_bytes,
-                                link->member.epoch)
+                link->member.epoch)
                      .empty()) {
                 disconnect(s, message.peer, "Invalid lobby password challenge.");
                 if (s.mode == Mode::off)
@@ -860,7 +861,7 @@ void networking(Session &s, const NativeFrame &local, std::uint64_t now) {
                     if (!s.tuning_packet.empty()) send_required(s, message.peer, s.tuning_packet);
                     if (!s.extras_packet.empty()) send_required(s, message.peer, s.extras_packet);
                     send_required(s, message.peer, s.cosmetic_packet);
-                    for (const auto &other : active_peers(s))
+                    for (const auto& other : active_peers(s))
                         if (other.handshaken && other.member.id != message.peer)
                             send_required(s, message.peer, other.cosmetic_packet);
                 }
@@ -900,8 +901,8 @@ void networking(Session &s, const NativeFrame &local, std::uint64_t now) {
                 link->direct_routes.clear();
                 // Reports can cross a roster update during a departure/rejoin.
                 // Discard stale entries, never disconnect healthy reporters.
-                for (const auto &m : p.members) {
-                    const auto *other = find_peer(s, m.id);
+                for (const auto& m : p.members) {
+                    const auto* other = find_peer(s, m.id);
                     if (other && other->handshaken && other->member.epoch == m.epoch && m.id != message.peer)
                         link->direct_routes.push_back(m);
                 }
@@ -956,7 +957,7 @@ void networking(Session &s, const NativeFrame &local, std::uint64_t now) {
         if (p.kind == PacketKind::next_maps) {
             if (dedicated_host(s) && message.peer == s.host_id && p.source == s.host_id) {
                 std::vector<NextMapWanted> maps;
-                for (const auto &map : p.next_maps) maps.push_back({clean_chat_text(map.name), map.package});
+                for (const auto& map : p.next_maps) maps.push_back({ clean_chat_text(map.name), map.package });
                 set_next_maps(std::move(maps));
             }
             continue;
@@ -995,7 +996,7 @@ void networking(Session &s, const NativeFrame &local, std::uint64_t now) {
             if (s.mode == Mode::join) {
                 if (message.peer == s.host_id && p.source == s.host_id) receive_party(s, p, now);
             } else if (s.mode == Mode::host) {
-                auto *sender = find_peer(s, p.source);
+                auto* sender = find_peer(s, p.source);
                 if (!direct_link && sender && sender->handshaken && message.peer == p.source &&
                     routed_source(p, sender->member, message.peer, true, s.host_id) && sender->party_budget.accept(now, 20))
                     host_party_request(s, p.source, p.party_action, p.party_player, now);
@@ -1012,7 +1013,7 @@ void networking(Session &s, const NativeFrame &local, std::uint64_t now) {
         // Chat is accepted while either side is still loading a map: it needs
         // only an authenticated sender, never the world.
         if (p.kind == PacketKind::chat) {
-            auto *sender = find_peer(s, p.source);
+            auto* sender = find_peer(s, p.source);
             if (!sender || !sender->handshaken) continue;
             // Another guest's own copy of a line they said: proof of the host's, never a line.
             if (direct_link) {
@@ -1050,25 +1051,27 @@ void networking(Session &s, const NativeFrame &local, std::uint64_t now) {
             if (s.mode == Mode::host) broadcast(s, p, true, false, now, p.source);
             continue;
         }
-        // Grey dots above the sender. Not a chat line. "On" is held to a few a second so a
-        // modified client cannot flood the relay, and "off" only clears dots that are up, so
-        // it cannot outpace "on".
-        if (p.kind == PacketKind::typing) {
-            auto *sender = find_peer(s, p.source);
-            if (direct_link || !sender || !sender->handshaken) continue;
-            if (!routed_source(p, sender->member, message.peer, s.mode == Mode::host, s.host_id))
+        if (std::to_string(dingosdk::multiplayer::protocol_version) == "51") {
+            // Grey dots above the sender. Not a chat line. "On" is held to a few a second so a
+            // modified client cannot flood the relay, and "off" only clears dots that are up, so
+            // it cannot outpace "on".
+            if (p.kind == PacketKind::typing) {
+                auto *sender = find_peer(s, p.source);
+                if (direct_link || !sender || !sender->handshaken) continue;
+                if (!routed_source(p, sender->member, message.peer, s.mode == Mode::host, s.host_id))
+                    continue;
+                if (p.typing) {
+                    if (sender->typing_notice && now < sender->typing_notice + 200000) continue;
+                    sender->typing_notice = now;
+                    sender->typing_until = now + typing_hold_us;
+                } else {
+                    if (!sender->typing_until) continue;
+                    sender->typing_until = 0;
+                }
+                sender->last_packet = now;
+                if (s.mode == Mode::host) broadcast(s, p, true, false, now, p.source);
                 continue;
-            if (p.typing) {
-                if (sender->typing_notice && now < sender->typing_notice + 200000) continue;
-                sender->typing_notice = now;
-                sender->typing_until = now + typing_hold_us;
-            } else {
-                if (!sender->typing_until) continue;
-                sender->typing_until = 0;
             }
-            sender->last_packet = now;
-            if (s.mode == Mode::host) broadcast(s, p, true, false, now, p.source);
-            continue;
         }
         // Throwdown messages are relayed like chat, but only within one map: a drop
         // belongs to the world it was placed in.

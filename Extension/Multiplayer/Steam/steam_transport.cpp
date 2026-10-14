@@ -1050,7 +1050,7 @@ bool SteamTransport::socket_test() {
     probe.kind = PacketKind::away;
     probe.session = 1;
     probe.epoch = 1;
-    const auto bytes = encode(probe);
+    const auto bytes = encode(probe, false, probe.pose_interval_us);
     const bool prioritized = p.lanes.setup(p.sockets, a);
     for (unsigned lane = 0; lane < (prioritized ? 3U : 1U); ++lane) {
         const auto result = prioritized

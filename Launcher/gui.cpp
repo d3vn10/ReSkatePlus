@@ -376,7 +376,7 @@ int run(const launcher_app::Session& session, const std::vector<std::wstring>& a
     logging::log(logging::Level::info, logging::Channel::launcher,
         "Launcher window: {}x{} at scale {:.2f} (system DPI {}), work area {}x{}.", width, height, g_scale,
         GetDpiForSystem(), work.right - work.left, work.bottom - work.top);
-    const HWND window = CreateWindowExW(WS_EX_APPWINDOW, window_class.lpszClassName, L"ReSkate+",
+    const HWND window = CreateWindowExW(WS_EX_APPWINDOW, window_class.lpszClassName, L"ReSkatePlus",
         WS_POPUP | WS_MINIMIZEBOX | WS_SYSMENU, work.left + (work.right - work.left - width) / 2,
         work.top + (work.bottom - work.top - height) / 2, width, height, nullptr, nullptr, instance, nullptr);
     if (!window) throw std::runtime_error("Cannot create the launcher window");

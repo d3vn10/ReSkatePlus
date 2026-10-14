@@ -1,6 +1,11 @@
 #include "external_player.h"
+#ifndef DINGOSDK_EXTERNAL_PLAYER_PROVIDERS
+#define DINGOSDK_EXTERNAL_PLAYER_PROVIDERS 1
+#endif
+#if DINGOSDK_EXTERNAL_PLAYER_PROVIDERS
 #include "spotify_device.h"
 #include "youtube_music.h"
+#endif
 #include <Windows.h>
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Foundation.Collections.h>
@@ -187,15 +192,25 @@ void use_app(const std::string& executable) {
     wanted_app = name;
 }
 Track now() {
+#if DINGOSDK_EXTERNAL_PLAYER_PROVIDERS
     if (youtube_music::on()) return youtube_music::now();
     if (!others() && spotify_device::connected()) return spotify_device::now();
+#endif
     std::lock_guard lock(mutex);
     return current;
 }
-std::uint64_t revision() noexcept { return revision_value.load() + (spotify_device::revision() << 24) + (youtube_music::revision() << 40) + (youtube_music::on() ? 1ull << 62 : 0); }
+std::uint64_t revision() noexcept {
+#if DINGOSDK_EXTERNAL_PLAYER_PROVIDERS
+    return revision_value.load() + (spotify_device::revision() << 24) + (youtube_music::revision() << 40) + (youtube_music::on() ? 1ull << 62 : 0);
+#else
+    return revision_value.load();
+#endif
+}
 void send(Command command) noexcept {
+#if DINGOSDK_EXTERNAL_PLAYER_PROVIDERS
     if (youtube_music::on()) return youtube_music::send(command);
     if (!others() && spotify_device::connected()) return spotify_device::send(command);
+#endif
     try {
         {
             std::lock_guard lock(mutex);

@@ -70,8 +70,8 @@ bool contains(std::string_view value, std::string_view query) {
 } // namespace
 
 void bus_stops(SkateMenu& menu, const ProgressionModel& model, const CallbacksV3& callbacks) {
-    constexpr const char* maps[]{"All maps", "San Vansterdam", "Isle of Grom", "Super Ultra Mega Resort"};
-    choice(menu, "bus-map", menu.bus_stop_map, {"All maps", "San Vansterdam", "Isle of Grom", "Mega Resort"});
+    constexpr const char* maps[]{"All Maps", "San Vansterdam", "Isle of Grom", "Super Ultra Mega Resort"};
+    choice(menu, "bus-map", menu.bus_stop_map, {"All Maps", "San Vansterdam", "Isle of Grom", "Mega Resort"});
     std::vector<const BusStopRow*> rows;
     for (const auto& row : model.bus_stops)
         if (!menu.bus_stop_map || static_cast<int>(row.world) + 1 == menu.bus_stop_map) rows.push_back(&row);
@@ -91,7 +91,7 @@ void bus_stops(SkateMenu& menu, const ProgressionModel& model, const CallbacksV3
         if (choice(menu, "state", state, {"Hidden", "Locked", "Unlocked"}, true, states))
             progression_request(menu, callbacks, "busstop " + std::to_string(row.number) + " " + std::to_string(state));
         char title[32];
-        std::snprintf(title, sizeof(title), "Bus stop %03u", row.number);
+        std::snprintf(title, sizeof(title), "Bus Stop %03u", row.number);
         tile_text(menu, tile, title, maps[static_cast<unsigned>(row.world) + 1], right - states - px(12));
         end_tile(tile);
         ImGui::PopID();
@@ -194,6 +194,14 @@ void progression_profile(SkateMenu& menu, const ProgressionModel& model, const C
         ImGui::EndDisabled();
         if (!valid) warn("Use score 0 to cap, cap 1 to 1,000,000,000, and level 1 to 10,000.");
     } else note("No saved RIP score is configured for this profile.");
+    end_card();
+    begin_card(menu, "unlocks", "UNLOCKS");
+    bool everything = model.everything_unlocked;
+    if (toggle_row(menu, "Unlock every item",
+            "Own every cosmetic and object in the game's catalogue, including store and premium pass items. "
+            "Applies the next time the game starts.",
+            everything, callbacks.queue_console_command != nullptr))
+        progression_request(menu, callbacks, std::string("unlockall ") + (everything ? "1" : "0"));
     end_card();
     begin_card(menu, "district-levels", "DISTRICT LEVELS");
     ImGui::BeginDisabled(!callbacks.queue_console_command);

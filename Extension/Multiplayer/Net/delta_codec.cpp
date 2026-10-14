@@ -23,7 +23,7 @@ std::uint64_t get(std::span<const std::uint8_t> b, std::size_t at, unsigned n) {
 }
 } // namespace
 WireUpdate DeltaSender::prepare(const Packet &p) const {
-    const auto raw = encode(p, true);
+    const auto raw = encode(p, true, p.pose_interval_us);
     return prepare(p, raw, encode_wire_bytes(raw));
 }
 WireUpdate DeltaSender::prepare(const Packet &p, std::span<const std::uint8_t> raw,
