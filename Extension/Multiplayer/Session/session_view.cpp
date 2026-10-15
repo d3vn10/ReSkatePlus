@@ -14,7 +14,7 @@
 #include <utility>
 #include <algorithm>
 #include <charconv>
-#include <Extension/UI/Overlay/skate_menu_internal.h>
+#include "Extension/Multiplayer/identity_selection.h"
 
 namespace dingosdk::multiplayer::session_detail {
 // ---- saved host settings ("ReSkate.Host.*" in the local profile)

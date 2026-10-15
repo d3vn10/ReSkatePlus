@@ -1,11 +1,11 @@
 #pragma once
 #include "skate_menu.h"
+#include "Extension/Multiplayer/identity_selection.h"
 #include <initializer_list>
 #include <string>
 #include <Extension/Multiplayer/developer_identity.h>
 
 namespace dingosdk::overlay::menu {
-    extern std::optional<multiplayer::IdentityList> current_identity;
     // The menu chrome is laid out in pixels; px() applies the user's menu scale to
     // one of those measurements. Only valid while the menu is drawing.
     float px(float value);

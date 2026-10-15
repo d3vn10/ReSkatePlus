@@ -62,6 +62,7 @@ std::string json_string(std::string_view value) {
 void write_glb(const fs::path& path, const fb::SkinnedMesh& mesh, std::string_view name) {
 	if (mesh.vertices.empty() || mesh.triangles.empty() || mesh.triangles.size() % 3)
 		throw std::runtime_error("MeshSet has no complete triangle geometry");
+	if (!mesh.has_uv0) throw std::runtime_error("MeshSet has no supported UV0 vertex channel");
 	std::vector<std::byte> binary;
 	std::array<float, 3> minimum{std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max()};
 	std::array<float, 3> maximum{std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest()};
@@ -73,6 +74,9 @@ void write_glb(const fs::path& path, const fb::SkinnedMesh& mesh, std::string_vi
 			append_u32_le(binary, std::bit_cast<std::uint32_t>(converted[axis]));
 		}
 	}
+	const auto uv_offset = binary.size();
+	for (const auto& vertex : mesh.vertices)
+		for (const auto coordinate : vertex.uv0) append_u32_le(binary, std::bit_cast<std::uint32_t>(coordinate));
 	const auto index_offset = binary.size();
 	for (const auto index : mesh.triangles) {
 		if (index >= mesh.vertices.size()) throw std::runtime_error("MeshSet triangle index is invalid");
@@ -83,16 +87,19 @@ void write_glb(const fs::path& path, const fb::SkinnedMesh& mesh, std::string_vi
 		std::to_string(mesh.vertices.size()) + ",\"max\":[" + std::to_string(maximum[0]) + "," +
 		std::to_string(maximum[1]) + "," + std::to_string(maximum[2]) + "],\"min\":[" +
 		std::to_string(minimum[0]) + "," + std::to_string(minimum[1]) + "," + std::to_string(minimum[2]) +
-		"],\"type\":\"VEC3\"},{\"bufferView\":1,\"componentType\":5125,\"count\":" +
+		"],\"type\":\"VEC3\"},{\"bufferView\":1,\"componentType\":5126,\"count\":" +
+		std::to_string(mesh.vertices.size()) + ",\"type\":\"VEC2\"},{\"bufferView\":2,\"componentType\":5125,\"count\":" +
 		std::to_string(mesh.triangles.size()) + ",\"max\":[" +
 		std::to_string(*std::max_element(mesh.triangles.begin(), mesh.triangles.end())) + "],\"min\":[" +
 		std::to_string(*std::min_element(mesh.triangles.begin(), mesh.triangles.end())) + "],\"type\":\"SCALAR\"}]," +
 		"\"asset\":{\"generator\":\"ReSkatePlus mod dump\",\"version\":\"2.0\"},\"bufferViews\":[{" +
-		"\"buffer\":0,\"byteLength\":" + std::to_string(index_offset) + ",\"byteOffset\":0,\"target\":34962},{" +
+		"\"buffer\":0,\"byteLength\":" + std::to_string(uv_offset) + ",\"byteOffset\":0,\"target\":34962},{" +
+		"\"buffer\":0,\"byteLength\":" + std::to_string(index_offset - uv_offset) + ",\"byteOffset\":" +
+		std::to_string(uv_offset) + ",\"target\":34962},{" +
 		"\"buffer\":0,\"byteLength\":" + std::to_string(mesh.triangles.size() * 4) + ",\"byteOffset\":" +
 		std::to_string(index_offset) + ",\"target\":34963}],\"buffers\":[{\"byteLength\":" +
 		std::to_string(binary.size()) + "}],\"meshes\":[{\"name\":" + json_string(name) +
-		",\"primitives\":[{\"attributes\":{\"POSITION\":0},\"indices\":1,\"mode\":4}]}]," +
+		",\"primitives\":[{\"attributes\":{\"POSITION\":0,\"TEXCOORD_0\":1},\"indices\":2,\"mode\":4}]}]," +
 		"\"nodes\":[{\"mesh\":0,\"name\":" + json_string(name) +
 		"}],\"scene\":0,\"scenes\":[{\"nodes\":[0]}]}";
 	std::vector<std::byte> json_bytes;
@@ -367,7 +374,7 @@ std::size_t export_referenced_meshes(const fs::path& ebx_path,
 										const std::set<std::uint64_t>& references, const vfs::GameBundle& bundle,
 										const fb::TocDocument& toc, vfs::GameArchives& archives,
 										const fs::path& mod_root, const fs::path& game_root,
-										vfs::GameArchives* game_archives) {
+										vfs::GameArchives* game_archives, const ModDumpProgress& progress) {
 	static constexpr std::uint32_t mesh_set_type = 0x49b156d4;
 	std::size_t exported{};
 	for (std::size_t resource_index = 0; resource_index < bundle.manifest.resources.size(); ++resource_index) {
@@ -401,11 +408,13 @@ std::size_t export_referenced_meshes(const fs::path& ebx_path,
 						"_lod" + std::to_string(lod) + ".glb");
 					write_glb(output, mesh, resource.name + " LOD " + std::to_string(lod));
 					++exported;
-				} catch (const std::exception&) {
+				} catch (const std::exception& error) {
+					report_progress(progress, "Skipping mesh " + resource.name + " LOD " + std::to_string(lod) + ": " + error.what());
 					continue;
 				}
 			}
-		} catch (const std::exception&) {
+		} catch (const std::exception& error) {
+			report_progress(progress, "Skipping mesh " + resource.name + ": " + error.what());
 			continue;
 		}
 	}
@@ -525,7 +534,7 @@ ModDumpReport dump_mod_at(const fs::path& mod_root, const fs::path& game_root, c
 					report.resources += export_referenced_textures(ebx_path, references, bundle, toc,
 						archives, mod_root, game_root, game_archives.get());
 					report.meshes += export_referenced_meshes(ebx_path, references, bundle, toc,
-						archives, mod_root, game_root, game_archives.get());
+						archives, mod_root, game_root, game_archives.get(), progress);
 					merge_targets << path_utf8(mod_root.filename()) << " [" << root_type << "] "
 						<< (original ? "REPLACES " : "ADDS ") << asset.name
 						<< " -> " << relative.generic_string() << " :: " << toc_bundle.name;

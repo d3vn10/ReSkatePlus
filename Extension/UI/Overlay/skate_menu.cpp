@@ -13,7 +13,6 @@
 namespace dingosdk::overlay {
     using namespace menu;
     namespace menu {
-        std::optional<multiplayer::IdentityList> current_identity;
 
         using namespace theme;
 

@@ -55,12 +55,12 @@ Older/newer versions _should_ work unless the packet structure or SteamAPI hands
 
 ## Getting started
 
-1. Download the latest `ReSkate+_<version>.zip` from
+1. Download the latest `ReSkatePlus_<version>.zip` from
    [Releases](https://github.com/d3vn10/ReSkatePlus/releases).
-2. Extract `ReSkate+ Launcher.exe` and `ReSkate+.dll` into **a new, empty folder of their own**, for
+2. Extract `ReSkatePlusLauncher.exe` and `ReSkatePlus.dll` into **a new, empty folder of their own**, for
    example `C:\Games\ReSkatePlus`. Do **not** put them in Steam's skate. folder: ReSkate+ keeps its own
    copy of the game there, so Steam updating skate. cannot break it.
-3. Run `ReSkate+ Launcher.exe`.
+3. Run `ReSkatePlusLauncher.exe`.
    - It checks for ReSkate+ updates, then installs the supported build of the game into that folder
      (about 14 GB of free space).
    - Sign in to Steam when asked, with the account that owns skate. You can scan a QR code with the
@@ -72,12 +72,12 @@ ReSkate+ supports one game build at a time (Steam build `25414733`).
 
 ### Linux (Proton)
 
-1. Install skate. with Steam and put `ReSkate+ Launcher.exe` and `ReSkate+.dll` beside `Skate.exe`
+1. Install skate. with Steam and put `ReSkatePlusLauncher.exe` and `ReSkatePlus.dll` beside `Skate.exe`
    (step 2 above, first option).
 2. In Steam → skate. → Properties → Launch Options, enter:
 
    ```
-   bash -c 'exec "${@/*EAAntiCheat.GameServiceLauncher.exe//home/you/Games/ReSkatePlus/ReSkate+ Launcher.exe}"' -- %command%
+   bash -c 'exec "${@/*EAAntiCheat.GameServiceLauncher.exe//home/you/Games/ReSkatePlus/ReSkatePlusLauncher.exe}"' -- %command%
    ```
 
 3. Press **Play** on skate. in your Steam library. The launcher installs its own copy of the game
@@ -214,8 +214,8 @@ The files are written to `build/vs2022-x64/Release/`:
 
 | File | What it is |
 |---|---|
-| `ReSkate+ Launcher.exe` | the launcher (also hosts crash reporting) |
-| `ReSkate+.dll` | the runtime the launcher loads into the game |
+| `ReSkatePlusLauncher.exe` | the launcher (also hosts crash reporting) |
+| `ReSkatePlus.dll` | the runtime the launcher loads into the game |
 | `ReSkateServer.exe` | the dedicated server |
 | `ReSkateEmotePacker.exe` | builds the chat emote pack in `assets/emotes` |
 
@@ -224,7 +224,7 @@ To work in Visual Studio, open `build/vs2022-x64/DingoSDK.sln` after configuring
 
 ### Running your build
 
-Close the game. Copy `ReSkate+ Launcher.exe` and `ReSkate+.dll` into your ReSkate+ folder (the one the
+Close the game. Copy `ReSkatePlusLauncher.exe` and `ReSkatePlus.dll` into your ReSkate+ folder (the one the
 launcher installed the game into, beside `Skate.exe`), then run the launcher.
 
 

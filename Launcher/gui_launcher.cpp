@@ -366,7 +366,7 @@ void Launcher::run_updates() {
     if (!config) return run_check();
     set(Phase::updating, "Updating ReSkate+");
     if (runtime_outdated(*config))
-        update::replace_file(session_.paths.dll, config->runtime, progress_for("ReSkate+.dll"));
+        update::replace_file(session_.paths.dll, config->runtime, progress_for("ReSkatePlus.dll"));
     if (launcher_outdated(*config)) {
         update::replace_running_launcher(session_.self, config->launcher, progress_for("Launcher"));
         logging::flush();
