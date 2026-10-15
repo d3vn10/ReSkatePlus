@@ -13,6 +13,7 @@ template <class T> void put(std::vector<std::byte>& data, std::size_t offset, T 
     if (data.size() < offset + sizeof(T)) data.resize(offset + sizeof(T));
     std::memcpy(data.data() + offset, &value, sizeof(T));
 }
+
 void pointer(std::vector<std::byte>& data, std::size_t offset, std::size_t target) {
     put<std::uint64_t>(data, offset, target - 16);
 }
@@ -35,7 +36,7 @@ Made made_mesh(std::uint8_t second_weight = 55) {
     pointer(r, 256 + 12, 512);
     put<std::uint32_t>(r, 256 + 84, 33);  // 16-bit indices
     put<std::uint32_t>(r, 256 + 88, 6);   // index bytes
-    put<std::uint32_t>(r, 256 + 92, 108); // vertex bytes: 3 x 36
+    put<std::uint32_t>(r, 256 + 92, 132); // vertex bytes: 3 x 44
     put<std::uint8_t>(r, 256 + 116, 0x42); // the chunk's guid
     pointer(r, 512 + 16, 1024);           // palette
     put<std::uint16_t>(r, 512 + 24, 2);
@@ -43,36 +44,45 @@ Made made_mesh(std::uint8_t second_weight = 55) {
     put<std::uint32_t>(r, 512 + 32, 1);
     put<std::uint32_t>(r, 512 + 44, 3);
     const std::size_t d = 512 + 112;
-    const std::array<std::array<std::uint8_t, 4>, 5> elements{{{1, 3, 0, 0}, {2, 23, 12, 0}, {3, 23, 20, 0}, {4, 13, 28, 0}, {5, 13, 32, 0}}};
+    const std::array<std::array<std::uint8_t, 4>, 6> elements{{{1, 3, 0, 0}, {2, 23, 12, 0}, {3, 23, 20, 0}, {4, 13, 28, 0}, {5, 13, 32, 0}, {6, 2, 36, 0}}};
     for (std::size_t i = 0; i < elements.size(); ++i)
         for (std::size_t j = 0; j < 4; ++j) put<std::uint8_t>(r, d + i * 4 + j, elements[i][j]);
-    put<std::uint8_t>(r, d + 64, 36);
-    put<std::uint8_t>(r, d + 96, 5);
+    put<std::uint8_t>(r, d + 64, 44);
+    put<std::uint8_t>(r, d + 96, 6);
     put<std::uint8_t>(r, d + 97, 1);
     put<std::uint16_t>(r, 1024, 5);
     put<std::uint16_t>(r, 1026, 7);
     auto& g = m.geometry;
     for (std::size_t v = 0; v < 3; ++v) {
-        const auto at = v * 36;
+        const auto at = v * 44;
         put<std::array<float, 3>>(g, at, {static_cast<float>(v), 0.0f, 0.0f});
         put<std::array<std::uint16_t, 4>>(g, at + 12, {0, 1, 0, 0});
         put<std::array<std::uint16_t, 4>>(g, at + 20, {0, 0, 0, 0});
         put<std::array<std::uint8_t, 4>>(g, at + 28, {200, second_weight, 0, 0});
         put<std::array<std::uint8_t, 4>>(g, at + 32, {0, 0, 0, 0});
+        put<std::array<float, 2>>(g, at + 36, {static_cast<float>(v) / 2.0f, static_cast<float>(v) / 4.0f});
     }
-    put<std::array<std::uint16_t, 3>>(g, 108, {0, 1, 2});
+    put<std::array<std::uint16_t, 3>>(g, 132, {0, 1, 2});
     return m;
+}
+
+void missing_uv0_is_reported() {
+    auto m = made_mesh();
+    put<std::uint8_t>(m.resource, 512 + 112 + 96, 5);
+    const auto mesh = read_skinned_mesh(m.resource, 0, m.geometry);
+    check(!mesh.has_uv0, "a mesh without a TEXCOORD0 declaration is identified");
 }
 
 void a_skinned_lod_reads() {
     const auto m = made_mesh();
     const auto lod = read_mesh_lod(m.resource, 0);
-    check(lod.vertex_bytes == 108 && lod.index_bytes == 6 && lod.chunk != Guid{}, "the level's buffers and chunk");
+    check(lod.vertex_bytes == 132 && lod.index_bytes == 6 && lod.chunk != Guid{}, "the level's buffers and chunk");
     const auto mesh = read_skinned_mesh(m.resource, 0, m.geometry);
     check(mesh.vertices.size() == 3 && mesh.triangles == std::vector<std::uint32_t>{0, 1, 2}, "three vertices, one triangle");
     const auto& v = mesh.vertices[2];
-    check(v.position[0] == 2.0f && v.bones[0] == 5 && v.bones[1] == 7 && v.weights[0] == 200 && v.weights[1] == 55,
-        "positions, and bones through the palette");
+    check(v.position[0] == 2.0f && v.uv0 == std::array<float, 2>{1.0f, 0.5f} && mesh.has_uv0 &&
+        v.bones[0] == 5 && v.bones[1] == 7 && v.weights[0] == 200 && v.weights[1] == 55,
+        "positions, UV0 and bones through the palette");
 }
 
 void four_influences_are_enough() {
@@ -123,6 +133,7 @@ int main() {
     try {
         a_skinned_lod_reads();
         four_influences_are_enough();
+        missing_uv0_is_reported();
         a_bad_mesh_is_refused();
         a_skeleton_reads();
     } catch (const std::exception& error) {

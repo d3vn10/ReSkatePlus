@@ -24,9 +24,9 @@ constexpr std::uint8_t triangle_list = 3;
 // per stream, then the element and stream counts. Four bone influences a vertex, or eight with
 // the second pair (the coarser levels of detail leave it out).
 constexpr std::size_t stream_table = 64, element_total = 96, stream_total = 97;
-enum Usage : std::uint8_t { position = 1, bones_low = 2, bones_high = 3, weights_low = 4, weights_high = 5 };
-constexpr std::array<std::uint8_t, 6> usage_format{0, 3, 23, 23, 13, 13}; // float3, ushort4, ushort4, ubyte4n, ubyte4n
-constexpr std::array<std::uint8_t, 6> usage_size{0, 12, 8, 8, 4, 4};
+enum Usage : std::uint8_t { position = 1, bones_low = 2, bones_high = 3, weights_low = 4, weights_high = 5, texcoord0 = 6 };
+constexpr std::array<std::uint8_t, 7> usage_format{0, 3, 23, 23, 13, 13, 2}; // float3, ushort4, ushort4, ubyte4n, ubyte4n, float2
+constexpr std::array<std::uint8_t, 7> usage_size{0, 12, 8, 8, 4, 4, 8};
 
 void require(bool valid, const char* message) {
     if (!valid) throw std::runtime_error(std::string("MeshSet: ") + message);
@@ -139,6 +139,7 @@ SkinnedMesh read_skinned_mesh(std::span<const std::byte> resource, std::size_t l
     const auto sections = r.at<std::uint32_t>(at + section_count);
     const auto table = r.pointer(at + section_table);
     SkinnedMesh result;
+    result.has_uv0 = true;
     for (std::uint32_t section = 0; section < sections; ++section) {
         const auto s = table + section * section_size;
         require(r.at<std::uint8_t>(s + primitive) == triangle_list, "a section is not a triangle list");
@@ -158,19 +159,24 @@ SkinnedMesh read_skinned_mesh(std::span<const std::byte> resource, std::size_t l
             end += strides[stream] * count;
         }
         require(end <= layout.vertex_bytes, "a section's vertices run past the vertex buffer");
-        std::array<Attribute, 6> attributes{};
+        std::array<Attribute, 7> attributes{};
         for (std::size_t element = 0; element < elements; ++element) {
             const auto usage = r.at<std::uint8_t>(d + element * 4);
-            if (usage < position || usage > weights_high) continue;
+            if (usage < position || usage > texcoord0) continue;
             const auto stream = r.at<std::uint8_t>(d + element * 4 + 3);
             const std::size_t offset = r.at<std::uint8_t>(d + element * 4 + 2);
-            require(r.at<std::uint8_t>(d + element * 4 + 1) == usage_format[usage] && stream < streams &&
-                    offset + usage_size[usage] <= strides[stream],
+            if (usage == texcoord0 && r.at<std::uint8_t>(d + element * 4 + 1) != usage_format[usage]) {
+                result.has_uv0 = false;
+                continue;
+            }
+            require(stream < streams && offset + usage_size[usage] <= strides[stream] &&
+                    (usage == texcoord0 || r.at<std::uint8_t>(d + element * 4 + 1) == usage_format[usage]),
                 "a skinning attribute has another format");
             attributes[usage] = {bases[stream], strides[stream], offset, true};
         }
         for (const auto usage : {position, bones_low, weights_low}) require(attributes[usage].present, "a section is not skinned");
         require(attributes[bones_high].present == attributes[weights_high].present, "a section's second influences are half there");
+        if (!attributes[texcoord0].present) result.has_uv0 = false;
         const std::size_t influences = attributes[bones_high].present ? 8 : 4;
         const auto address = [&](std::uint8_t usage, std::size_t vertex) {
             const auto& a = attributes[usage];
@@ -180,7 +186,10 @@ SkinnedMesh read_skinned_mesh(std::span<const std::byte> resource, std::size_t l
         for (std::size_t vertex = 0; vertex < count; ++vertex) {
             SkinnedVertex out;
             out.position = g.at<std::array<float, 3>>(address(position, vertex));
+            if (attributes[texcoord0].present)
+                out.uv0 = g.at<std::array<float, 2>>(address(texcoord0, vertex));
             for (const float coordinate : out.position) require(std::isfinite(coordinate), "a vertex is not finite");
+            for (const float coordinate : out.uv0) require(std::isfinite(coordinate), "a UV0 coordinate is not finite");
             unsigned total{};
             for (std::size_t influence = 0; influence < influences; ++influence) {
                 const auto high = influence >= 4;

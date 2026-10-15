@@ -1,4 +1,4 @@
-# Copilot Instructions
+u51+# Copilot Instructions
 
 ## Project Guidelines
 - For mod dumps, the user wants only EBX assets that are new or changed relative to the game, saved with original asset paths under a directory named after the selected mod (e.g. TestDumpMod/items/...ebx). Omit resources, chunks, generated GUID/hash/manifest files, and unrelated source files, because the user imports/replaces EBX assets in ReSkate Studio.
