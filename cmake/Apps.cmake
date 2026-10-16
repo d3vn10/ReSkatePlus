@@ -7,7 +7,7 @@ if(WIN32)
     target_link_libraries(dingosdk_launcher PRIVATE dingosdk_logging dingosdk_content_cache_install dingosdk_world_layer_scan dingosdk_launcher_support dingosdk_initfs
         dingosdk_mod_list dingosdk_mods dingosdk_json dingosdk_miniz dingosdk_imgui dingosdk_playstation_input winhttp shell32 dwmapi windowscodecs ole32)
     set_target_properties(dingosdk_launcher PROPERTIES OUTPUT_NAME "ReSkatePlusLauncher")
-    dingosdk_version_info(dingosdk_launcher "ReSkatePlusLauncher" "ReSkatePlusLauncher.exe" VFT_APP)
+    dingosdk_version_info(dingosdk_launcher "ReSkate+ Launcher" "ReSkatePlusLauncher.exe" VFT_APP)
 endif()
 
 option(DINGOSDK_BUILD_LAUNCHER_TESTS "Build launcher mod manager regression tests" OFF)

@@ -1,4 +1,5 @@
 #include "mesh_set.h"
+#include <bit>
 #include <cmath>
 #include <cstring>
 #include <stdexcept>
@@ -24,9 +25,11 @@ constexpr std::uint8_t triangle_list = 3;
 // per stream, then the element and stream counts. Four bone influences a vertex, or eight with
 // the second pair (the coarser levels of detail leave it out).
 constexpr std::size_t stream_table = 64, element_total = 96, stream_total = 97;
-enum Usage : std::uint8_t { position = 1, bones_low = 2, bones_high = 3, weights_low = 4, weights_high = 5, texcoord0 = 6 };
-constexpr std::array<std::uint8_t, 7> usage_format{0, 3, 23, 23, 13, 13, 2}; // float3, ushort4, ushort4, ubyte4n, ubyte4n, float2
-constexpr std::array<std::uint8_t, 7> usage_size{0, 12, 8, 8, 4, 4, 8};
+enum Usage : std::uint8_t { position = 1, bones_low = 2, bones_high = 3, weights_low = 4, weights_high = 5,
+    texcoord0 = 6, texcoord1 = 7 };
+constexpr std::array<std::uint8_t, 8> usage_format{0, 3, 23, 23, 13, 13, 2, 2}; // float3, ushort4, ushort4, ubyte4n, ubyte4n, float2, float2
+constexpr std::array<std::uint8_t, 8> usage_size{0, 12, 8, 8, 4, 4, 8, 8};
+constexpr std::uint8_t packed_texcoord0 = 33, packed_texcoord1 = 34, half2_format = 6;
 
 void require(bool valid, const char* message) {
     if (!valid) throw std::runtime_error(std::string("MeshSet: ") + message);
@@ -48,7 +51,32 @@ struct Reader {
 struct Attribute {
     std::size_t base{}, stride{}, offset{};
     bool present{};
+    std::uint8_t format{};
 };
+
+float half_to_float(std::uint16_t value) {
+    const auto sign = static_cast<std::uint32_t>(value & 0x8000) << 16;
+    auto exponent = static_cast<std::uint32_t>((value >> 10) & 0x1f);
+    auto mantissa = static_cast<std::uint32_t>(value & 0x3ff);
+    std::uint32_t bits{};
+    if (exponent == 0) {
+        if (mantissa) {
+            exponent = 113;
+            while ((mantissa & 0x400) == 0) {
+                mantissa <<= 1;
+                --exponent;
+            }
+            bits = sign | (exponent << 23) | ((mantissa & 0x3ff) << 13);
+        } else {
+            bits = sign;
+        }
+    } else if (exponent == 0x1f) {
+        bits = sign | 0x7f800000 | (mantissa << 13);
+    } else {
+        bits = sign | ((exponent + 112) << 23) | (mantissa << 13);
+    }
+    return std::bit_cast<float>(bits);
+}
 }
 
 MeshLod read_mesh_lod(std::span<const std::byte> resource, std::size_t lod) {
@@ -140,6 +168,7 @@ SkinnedMesh read_skinned_mesh(std::span<const std::byte> resource, std::size_t l
     const auto table = r.pointer(at + section_table);
     SkinnedMesh result;
     result.has_uv0 = true;
+    result.has_uv1 = true;
     for (std::uint32_t section = 0; section < sections; ++section) {
         const auto s = table + section * section_size;
         require(r.at<std::uint8_t>(s + primitive) == triangle_list, "a section is not a triangle list");
@@ -159,24 +188,44 @@ SkinnedMesh read_skinned_mesh(std::span<const std::byte> resource, std::size_t l
             end += strides[stream] * count;
         }
         require(end <= layout.vertex_bytes, "a section's vertices run past the vertex buffer");
-        std::array<Attribute, 7> attributes{};
+        std::array<Attribute, 8> attributes{};
+        Attribute source_id_color;
         for (std::size_t element = 0; element < elements; ++element) {
-            const auto usage = r.at<std::uint8_t>(d + element * 4);
-            if (usage < position || usage > texcoord0) continue;
-            const auto stream = r.at<std::uint8_t>(d + element * 4 + 3);
-            const std::size_t offset = r.at<std::uint8_t>(d + element * 4 + 2);
-            if (usage == texcoord0 && r.at<std::uint8_t>(d + element * 4 + 1) != usage_format[usage]) {
-                result.has_uv0 = false;
+            const auto element_at = d + element * 4;
+            const auto raw_usage = r.at<std::uint8_t>(element_at);
+            const auto format = r.at<std::uint8_t>(element_at + 1);
+            if (raw_usage == 30) {
+                const auto stream = r.at<std::uint8_t>(element_at + 3);
+                const std::size_t offset = r.at<std::uint8_t>(element_at + 2);
+                require(format == 13 && stream < streams && offset + 4 <= strides[stream],
+                    "its source-ID color has another format");
+                source_id_color = {bases[stream], strides[stream], offset, true, format};
                 continue;
             }
-            require(stream < streams && offset + usage_size[usage] <= strides[stream] &&
-                    (usage == texcoord0 || r.at<std::uint8_t>(d + element * 4 + 1) == usage_format[usage]),
+            const auto usage = raw_usage == packed_texcoord0 || raw_usage == 6 ? texcoord0 :
+                raw_usage == packed_texcoord1 ? texcoord1 : raw_usage;
+            if (usage < position || usage > texcoord1) continue;
+            const auto stream = r.at<std::uint8_t>(element_at + 3);
+            const std::size_t offset = r.at<std::uint8_t>(element_at + 2);
+            const bool uv = usage == texcoord0 || usage == texcoord1;
+            const bool supported_uv_format = uv &&
+                (format == usage_format[usage] || (format == half2_format && raw_usage != 6));
+            if (uv && !supported_uv_format) {
+                if (usage == texcoord0) result.has_uv0 = false;
+                else result.has_uv1 = false;
+                continue;
+            }
+            const auto size = uv && format == half2_format ? 4 : usage_size[usage];
+            require(stream < streams && offset + size <= strides[stream] &&
+                    (uv || format == usage_format[usage]),
                 "a skinning attribute has another format");
-            attributes[usage] = {bases[stream], strides[stream], offset, true};
+            attributes[usage] = {bases[stream], strides[stream], offset, true, format};
         }
         for (const auto usage : {position, bones_low, weights_low}) require(attributes[usage].present, "a section is not skinned");
         require(attributes[bones_high].present == attributes[weights_high].present, "a section's second influences are half there");
         if (!attributes[texcoord0].present) result.has_uv0 = false;
+        if (!attributes[texcoord1].present) result.has_uv1 = false;
+        if (source_id_color.present) result.has_source_id_color = true;
         const std::size_t influences = attributes[bones_high].present ? 8 : 4;
         const auto address = [&](std::uint8_t usage, std::size_t vertex) {
             const auto& a = attributes[usage];
@@ -186,10 +235,30 @@ SkinnedMesh read_skinned_mesh(std::span<const std::byte> resource, std::size_t l
         for (std::size_t vertex = 0; vertex < count; ++vertex) {
             SkinnedVertex out;
             out.position = g.at<std::array<float, 3>>(address(position, vertex));
-            if (attributes[texcoord0].present)
-                out.uv0 = g.at<std::array<float, 2>>(address(texcoord0, vertex));
+            if (attributes[texcoord0].present) {
+                const auto uv_address = address(texcoord0, vertex);
+                if (attributes[texcoord0].format == half2_format) {
+                    out.uv0 = {half_to_float(g.at<std::uint16_t>(uv_address)),
+                        half_to_float(g.at<std::uint16_t>(uv_address + 2))};
+                } else {
+                    out.uv0 = g.at<std::array<float, 2>>(uv_address);
+                }
+            }
+            if (source_id_color.present)
+                out.source_id_color = g.at<std::array<std::uint8_t, 4>>(
+                    source_id_color.base + vertex * source_id_color.stride + source_id_color.offset);
+            if (attributes[texcoord1].present) {
+                const auto uv_address = address(texcoord1, vertex);
+                if (attributes[texcoord1].format == half2_format) {
+                    out.uv1 = {half_to_float(g.at<std::uint16_t>(uv_address)),
+                        half_to_float(g.at<std::uint16_t>(uv_address + 2))};
+                } else {
+                    out.uv1 = g.at<std::array<float, 2>>(uv_address);
+                }
+            }
             for (const float coordinate : out.position) require(std::isfinite(coordinate), "a vertex is not finite");
             for (const float coordinate : out.uv0) require(std::isfinite(coordinate), "a UV0 coordinate is not finite");
+            for (const float coordinate : out.uv1) require(std::isfinite(coordinate), "a UV1 coordinate is not finite");
             unsigned total{};
             for (std::size_t influence = 0; influence < influences; ++influence) {
                 const auto high = influence >= 4;

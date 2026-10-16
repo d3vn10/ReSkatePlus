@@ -36,8 +36,8 @@ ProgressionModel local_profile_progression() {
         }
         const auto max = saved.bool_options.find(profile::max_neighborhood_ranks_option);
         result.ranks_maxed = max != saved.bool_options.end() && max->second;
-        const auto everything = saved.bool_options.find(profile::unlock_everything_option);
-        result.everything_unlocked = everything != saved.bool_options.end() && everything->second;
+        /*const auto everything = saved.bool_options.find(profile::unlock_everything_option);
+        result.everything_unlocked = everything != saved.bool_options.end() && everything->second;*/
         constexpr std::array<const char*, 4> names{"Entertainment", "Financial", "Historic", "Stadium"};
         for (unsigned i = 0; i < profile::neighborhood_ids.size(); ++i) {
             const auto id = profile::neighborhood_ids[i];

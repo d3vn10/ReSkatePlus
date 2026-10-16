@@ -45,9 +45,7 @@ void register_progression_commands(Commands &registry) {
                               Group::progression, argument("0|1", Type::boolean));
         entry.aliases = {"progression " + std::string(key)};
             entry.inspect = [key = std::string(key)](const Model &m) {
-            const bool value = key == "challenges" ? !m.progression.challenges_hidden
-                               : key == "maxranks" ? m.progression.ranks_maxed
-                                                   : m.progression.everything_unlocked;
+                const bool value = key == "challenges" ? !m.progression.challenges_hidden : m.progression.ranks_maxed;
             return boolean_state(m.progression.available, value, "Local profile is unavailable.");
         };
         entry.run = [key = std::string(key)](const Model &, const Values &args, const Output &out) {

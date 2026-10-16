@@ -211,7 +211,7 @@ std::pair<std::vector<std::byte>, std::vector<std::byte>> skinned_mesh_fixture(c
 	put_value(resource, std::size_t{268}, std::uint64_t{480});
 	put_value(resource, std::size_t{340}, std::uint32_t{33});
 	put_value(resource, std::size_t{344}, std::uint32_t{6});
-	put_value(resource, std::size_t{348}, std::uint32_t{132});
+	put_value(resource, std::size_t{348}, std::uint32_t{168});
 	std::memcpy(resource.data() + 372, geometry_guid.bytes.data(), geometry_guid.bytes.size());
 	put_value(resource, std::size_t{528}, std::uint64_t{1008});
 	put_value(resource, std::size_t{536}, std::uint16_t{2});
@@ -219,17 +219,22 @@ std::pair<std::vector<std::byte>, std::vector<std::byte>> skinned_mesh_fixture(c
 	put_value(resource, std::size_t{544}, std::uint32_t{1});
 	put_value(resource, std::size_t{556}, std::uint32_t{3});
 	const std::size_t declaration = 624;
-	const std::array<std::array<std::uint8_t, 4>, 6> elements{{
-		{{1, 3, 0, 0}}, {{2, 23, 12, 0}}, {{3, 23, 20, 0}}, {{4, 13, 28, 0}}, {{5, 13, 32, 0}}, {{6, 2, 36, 0}}}};
+	const std::array<std::array<std::uint8_t, 4>, 8> elements{{
+		{{1, 3, 0, 0}}, {{2, 23, 12, 0}}, {{3, 23, 20, 0}}, {{4, 13, 28, 0}}, {{5, 13, 32, 0}}, {{33, 2, 36, 0}}, {{34, 2, 0, 1}}, {{30, 13, 0, 2}}}};
 	for (std::size_t index = 0; index < elements.size(); ++index)
 		for (std::size_t component = 0; component < 4; ++component)
 			put_value(resource, declaration + index * 4 + component, elements[index][component]);
 	put_value(resource, declaration + 64, std::uint8_t{44});
-	put_value(resource, declaration + 96, std::uint8_t{6});
-	put_value(resource, declaration + 97, std::uint8_t{1});
+	put_value(resource, declaration + 65, std::uint8_t{0});
+	put_value(resource, declaration + 66, std::uint8_t{8});
+	put_value(resource, declaration + 67, std::uint8_t{0});
+	put_value(resource, declaration + 68, std::uint8_t{4});
+	put_value(resource, declaration + 69, std::uint8_t{0});
+	put_value(resource, declaration + 96, std::uint8_t{8});
+	put_value(resource, declaration + 97, std::uint8_t{3});
 	put_value(resource, std::size_t{1008}, std::uint16_t{0});
 	put_value(resource, std::size_t{1010}, std::uint16_t{1});
-	std::vector<std::byte> geometry(138);
+	std::vector<std::byte> geometry(162);
 	for (std::size_t vertex = 0; vertex < 3; ++vertex) {
 		const auto at = vertex * 44;
 		put_value(geometry, at, std::array<float, 3>{static_cast<float>(vertex), 0.0f, 0.0f});
@@ -238,8 +243,10 @@ std::pair<std::vector<std::byte>, std::vector<std::byte>> skinned_mesh_fixture(c
 		put_value(geometry, at + 28, std::array<std::uint8_t, 4>{200, 55, 0, 0});
 		put_value(geometry, at + 32, std::array<std::uint8_t, 4>{0, 0, 0, 0});
 		put_value(geometry, at + 36, std::array<float, 2>{static_cast<float>(vertex) / 2.0f, static_cast<float>(vertex) / 4.0f});
+		put_value(geometry, 132 + vertex * 8, std::array<float, 2>{static_cast<float>(vertex) / 3.0f, static_cast<float>(vertex) / 5.0f});
+		put_value(geometry, 156 + vertex * 4, std::array<std::uint8_t, 4>{static_cast<std::uint8_t>(10 + vertex), 20, 30, 255});
 	}
-	put_value(geometry, std::size_t{132}, std::array<std::uint16_t, 3>{0, 1, 2});
+	put_value(geometry, std::size_t{168}, std::array<std::uint16_t, 3>{0, 1, 2});
 	return {std::move(resource), std::move(geometry)};
 }
 
@@ -504,8 +511,9 @@ void the_mod_contents_dump() {
 			(std::to_integer<std::uint32_t>(mesh_glb[13]) << 8) | (std::to_integer<std::uint32_t>(mesh_glb[14]) << 16) |
 			(std::to_integer<std::uint32_t>(mesh_glb[15]) << 24);
 		const std::string mesh_json(reinterpret_cast<const char*>(mesh_glb.data() + 20), json_length);
-		check(mesh_json.find("TEXCOORD_0") != std::string::npos && mesh_json.find("\"indices\":2") != std::string::npos,
-			  "the exported GLB declares UV0 and points at the updated index accessor");
+		check(mesh_json.find("TEXCOORD_0") != std::string::npos && mesh_json.find("TEXCOORD_1") != std::string::npos &&
+			  mesh_json.find("COLOR_0") != std::string::npos && mesh_json.find("\"indices\":4") != std::string::npos,
+			  "the exported GLB preserves both UV sets and the source-ID color channel");
 		check_file_bytes(selected_output, icon_root + "_cdn.ebx", cdn_ebx);
 		check_file_bytes(selected_output, icon_root + "_rime.ebx", rime_ebx);
 		check_file_bytes(selected_output, icon_root + "_texture.ebx", texture_ebx);
