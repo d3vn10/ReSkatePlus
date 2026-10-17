@@ -4,10 +4,14 @@
 #include "Engine/Vfs/initfs.h"
 #include "Engine/Vfs/content_cache_install.h"
 #include "Engine/Vfs/world_layer_scan.h"
-#include "launch.h"
-#include "text_encoding.h"
+#include "Engine/Game/Build/supported_build.h"
 #include "Engine/Game/Build/addresses.h"
 #include "Engine/Game/Build/20260929/runtime.h"
+
+#include "launch.h"
+#include "mod_manager.h"
+#include "official_mods.h"
+#include "text_encoding.h"
 
 #include <Windows.h>
 #include <Psapi.h>
@@ -20,7 +24,6 @@
 #include <cstdint>
 #include <filesystem>
 #include <format>
-#include "Engine/Game/Build/supported_build.h"
 #include <algorithm>
 #include <fstream>
 #include <optional>
@@ -470,6 +473,8 @@ namespace dingosdk::launcher_app {
             logging::Channel::launcher, "File logging is unavailable; debugger output remains active.");
         logging::write(logging::Level::info, logging::Channel::launcher, L"ReSkate launcher starting");
         logging::write(logging::Level::info, logging::Channel::launcher, L"Current launch log: " + (session.paths.logs / L"ReSkate.log").wstring());
+        // The official mods, put in place on a thread of their own while the launcher opens (Play waits).
+        official_mods::start(launcher_mods::mods_root(session.paths.directory));
         return session;
     }
 
@@ -621,7 +626,7 @@ namespace dingosdk::launcher_app {
                 tokens.push_back(std::move(token));
             }
             return tokens;
-            };
+        };
         std::string name;
         if (const auto steam = steam_directory(); !steam.empty()) {
             std::ifstream file(steam / L"config" / L"loginusers.vdf");
@@ -638,6 +643,17 @@ namespace dingosdk::launcher_app {
         }
         if (name.empty()) name = utf8(registry_string(steam_key, L"LastGameNameUsed"));
         return name;
+    }
+
+    std::filesystem::path steam_avatar_path() {
+        if (!steam_signed_in()) return {};
+        const auto user = active_steam_id();
+        const auto steam = steam_directory();
+        if (!user || steam.empty()) return {};
+        // Steam keeps each account's picture it has shown as config/avatarcache/<SteamID64>.png.
+        auto path = steam / L"config" / L"avatarcache" / (std::to_wstring(*user) + L".png");
+        std::error_code error;
+        return fs::is_regular_file(path, error) ? path : std::filesystem::path{};
     }
 
     // Skate.exe hard-imports MiniDumpWriteDump from the Windows API set
@@ -688,7 +704,7 @@ namespace dingosdk::launcher_app {
             !fs::equivalent(paths.dll.parent_path(), paths.directory, path_error) || path_error ||
             !fs::equivalent(paths.steam_api.parent_path(), paths.directory, path_error) || path_error)
             throw std::runtime_error(
-                "'Skate.exe', 'ReSkatePlus.dll', and the original 'steam_api64.dll' must be beside 'ReSkatePlusLauncher'");
+                "'Skate.exe', 'ReSkatePlus.dll', and the original 'steam_api64.dll' must be beside 'ReSkatePlusLauncher.exe'");
 
         // Satisfy Skate.exe's MiniDumpWriteDump API-set import under Wine/Proton.
         ensure_minidump_apiset_shim(paths.directory);

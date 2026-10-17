@@ -495,8 +495,8 @@ namespace dingosdk::mods {
                 });
             }
             catch (const std::system_error&) {
+                // fewer threads, or none: this one does the rest
             }
-            // fewer threads, or none: this one does the rest
             std::size_t settledJobs{};
             for (const auto& relative : superbundles) {
                 if (keepRoot && lower(relative) == root_level) {
@@ -529,6 +529,7 @@ namespace dingosdk::mods {
                     used.emplace(installChunk, CasStore::placeholder(archive) ? manifestArchive : archive);
                 report.mergedBundles += job.report.mergedBundles;
                 report.mergedAssets += job.report.mergedAssets;
+                report.unchangedCopies += job.report.unchangedCopies;
                 report.notes.insert(report.notes.end(), std::make_move_iterator(job.report.notes.begin()),
                     std::make_move_iterator(job.report.notes.end()));
                 for (auto& [mod, problems] : job.report.problems) {

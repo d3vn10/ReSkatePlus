@@ -88,6 +88,7 @@ add_library(dingosdk_runtime SHARED
     Extension/Music/app_audio_capture.cpp
     Extension/Music/music_inject.cpp
     Extension/World/mesh_unload_guard.cpp
+    Extension/World/mesh_settings_guard.cpp
     Extension/World/shader_permutation_guard.cpp
     Extension/World/light_table_guard.cpp
     Extension/World/stack_check_report.cpp
@@ -331,16 +332,40 @@ if(EXISTS "${dingosdk_tab_icons}/tab_icons.json" AND EXISTS "${dingosdk_tab_icon
         "TABICONS_PNG RCDATA \"${dingosdk_tab_icons_native}\\\\tab_icons.png\"\n")
     target_sources(dingosdk_runtime PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated/tab_icons.rc")
 endif()
-# Game content ReSkate carries itself (Engine/Vfs/builtin_packs.h): the FPV drone's model, built
-# by tools/models/build_drone_pack.py. Without the zip, other players' drones use a stand-in prop.
-set(dingosdk_drone_pack "${PROJECT_SOURCE_DIR}/assets/builtin/fpv_drone.zip")
-if(EXISTS "${dingosdk_drone_pack}")
-    file(TO_NATIVE_PATH "${dingosdk_drone_pack}" dingosdk_drone_pack_native)
-    string(REPLACE "\\" "\\\\" dingosdk_drone_pack_native "${dingosdk_drone_pack_native}")
-    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/generated/builtin_packs.rc"
-        "BUILTIN_PACK_FPV_DRONE RCDATA \"${dingosdk_drone_pack_native}\"\n")
+# Game content ReSkate carries itself (Engine/Vfs/builtin_packs.h), one zip each in assets/builtin:
+# the FPV drone's model (tools/models/build_drone_pack.py; without it other players' drones use a
+# stand-in prop). A missing zip is left out. (Mods that are content for ReSkate's features, such
+# as Board Break's decks, are official mods the launcher downloads: Launcher/official_mods.h.)
+# Each zip is made into a zstd pack by ReSkateBuiltinPacker as the build goes (again only when the
+# zip changes), which is what the DLL carries: compressed whole, a pack's repeated files cost
+# next to nothing.
+set(dingosdk_builtin_rc "")
+set(dingosdk_builtin_packs "")
+foreach(pack IN ITEMS "FPV_DRONE fpv_drone")
+    separate_arguments(pack)
+    list(GET pack 0 pack_resource)
+    list(GET pack 1 pack_file)
+    set(pack_zip "${PROJECT_SOURCE_DIR}/assets/builtin/${pack_file}.zip")
+    if(EXISTS "${pack_zip}")
+        set(pack_out "${CMAKE_CURRENT_BINARY_DIR}/generated/builtin/${pack_file}.rskpack")
+        add_custom_command(OUTPUT "${pack_out}"
+            COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/generated/builtin"
+            COMMAND dingosdk_builtin_packer "${pack_zip}" "${pack_out}"
+            DEPENDS "${pack_zip}" dingosdk_builtin_packer
+            COMMENT "Packing built-in content ${pack_file}"
+            VERBATIM)
+        file(TO_NATIVE_PATH "${pack_out}" pack_out_native)
+        string(REPLACE "\\" "\\\\" pack_out_native "${pack_out_native}")
+        string(APPEND dingosdk_builtin_rc "BUILTIN_PACK_${pack_resource} RCDATA \"${pack_out_native}\"\n")
+        list(APPEND dingosdk_builtin_packs "${pack_out}")
+    endif()
+endforeach()
+if(dingosdk_builtin_rc)
+    add_custom_target(dingosdk_builtin_content DEPENDS ${dingosdk_builtin_packs})
+    add_dependencies(dingosdk_runtime dingosdk_builtin_content)
+    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/generated/builtin_packs.rc" "${dingosdk_builtin_rc}")
     target_sources(dingosdk_runtime PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated/builtin_packs.rc")
-    set_property(SOURCE "${CMAKE_CURRENT_BINARY_DIR}/generated/builtin_packs.rc" APPEND PROPERTY OBJECT_DEPENDS "${dingosdk_drone_pack}")
+    set_property(SOURCE "${CMAKE_CURRENT_BINARY_DIR}/generated/builtin_packs.rc" APPEND PROPERTY OBJECT_DEPENDS "${dingosdk_builtin_packs}")
 endif()
 # The music sources' setup page (Extension/Music/spotify_dashboard.h).
 file(TO_NATIVE_PATH "${PROJECT_SOURCE_DIR}/Extension/Music/setup_page.html" dingosdk_music_page_native)

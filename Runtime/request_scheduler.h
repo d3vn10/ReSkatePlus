@@ -48,7 +48,8 @@ namespace dingosdk::runtime {
             if (executing_console(thread)) {
                 work_.emplace(std::next(work_.begin(), static_cast<std::ptrdiff_t>(continuations_)), std::move(value));
                 ++continuations_;
-            } else work_.emplace_back(std::move(value));
+            }
+            else work_.emplace_back(std::move(value));
         }
     public:
         bool loading() const noexcept { return load_phase_ != LoadPhase::idle; }
@@ -74,7 +75,7 @@ namespace dingosdk::runtime {
             const bool restore = request.action == overlay::DebugAction::restore_debug;
             if (!context.tick_ready || (!context.healthy && !restore) || loading() ||
                 request.action < overlay::DebugAction::set_free_camera ||
-                request.action > overlay::DebugAction::set_free_camera_fov || !std::isfinite(request.value) ||
+                request.action > overlay::DebugAction::set_drone_follow || !std::isfinite(request.value) ||
                 (!restore && count<overlay::DebugRequest>() >= 16)) return false;
             if (restore) clear<overlay::DebugRequest>();
             append(request, thread); return true;
