@@ -453,6 +453,10 @@ namespace dingosdk::launcher_mods {
             Staging(const fs::path& mods, const std::string& name) : path_(mods / staging_folder / from_utf8(name)) {
                 const auto parent = path_;
                 verify_path_chain(mods, false);
+                const auto staging_root = mods / staging_folder;
+                const auto staging_root_attributes = GetFileAttributesW(staging_root.c_str());
+                created_staging_root_ = staging_root_attributes == INVALID_FILE_ATTRIBUTES;
+                verify_path_chain(staging_root, true);
                 auto parent_attributes = GetFileAttributesW(parent.c_str());
                 if (parent_attributes == INVALID_FILE_ATTRIBUTES) {
                     const auto error = GetLastError();
@@ -485,11 +489,17 @@ namespace dingosdk::launcher_mods {
                 const auto value = GetFileAttributesW(parent.c_str());
                 if (created_parent_ && value != INVALID_FILE_ATTRIBUTES && (value & FILE_ATTRIBUTE_DIRECTORY) &&
                     !(value & FILE_ATTRIBUTE_REPARSE_POINT)) RemoveDirectoryW(parent.c_str());
+                const auto staging_root = parent.parent_path();
+                const auto root_value = GetFileAttributesW(staging_root.c_str());
+                if (created_staging_root_ && root_value != INVALID_FILE_ATTRIBUTES &&
+                    (root_value & FILE_ATTRIBUTE_DIRECTORY) && !(root_value & FILE_ATTRIBUTE_REPARSE_POINT))
+                    RemoveDirectoryW(staging_root.c_str());
             }
             const fs::path& path() const { return path_; }
         private:
             fs::path path_;
             bool created_parent_{};
+            bool created_staging_root_{};
         };
 
         // Moves the finished staging folder into place, replacing only when asked. The copy it
