@@ -500,6 +500,12 @@ namespace dingosdk::launcher_gui::detail {
             };
             if (!mod.outdated.empty()) pill("OUTDATED", color::warning);
             else if (left_out) pill("NOT LOADED", color::danger);
+            if (package) {
+                const bool nsfw = package->nsfw || std::any_of(package->categories.begin(), package->categories.end(),
+                    [](const std::string& category) { return folded(category) == "nsfw"; });
+                if (nsfw) pill("NSFW", color::danger);
+                if (package->deprecated) pill("DEPRECATED", color::warning);
+            }
 
             // The same icon the store shows, so a mod looks like itself on both pages.
             mod_icon(panel, package, ImVec2(start.x + S(48), start.y + (tall - S(48)) * 0.5f), S(48));
