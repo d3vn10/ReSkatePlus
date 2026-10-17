@@ -48,7 +48,7 @@ namespace dingosdk::mods {
         // mod's author to read. The catalogue is only read once a mod turns out to add
         // an item at all.
         bool store_copy_problems(const Catalog& all, MergeReport& report, const std::vector<std::string>& checked,
-                                 std::size_t threads, bool background) {
+            std::size_t threads, bool background) {
             // (Only when some are skipped is the catalogue copied, without them.)
             std::optional<Catalog> fewer;
             if (!checked.empty()) {
@@ -100,7 +100,8 @@ namespace dingosdk::mods {
                 fingerprint += " inactive " + mod.name + " " + mod_fingerprint(mod.directory);
             if (options.live) {
                 fs::remove(output / stamp_file, error);
-            } else if (auto previous = previous_merge(output, fingerprint)) {
+            }
+            else if (auto previous = previous_merge(output, fingerprint)) {
                 return std::move(*previous);
             }
             // A mod that adds copies of store items is not loaded at all. Found before
@@ -128,7 +129,8 @@ namespace dingosdk::mods {
                 progress.step = std::move(step);
                 try {
                     observe(progress);
-                } catch (...) {
+                }
+                catch (...) {
                 }
                 ++progress.done;
             };
@@ -258,12 +260,12 @@ namespace dingosdk::mods {
                         const auto added = error ? std::uintmax_t{} : fs::file_size(mod->directory / path, error);
                         if (error || held + added > std::numeric_limits<std::uint32_t>::max())
                             throw std::runtime_error(mod->name + " needs a restart: the patch's archive 1 in " + directory +
-                                                     " has no room left for it while the game runs");
+                                " has no room left for it while the game runs");
                         ArchivePlacement::Spot spot{ manifestArchive, append_file(mod->directory / path, target) };
                         placements[mod].at.emplace(std::pair{ directory, *number }, spot);
                         report.notes.push_back(mod->name + ": " + directory + "/cas_" + std::to_string(*number) +
-                                               " appended to cas_" + std::to_string(manifestArchive) + " at byte " +
-                                               std::to_string(spot.offset) + " (added while the game runs)");
+                            " appended to cas_" + std::to_string(manifestArchive) + " at byte " +
+                            std::to_string(spot.offset) + " (added while the game runs)");
                         ++report.archives;
                     }
                     placements[mod].fingerprint = mod_fingerprint(mod->directory);
@@ -292,22 +294,26 @@ namespace dingosdk::mods {
                     // Archive 1 stays the patch's own file, never a link to a mod's:
                     // a live apply appends manifests and new mods to it while the
                     // game has it open, and a linked file cannot be swapped for a
-                    // private copy then (Windows keeps it in use).
-                    claimed.insert(manifestArchive);
+                    // private copy then (Windows keeps it in use). Placeholder indexes name no file.
+                    claimed.insert({ manifestArchive, CasStore::waiting_archive, CasStore::carried_archive });
                     if (number == manifestArchive) {
                         if (const auto free = claim(directory); free) {
                             spot.archive = *free;
                             link_or_copy(mod->directory / path, output / path.parent_path() / archive_file(*free));
-                        } else {
+                        }
+                        else {
                             spot.offset = append_file(mod->directory / path, output / path);
                         }
-                    } else if (claimed.insert(number).second) {
+                    }
+                    else if (claimed.insert(number).second) {
                         link_or_copy(mod->directory / path, output / path);
-                    } else if (const auto free = claim(directory); free) {
+                    }
+                    else if (const auto free = claim(directory); free) {
                         spot.archive = *free;
                         link_or_copy(mod->directory / path,
-                                     output / path.parent_path() / archive_file(*free));
-                    } else {
+                            output / path.parent_path() / archive_file(*free));
+                    }
+                    else {
                         spot.offset = append_file(mod->directory / path, output / path);
                     }
                     placements[mod].at.emplace(std::pair{ directory, number }, spot);
@@ -433,22 +439,24 @@ namespace dingosdk::mods {
                         source.placement = &placements.at(mod);
                         try {
                             source.toc = fb::read_toc(read_file(mod->directory / fs::path(relative)));
-                        } catch (const std::exception& failure) { // the mod's problem: the catalog merges again without it
+                        }
+                        catch (const std::exception& failure) { // the mod's problem: the catalog merges again without it
                             job.report.problems[mod->name].push_back(relative + " could not be read: " + failure.what());
                             continue;
                         }
                         sources.push_back(std::move(source));
                     }
                     job.merged = combine(baseRoot / fs::path(relative), baseRoot, sources, job.report,
-                                         relative, job.used, *job.store, manifestArchive, gameRoot, grid, overrides);
+                        relative, job.used, *job.store, manifestArchive, gameRoot, grid, overrides);
                     if (job.store->holding())
                         for (std::size_t index = 0; index < job.merged.bundles.size(); ++index) {
                             auto region = fb::read_bundle_region(job.merged.bundles[index].region);
                             if (std::ranges::any_of(region.files, [](const fb::BundleFileInfo& file) {
-                                return CasStore::waits(file.location); }))
+                                return CasStore::placeholder(file.location); }))
                                 job.held.emplace_back(index, std::move(region));
                         }
-                } catch (...) {
+                }
+                catch (...) {
                     job.failure = std::current_exception();
                 }
             };
@@ -485,8 +493,10 @@ namespace dingosdk::mods {
                         jobDone.notify_all();
                     }
                 });
-            } catch (const std::system_error&) {
-            } // fewer threads, or none: this one does the rest
+            }
+            catch (const std::system_error&) {
+            }
+            // fewer threads, or none: this one does the rest
             std::size_t settledJobs{};
             for (const auto& relative : superbundles) {
                 if (keepRoot && lower(relative) == root_level) {
@@ -497,12 +507,13 @@ namespace dingosdk::mods {
                 auto& job = jobs[settledJobs++];
                 const auto& shippedBy = providers.at(lower(relative));
                 advance("Merging " + fs::path(relative).stem().string() +
-                        (shippedBy.empty() ? std::string(" (the game's own)")
+                    (shippedBy.empty() ? std::string(" (the game's own)")
                         : shippedBy.size() > 1 ? " from " + std::to_string(shippedBy.size()) + " mods"
                         : " from " + shippedBy.front()->name));
                 if (workers.empty()) {
                     run(job);
-                } else {
+                }
+                else {
                     std::unique_lock lock(jobsMutex);
                     jobDone.wait(lock, [&] { return job.done; });
                 }
@@ -515,11 +526,11 @@ namespace dingosdk::mods {
                 }
                 for (auto& chunk : job.merged.chunks) job.store->settled(chunk.location, chunk.offset);
                 for (const auto& [installChunk, archive] : job.used)
-                    used.emplace(installChunk, archive == CasStore::waiting_archive ? manifestArchive : archive);
+                    used.emplace(installChunk, CasStore::placeholder(archive) ? manifestArchive : archive);
                 report.mergedBundles += job.report.mergedBundles;
                 report.mergedAssets += job.report.mergedAssets;
                 report.notes.insert(report.notes.end(), std::make_move_iterator(job.report.notes.begin()),
-                                    std::make_move_iterator(job.report.notes.end()));
+                    std::make_move_iterator(job.report.notes.end()));
                 for (auto& [mod, problems] : job.report.problems) {
                     auto& list = report.problems[mod];
                     list.insert(list.end(), std::make_move_iterator(problems.begin()), std::make_move_iterator(problems.end()));
@@ -567,7 +578,8 @@ namespace dingosdk::mods {
             const auto mod_layout = [&](const Mod& mod) -> std::optional<vfs::Layout> {
                 try {
                     return vfs::read_layout(mod.directory / L"layout.toc");
-                } catch (const std::exception& error) {
+                }
+                catch (const std::exception& error) {
                     report.problems[mod.name].push_back(std::string("layout.toc could not be read: ") + error.what());
                     return std::nullopt;
                 }
@@ -625,7 +637,8 @@ namespace dingosdk::mods {
                     for (auto& candidate : chunks->children) {
                         const auto* candidateName = candidate.field("name");
                         if (candidateName && candidateName->text == sourceName->text) {
-                            target = &candidate; break;
+                            target = &candidate;
+                            break;
                         }
                     }
                     auto* targetList = target ? target->field("superbundles") : nullptr;
@@ -636,7 +649,8 @@ namespace dingosdk::mods {
                         bool held{};
                         for (const auto& existing : targetList->children)
                             if (existing.type == 7 && lower(existing.text) == key) {
-                                held = true; break;
+                                held = true;
+                                break;
                             }
                         if (held) continue;
                         auto position = targetList->children.begin();
@@ -680,7 +694,8 @@ namespace dingosdk::mods {
                         const auto current = static_cast<std::uint16_t>(table[at] | (table[at + 1] << 8));
                         if (current == archive) already = true;
                         if (!placed && current > archive) {
-                            insertAt = at; placed = true;
+                            insertAt = at;
+                            placed = true;
                         }
                         if (!placed) insertAt = at + 8;
                     }
@@ -690,7 +705,7 @@ namespace dingosdk::mods {
                     record[1] = static_cast<unsigned char>(archive >> 8);
                     std::memcpy(record.data() + 2, id.data(), id.size());
                     table.insert(table.begin() + static_cast<std::ptrdiff_t>(insertAt),
-                                 record.begin(), record.end());
+                        record.begin(), record.end());
                     ++added;
                 }
                 if (!added) return;
@@ -708,15 +723,16 @@ namespace dingosdk::mods {
                 std::memcpy(file.data(), native_db::magic, sizeof(native_db::magic));
                 file.insert(file.end(), rebuilt.begin(), rebuilt.end());
                 write_file(output / L"layout.toc",
-                           std::span<const std::byte>(reinterpret_cast<const std::byte*>(file.data()), file.size()));
+                    std::span<const std::byte>(reinterpret_cast<const std::byte*>(file.data()), file.size()));
 
                 // The patch is complete without its stamp; lacking one only means the
                 // next launch builds it again.
                 try {
                     write_stamp(output, fingerprint, report);
-                } catch (const std::exception& failure) {
+                }
+                catch (const std::exception& failure) {
                     report.notes.push_back(std::string("The merged patch will be rebuilt next launch: ") +
-                                           failure.what());
+                        failure.what());
                 }
             }
             lap("layout");
@@ -734,12 +750,14 @@ namespace dingosdk::mods {
             }
             report.notes.push_back(summary + " (" + seconds(all) + " for this merge)");
             report.built = true;
-        } catch (const std::exception& failure) {
+        }
+        catch (const std::exception& failure) {
             report.issue = failure.what();
             // A live merge leaves the running patch alone: the game is reading it.
             std::error_code error;
             if (!options.live) fs::remove_all(catalog.root / generated_folder, error);
-        } catch (...) {
+        }
+        catch (...) {
             report.issue = "The mod merge failed";
             std::error_code error;
             if (!options.live) fs::remove_all(catalog.root / generated_folder, error);
