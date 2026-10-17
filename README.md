@@ -47,11 +47,14 @@ Older/newer versions _should_ work unless the packet structure or SteamAPI hands
 - **No reserved cosmetics.**
   - Full access to **all** content available inside the base game.
   - This includes limited time reedemable items, skate.Pass, store offers/bundles and all cosmetics/items that cost SVB.
-- **Random community parks.** Options to randomize the current community parks, can also randomize on game start.
+- **Outfit shuffler**
+  - Show other players outfits and boards as random items (local only).
+  - Turn it on and everyone in lobby is wearing something new.
 - **Deprecated/NSFW mods** Launcher toggles to enable showing every mod on the Thunderstore, wether they have been
   abandoned or marked as being not safe for work.
 - **Special/Developer menu access.** View and utilize the special and developer menus that are normally locked to
   "reserved" players.
+  - Tag customization is local only, each client checks independantly of others for their tag status.
 
 ## Getting Started
 

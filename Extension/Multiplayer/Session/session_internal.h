@@ -56,6 +56,9 @@ namespace dingosdk::multiplayer::session_detail {
     // The party the echo test shows its mirrored player in (a real lobby has none until its
     // players form one).
     inline constexpr std::uint32_t lobby_party = 1;
+    // How often a new shuffle mode or reroll re-dresses the next player: four a second, so a full
+    // server takes about a minute, and the textures the new items bring arrive a few at a time.
+    inline constexpr std::uint64_t shuffle_redress_interval_us = 250000;
     struct Peer {
         // Guests: this owner's layout as relayed by the host. Host: the owner's own
         // upload, which is never forwarded directly. The host publishes `shared`
@@ -113,6 +116,10 @@ namespace dingosdk::multiplayer::session_detail {
         // Bumped per accepted outfit; render compares it with the one its actor wears
         // (0 after a spawn) to spread native recipe applies over frames.
         std::uint64_t cosmetic_revision{}, applied_cosmetics{};
+        // The shuffle (mode and epoch) their skater wears. A new mode or reroll reaches them in
+        // turn, one player per shuffle_redress_interval_us (session.cpp).
+        ShuffleMode shuffle_mode{};
+        std::uint64_t shuffle_epoch{};
         DeveloperHoodieState developer_hoodie;
         DeveloperBoardState developer_board;
         AudioBuffer audio;
@@ -288,6 +295,13 @@ namespace dingosdk::multiplayer::session_detail {
         unsigned capacity = max_players;
         // Local display preferences, loaded once from the profile. Never sent to peers.
         bool nametags = true, chat_visible = true, display_preferences_loaded{};
+        // Shuffled outfits (outfit_shuffle.h) A new epoch is a re-roll. Never sent to peers.
+        ShuffleMode shuffle_mode{};
+        std::uint64_t shuffle_epoch{ 1 };
+        bool shuffle_loaded_only{};
+        // A new mode or reroll re-dresses one player at a time, no sooner than this: every
+        // re-dressed player can bring textures of their own. Spawns and real outfit changes are not held.
+        std::uint64_t next_shuffle_redress{};
         float nametag_distance = 120.f; // names within this many metres, dots past it
         // Only players within this many metres have a skater (session.cpp); checked a few times a second.
         float player_distance = 120.f;
@@ -338,7 +352,7 @@ namespace dingosdk::multiplayer::session_detail {
         float voice_range = default_voice_range;
         DirectUploadBudget direct_upload;
         Mode mode = Mode::off;
-        std::uintptr_t base{}, context{}, parent{};
+        std::uintptr_t base{}, client{}, context{}, parent{};
         std::uint64_t secret{}, epoch{}, map{}, host_id{}, next_send{}, last_hello{}, last_roster{},
             last_cosmetic_capture{}, last_routes{}, last_network_log{}, network_now{};
         std::uint32_t sequence{}, roster_sequence{};
@@ -462,9 +476,13 @@ namespace dingosdk::multiplayer::session_detail {
     bool identity_link(Session& s, std::uint64_t other);
     // `marks`: whether the line may show the badge the backend gives its sender (player_role).
     void add_chat(Session& s, std::uint64_t sender, std::string name, std::string text, bool local = false, bool marks = true);
+    // Tells the player once when the game's streamed textures come close to their limit
+    // (shuffle_texture_ceiling), where shuffled outfits pick only items already loaded
+    // (native_cosmetics.cpp), and again only after use has fallen well below it. Client thread.
+    void check_shuffle_room(Session& s);
     // The colour and badge of one of the backend's categories.
     std::pair<std::uint32_t, std::string> mark_role(IdentityList list);
-    // A player's role colour and badge ("Dev", "ReSkate Admin", "Content Creator", "Centrix", "Homie", "Admin", "Host", "Friend" or none), shown in chat
+    // A player's role colour and badge ("Dev", "Staff", "Content Creator", "Centrix", "Homie", "Admin", "Host", "Friend" or none), shown in chat
     // and on their nametag. `local`: the local player.
     std::pair<std::uint32_t, std::string> player_role(Session& s, std::uint64_t id, bool local, bool marks = true);
     // Sends one line from this player; returns why not when it cannot.
