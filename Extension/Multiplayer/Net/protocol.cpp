@@ -1,4 +1,5 @@
 #include "protocol.h"
+#include "skater_bone_parents.h"
 #include <algorithm>
 #include <bit>
 #include <charconv>
@@ -10,10 +11,12 @@ namespace dingosdk::multiplayer {
         struct ProtocolRevision {
             std::uint16_t version;
             bool typing;
+            bool drone;
         };
         constexpr std::array protocol_revisions{
-            ProtocolRevision{ 50, false },
-            ProtocolRevision{ 51, true }
+            ProtocolRevision{ 50, false, false },
+            ProtocolRevision{ 51, true, false },
+            ProtocolRevision{ 52, true, true }
         };
         const ProtocolRevision* protocol_revision(std::uint16_t version) noexcept {
             for (const auto& revision : protocol_revisions)
@@ -23,6 +26,10 @@ namespace dingosdk::multiplayer {
         }
     }
     std::uint16_t protocol_version = protocol_revisions.front().version;
+    bool protocol_supports_typing() noexcept {
+        const auto* revision = protocol_revision(protocol_version);
+        return revision && revision->typing;
+    }
     std::vector<std::uint16_t> supported_protocols = [] {
         std::vector<std::uint16_t> versions;
         for (const auto& revision : protocol_revisions)
@@ -378,6 +385,25 @@ namespace dingosdk::multiplayer {
         hold(pose.root, limit);
         for (auto& t : pose.skater) hold(t, limit);
         for (auto& t : pose.board) hold(t, std::min(limit, board_scale_limit));
+        // A bone shows at its own size times its parents' (and the whole skater's): each held to the
+        // limit, a chain of them grew past it (four neck bones at 2x made a neck 16 times as long,
+        // seen 2026-10-15). So each bone is held to what is left of the limit after its parents: the
+        // size it shows stays within 1/limit to limit, on its largest axis and its smallest.
+        const auto largest = [](const Transform& t) { return std::max({ t.scale[0], t.scale[1], t.scale[2] }); };
+        const auto smallest = [](const Transform& t) { return std::min({ t.scale[0], t.scale[1], t.scale[2] }); };
+        const float root_grow = largest(pose.root), root_shrink = smallest(pose.root);
+        std::array<float, skater_bone_parents.size()> grown{}, shrunk{};
+        for (std::size_t i = 0; i < pose.skater.size(); ++i) {
+            const auto parent = i < skater_bone_parents.size() ? skater_bone_parents[i] : std::int16_t{ -1 };
+            const float up = parent >= 0 ? grown[static_cast<std::size_t>(parent)] : root_grow;
+            const float down = parent >= 0 ? shrunk[static_cast<std::size_t>(parent)] : root_shrink;
+            auto& t = pose.skater[i];
+            for (float& axis : t.scale) axis = std::clamp(axis, 1.f / (limit * down), limit / up);
+            if (i < grown.size()) {
+                grown[i] = up * largest(t);
+                shrunk[i] = down * smallest(t);
+            }
+        }
     }
     void limit_bone_reach(Pose& pose, float limit) noexcept {
         if (!(limit > 0.f)) return;
@@ -435,6 +461,8 @@ namespace dingosdk::multiplayer {
             throw std::invalid_argument("Invalid voice packet");
         if (p.kind == PacketKind::effects && (!p.map || !p.source || !valid_impacts(p.impacts)))
             throw std::invalid_argument("Invalid effects packet");
+        if (p.kind == PacketKind::drone && (!revision->drone || (!p.map || !p.source || !valid_drone_position(p.drone_position) || !valid_drone_rotation(p.drone_rotation))))
+            throw std::invalid_argument("Invalid drone packet");
         if (p.kind == PacketKind::chat && (!p.source || !valid_chat_text(p.text)))
             throw std::invalid_argument("Invalid chat message");
         if (p.kind == PacketKind::typing && (!revision->typing || !p.source))
@@ -510,7 +538,8 @@ namespace dingosdk::multiplayer {
             p.kind != PacketKind::throwdown && p.kind != PacketKind::teleport && p.kind != PacketKind::physics_tuning &&
             p.kind != PacketKind::party && p.kind != PacketKind::scoring && p.kind != PacketKind::physics_extras &&
             p.kind != PacketKind::effects && p.kind != PacketKind::permissions && p.kind != PacketKind::words &&
-            p.kind != PacketKind::next_maps && (p.kind != PacketKind::typing || !revision->typing))
+            p.kind != PacketKind::next_maps && (p.kind != PacketKind::typing || !revision->typing) &&
+            p.kind != PacketKind::drone && (p.kind != PacketKind::drone || !revision->drone))
             throw std::invalid_argument("Unknown packet kind");
         const auto payload = greeting ? 72
             : p.kind == PacketKind::away
@@ -656,6 +685,11 @@ namespace dingosdk::multiplayer {
                 w.integer(impact.material, 2);
             }
         }
+        if (p.kind == PacketKind::drone) {
+            w.integer(p.drone_active ? 1 : 0, 1);
+            for (const auto v : p.drone_position) w.integer(std::bit_cast<std::uint32_t>(v), 4);
+            for (const auto v : p.drone_rotation) w.integer(std::bit_cast<std::uint32_t>(v), 4);
+        }
         if (p.kind == PacketKind::physics_extras) {
             w.integer(p.extras.size(), 2);
             w.bytes.insert(w.bytes.end(), p.extras.begin(), p.extras.end());
@@ -767,6 +801,7 @@ namespace dingosdk::multiplayer {
             w.integer(p.object_limit, 2);
             w.integer(p.object_scaling ? 1 : 0, 1);
             w.integer(p.sync_effects ? 1 : 0, 1);
+            w.integer(p.sync_drones ? 1 : 0, 1);
             w.integer(p.force_world_layers, 1);
             // One mode per world-layer catalog row; both peers read the same catalog
             // from the same game build.
@@ -827,15 +862,6 @@ namespace dingosdk::multiplayer {
         for (unsigned i = 0; i < 4; ++i)
             w.bytes[8 + i] = static_cast<std::uint8_t>(actual_payload >> (8 * i));
         return std::move(w.bytes);
-    }
-    std::vector<std::uint8_t> encode_50(const Packet& p, bool compact_pose, std::uint32_t pose_interval_us) {
-        return encode_revision(p, compact_pose, pose_interval_us, 50);
-    }
-    std::vector<std::uint8_t> encode_51(const Packet& p, bool compact_pose, std::uint32_t pose_interval_us) {
-        return encode_revision(p, compact_pose, pose_interval_us, 51);
-    }
-    std::vector<std::uint8_t> encode_51(const Packet& p, bool compact_pose) {
-        return encode_51(p, compact_pose, p.pose_interval_us);
     }
     static bool read_map_label(Reader& r, std::span<const std::uint8_t> bytes, Packet& p) {
         const auto length = r.integer(1);
@@ -1053,6 +1079,15 @@ namespace dingosdk::multiplayer {
                 }
                 if (!valid_impacts(p.impacts)) return {};
             }
+            else if (p.kind == PacketKind::drone && revision->drone) {
+                if (!p.map || !p.source || bytes.size() - r.at != drone_wire_size) return {};
+                const auto flag = r.integer(1);
+                if (flag > 1) return {};
+                p.drone_active = flag != 0;
+                for (auto& v : p.drone_position) v = r.number();
+                for (auto& v : p.drone_rotation) v = r.number();
+                if (!valid_drone_position(p.drone_position) || !valid_drone_rotation(p.drone_rotation)) return {};
+            }
             else if (p.kind == PacketKind::physics_extras) {
                 const auto length = r.integer(2);
                 if (!p.source || length > max_physics_extras || length != bytes.size() - r.at)
@@ -1261,6 +1296,10 @@ namespace dingosdk::multiplayer {
                 if (shared_effects > 1) return {};
                 p.sync_effects = shared_effects != 0;
 
+                const auto shared_drones = r.integer(1);
+                if (shared_drones > 1) return {};
+                p.sync_drones = shared_drones != 0;
+
                 const auto forced = r.integer(1);
                 if (forced > 1) return {};
                 p.force_world_layers = forced != 0;
@@ -1292,7 +1331,7 @@ namespace dingosdk::multiplayer {
                 if (!valid_voice_range(p.voice_range)) return {};
                 const auto tools = r.integer(1);
 
-                if (tools >  127) return {};
+                if (tools > 127) return {};
 
                 p.guest_noclip = (tools & 1) != 0;
                 p.guest_no_bail = (tools & 2) != 0;
@@ -1516,8 +1555,8 @@ namespace dingosdk::multiplayer {
             }
             return numbers == 3;
         }
-    }
-    // namespace
+    } // namespace
+
     bool valid_map_package(std::string_view package) noexcept {
         if (package.empty()) return true;
         if (package.size() > max_map_package) return false;

@@ -13,6 +13,7 @@
 #include <fstream>
 #include <limits>
 #include <stdexcept>
+#include "Extension/Customization/cosmetic_catalog_limits.h"
 
 namespace dingosdk::profile {
     using namespace detail;
@@ -81,13 +82,13 @@ namespace dingosdk::profile {
             }
             if (section.contains("inventory")) {
                 const auto& inventory = object_field(section, "inventory");
-                require(inventory.size() <= 8192, "Object inventory exceeds limit");
+                require(inventory.size() <= dingosdk::profile_runtime::MAX_CATALOG_SIZE, "Object inventory exceeds limit");
                 for (const auto& [key, owned] : inventory.items())
                     require(valid_text(key) && owned.is_boolean(), "Invalid object ownership record");
             }
             if (section.contains("catalog")) {
                 const auto& catalog = object_field(section, "catalog");
-                require(catalog.size() <= 8192, "Object metadata catalog exceeds limit");
+                require(catalog.size() <= dingosdk::profile_runtime::MAX_CATALOG_SIZE, "Object metadata catalog exceeds limit");
                 for (const auto& [key, metadata] : catalog.items()) {
                     require(valid_text(key) && metadata.is_object(), "Invalid object metadata record");
                     for (const auto* field : { "title", "description", "rarity_id" })

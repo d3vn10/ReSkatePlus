@@ -4,6 +4,7 @@
 /artifacts/
 /logs/
 /.vs/
+/.github/
 /CMakeUserPresets.json
 __pycache__/
 *.log
@@ -29,4 +30,7 @@ analysis/raw/**/*.res
 /analysis/
 /docs/
 /release
-/.github/copilot-instructions.md
+
+# Drone model sources (assets/models/fpv/CREDITS.md): large; only the prepared drone.glb is kept.
+/assets/models/fpv/dji_avata2.glb
+/assets/models/fpv/fpv_drone.glb

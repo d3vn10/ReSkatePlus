@@ -3,6 +3,8 @@
 #include <limits>
 #include <set>
 #include <stdexcept>
+#include "local_cosmetic_catalog.h"
+#include "cosmetic_catalog_limits.h"
 
 namespace dingosdk::profile {
 namespace {
@@ -77,7 +79,7 @@ void validate_customization(const Json& value) {
     require(value.is_object(), "Customization must be an object");
     if (value.contains("catalog")) {
         const auto& catalog = value.at("catalog");
-        require(catalog.is_object() && catalog.size() <= 8192, "Invalid cosmetic metadata catalog");
+        require(catalog.is_object() && catalog.size() <= dingosdk::profile_runtime::MAX_CATALOG_SIZE, "Invalid cosmetic metadata catalog");
         for (const auto& [key, metadata] : catalog.items()) {
             require(text(key) && metadata.is_object(), "Invalid cosmetic metadata record");
             for (const auto* field : {"title", "description", "rarity_id"})
@@ -99,7 +101,7 @@ void validate_customization(const Json& value) {
     }
     if (value.contains("inventory")) {
         const auto& inventory = value.at("inventory");
-        require(inventory.is_object() && inventory.size() <= 8192, "Invalid cosmetic inventory");
+        require(inventory.is_object() && inventory.size() <= dingosdk::profile_runtime::MAX_CATALOG_SIZE, "Invalid cosmetic inventory");
         for (const auto& [key, owned] : inventory.items())
             require(text(key) && owned.is_boolean(), "Invalid cosmetic ownership record");
     }

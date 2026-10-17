@@ -196,6 +196,9 @@ namespace dingosdk::launcher_gui::detail {
         bool crash_reports{};
         // On: launches send how long their steps took (RESKATE_TRACING=1 for the launcher and the game).
         bool performance_timings{};
+        // On: update to the newest pre-release on GitHub when there is one newer than the latest
+        // release. Turned off, the next check goes back to the latest release.
+        bool prereleases{};
         std::string steam_username;   // never the password
         bool steam_remember{ true };
         bool steam_prefer_code{};
@@ -248,6 +251,8 @@ namespace dingosdk::launcher_gui::detail {
         Settings& settings() { return settings_; }
         const launcher_app::Session& session() const { return session_; }
         void save();
+        // After settings are closed: the update check again, when an update choice changed.
+        void check_again_if_update_choices_changed();
 
         void check();
         // The merge the game would do at startup, run here so its failures can be
@@ -274,6 +279,9 @@ namespace dingosdk::launcher_gui::detail {
         std::vector<std::wstring> arguments_;
         Settings settings_;
         bool relaunched_{};
+        // The update choices the last check was made with: one changed in settings is checked
+        // again straight away (save()).
+        std::atomic<bool> checked_updates_{ true }, checked_prereleases_{};
         bool binaries_{ true };
         std::mutex mutex_;
         std::condition_variable answered_;
@@ -322,6 +330,8 @@ namespace dingosdk::launcher_gui::detail {
         std::string error;                               // why the last fetch failed
         update::ReleaseNote note;
         thunderstore::Readme text;
+        // Whether pre-releases are wanted (the setting), and whether `note` was fetched with them.
+        bool prereleases{}, fetched_prereleases{};
 
         ~Changelog() {
             if (worker.joinable()) worker.join();

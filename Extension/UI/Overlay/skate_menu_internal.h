@@ -12,7 +12,7 @@ namespace dingosdk::overlay::menu {
     void section(SkateMenu& menu, const char* text);
     void feedback(SkateMenu& menu, const char* text);
     bool toggle_row(SkateMenu& menu, const char* label, const char* hint, bool& value,
-                    bool available = true, const char* unavailable = "N/A");
+        bool available = true, const char* unavailable = "N/A");
     void category_tabs(SkateMenu& menu, int& selected, std::initializer_list<const char*> tabs, const char* id);
 
     // Page layout kit, so every page reads the same way:
@@ -34,7 +34,7 @@ namespace dingosdk::overlay::menu {
     // width 0 fills the rest of the row. tooltips, when given, are shown on hovering the option at the
     // same position (one per option; nullptr for none).
     bool choice(SkateMenu& menu, const char* id, int& selected, std::initializer_list<const char*> options,
-                bool enabled = true, float width = 0.0f, std::initializer_list<const char*> tooltips = {});
+        bool enabled = true, float width = 0.0f, std::initializer_list<const char*> tooltips = {});
     void tag(SkateMenu& menu, const char* text, ImU32 colour);
     bool primary_button(SkateMenu& menu, const char* label, bool enabled = true);
     // Height left for a tab's body, keeping room for the feedback line below it.
@@ -64,8 +64,9 @@ namespace dingosdk::overlay::menu {
     void developer_page(SkateMenu&, const Model&, const CallbacksV3&);
     // Extension/Music/music_page.cpp
     void music_page(SkateMenu&, const Model&, const CallbacksV3&);
+    // The FPV drone (drone_page.cpp).
+    void drone_page(SkateMenu&, const Model&, const CallbacksV3&);
     // Extension/Trainer/trainer_page.cpp
     void trainer_page(SkateMenu&, const Model&, const CallbacksV3&);
     bool trainer_page_wanted();
-
 }

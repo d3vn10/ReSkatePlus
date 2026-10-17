@@ -11,6 +11,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include "Extension/Customization/cosmetic_catalog_limits.h"
 
 // The local skater's cosmetic recipe while it plays: what Road Rash needs to read it, to hand the
 // game a changed one and to give the skater back to the game afterwards. Client thread only. Everything is read through guarded reads and checked
@@ -36,7 +37,7 @@ inline std::string installed_item(const SkaterItems& m, std::string_view ending)
             "Cosmetic catalog is not ready.");
     const auto buckets = m.ptr(manager, 0x30);
     const auto size = m.get<std::uint32_t>(manager, 0x38), total = m.get<std::uint32_t>(manager, 0x3c);
-    m.check(size && size <= 16384 && total && total <= 8192, "Cosmetic catalog exceeds bounds.");
+    m.check(size && size <= 16384 && total && total <= dingosdk::profile_runtime::MAX_CATALOG_SIZE, "Cosmetic catalog exceeds bounds.");
     std::uint32_t visited{};
     for (std::uint32_t bucket = 0; bucket < size && visited < total; ++bucket) {
         auto node = m.ptr(buckets, bucket * 8ULL);

@@ -11,7 +11,9 @@ add_library(dingosdk_runtime SHARED
     Engine/Game/Abi/native_data.cpp
     Extension/Console/commands.cpp
     Extension/Console/perf_commands.cpp
+    Extension/Console/memory_ledger.cpp
     Extension/Skater/console_commands.cpp
+    Extension/Skater/drone_outfit.cpp
     Extension/Multiplayer/console_commands.cpp
     Extension/Customization/console_commands.cpp
     Extension/Multiplayer/Session/session.cpp
@@ -30,6 +32,8 @@ add_library(dingosdk_runtime SHARED
     Extension/UI/NativeMenu/native_menu_data.cpp
     Extension/Multiplayer/Remote/native_skater.cpp
     Extension/Multiplayer/Remote/native_skater_spawn.cpp
+    Extension/Multiplayer/Remote/native_prop.cpp
+    Extension/Multiplayer/Remote/drone_sound.cpp
     Extension/Multiplayer/Remote/puppet_cost.cpp
     Extension/Multiplayer/Remote/native_cosmetics.cpp
     Extension/Multiplayer/Remote/native_audio.cpp
@@ -85,6 +89,7 @@ add_library(dingosdk_runtime SHARED
     Extension/Music/music_inject.cpp
     Extension/World/mesh_unload_guard.cpp
     Extension/World/shader_permutation_guard.cpp
+    Extension/World/light_table_guard.cpp
     Extension/World/stack_check_report.cpp
     Extension/World/texture_handle_limit.cpp
     Extension/Settings/replay_drafts.cpp
@@ -117,7 +122,9 @@ add_library(dingosdk_runtime SHARED
     Extension/Assets/morph_memory_pool.cpp
     Extension/Assets/native_render_resource_pool.cpp
     Extension/World/native_entity_pages.cpp
+    Extension/World/world_pool_usage.cpp
     Extension/World/physics_world_size.cpp
+    Extension/World/spatial_cull_ids.cpp
     Extension/Rendering/display_startup.cpp
     Extension/Rendering/replay_export.cpp
     Engine/Game/World/world_model.cpp
@@ -155,6 +162,7 @@ add_library(dingosdk_runtime SHARED
     Extension/RoadRash/road_rash_commands.cpp
     Extension/BoardBreak/board_break.cpp
     Extension/BoardBreak/board_break_commands.cpp
+    Extension/BoardBreak/board_break_audio.cpp
     Extension/Trainer/trainer.cpp
     Extension/Trainer/trainer_presets.cpp
     Extension/Trainer/trainer_jump.cpp
@@ -223,7 +231,10 @@ add_library(dingosdk_runtime SHARED
     Extension/Progression/neighborhood_unlock_override.cpp
     Extension/Boot/user_data_redirect.cpp
     Extension/Boot/ea_app_block.cpp
-    Extension/Boot/ea_service_block.cpp)
+    Extension/Boot/ea_service_block.cpp
+    Extension/Boot/eadp_errors_arena.cpp
+    Extension/Boot/descriptor_heap_size.cpp
+    Extension/Boot/game_fatal_dump.cpp)
 
 target_link_libraries(dingosdk_runtime PRIVATE dingosdk_logging dingosdk_profiler dingosdk_supported_build dingosdk_overlay dingosdk_console_core dingosdk_steam_restart_guard
     dingosdk_startup_interventions dingosdk_fast_travel_unlock dingosdk_local_profile dingosdk_initfs dingosdk_mods dingosdk_mod_list dingosdk_launcher_support dingosdk_miniz shell32 dingosdk_startup_window dingosdk_custom_scripts dingosdk_world_layer_scan bcrypt
@@ -305,6 +316,17 @@ if(EXISTS "${dingosdk_emotes}/emotes.json" AND EXISTS "${dingosdk_emotes}/emotes
         "EMOTES_JSON RCDATA \"${dingosdk_emotes_native}\\\\emotes.json\"\n"
         "EMOTES_PNG RCDATA \"${dingosdk_emotes_native}\\\\emotes.png\"\n")
     target_sources(dingosdk_runtime PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated/emotes.rc")
+endif()
+# Game content ReSkate carries itself (Engine/Vfs/builtin_packs.h): the FPV drone's model, built
+# by tools/models/build_drone_pack.py. Without the zip, other players' drones use a stand-in prop.
+set(dingosdk_drone_pack "${PROJECT_SOURCE_DIR}/assets/builtin/fpv_drone.zip")
+if(EXISTS "${dingosdk_drone_pack}")
+    file(TO_NATIVE_PATH "${dingosdk_drone_pack}" dingosdk_drone_pack_native)
+    string(REPLACE "\\" "\\\\" dingosdk_drone_pack_native "${dingosdk_drone_pack_native}")
+    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/generated/builtin_packs.rc"
+        "BUILTIN_PACK_FPV_DRONE RCDATA \"${dingosdk_drone_pack_native}\"\n")
+    target_sources(dingosdk_runtime PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated/builtin_packs.rc")
+    set_property(SOURCE "${CMAKE_CURRENT_BINARY_DIR}/generated/builtin_packs.rc" APPEND PROPERTY OBJECT_DEPENDS "${dingosdk_drone_pack}")
 endif()
 # The music sources' setup page (Extension/Music/spotify_dashboard.h).
 file(TO_NATIVE_PATH "${PROJECT_SOURCE_DIR}/Extension/Music/setup_page.html" dingosdk_music_page_native)

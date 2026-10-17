@@ -1,3 +1,4 @@
+#include "Engine/Core/Platform/memory.h"
 #include "Engine/Core/Log/logging.h"
 #include "local_customization_runtime.h"
 #include "Extension/Profile/runtime_internal.h"
@@ -5,8 +6,11 @@
 #include "Engine/Game/Build/addresses.h"
 #include "Engine/Game/Build/20260929/engine.h"
 #include "Engine/Game/Build/20260929/local_customization.h"
+#include <array>
 #include <mutex>
 #include <set>
+#include "local_cosmetic_catalog.h"
+#include "cosmetic_catalog_limits.h"
 
 namespace dingosdk::profile_runtime {
     CosmeticRuntime& cosmetic_runtime() {
@@ -27,7 +31,8 @@ namespace dingosdk::profile_runtime {
                     {"operation", operation}, {"reason", reason}, {"preset", id} };
                 dingosdk::logging::event(dingosdk::logging::Channel::customization, event.dump().c_str());
             }
-        } catch (...) {
+        }
+        catch (...) {
         }
         return false;
     }
@@ -39,16 +44,19 @@ namespace dingosdk::profile_runtime {
         return hash;
     }
 
+    // A name of up to 255 characters, read in place (memory::peek_cstring). It was read a character
+    // at a time through ReadProcessMemory: a system call each, some 100 for a name, for every one of
+    // up to MAX_CATALOG_SIZE items and their categories when the catalog is walked, which is done on the client
+    // thread under native_mutex (2026-10-15).
     bool cosmetic_text(std::uintptr_t p, std::string& value) {
         value.clear();
-        for (std::size_t i = 0; i <= 255; ++i) {
-            unsigned char c{};
-            if (!read(p + i, c)) return false;
-            if (!c) return true;
-            if (c < 32 || c == 127) return false;
-            value += static_cast<char>(c);
-        }
-        return false;
+        std::array<char, 257> text{};
+        const auto length = dingosdk::memory::peek_cstring(p, text.data(), 256);
+        if (length < 0) return false;
+        for (std::ptrdiff_t i = 0; i < length; ++i)
+            if (static_cast<unsigned char>(text[i]) < 32 || text[i] == 127) return false;
+        value.assign(text.data(), static_cast<std::size_t>(length));
+        return true;
     }
 
     bool cosmetic_array(std::uintptr_t p, std::size_t stride, std::size_t limit, std::uint32_t& count) {
@@ -89,7 +97,7 @@ namespace dingosdk::profile_runtime {
         if (!read(s.base + addr::engine::cosmetics_manager, manager) || !manager || !read(manager, vtable) ||
             vtable != s.base + addr::engine::cosmetics_manager_vtable || !read(manager + 0xa8, ready) || ready != 1 ||
             !read(manager + 0x30, buckets) || !read(manager + 0x38, bucket_count) ||
-            !read(manager + 0x3c, count) || !count || count > 8192 || !bucket_count || bucket_count > 16384)
+            !read(manager + 0x3c, count) || !count || count > dingosdk::profile_runtime::MAX_CATALOG_SIZE || !bucket_count || bucket_count > 16384)
             return false;
         if (c.item_manager == manager && c.item_count == count && !c.items.empty()) return true;
         std::map<std::string, CosmeticItemInfo, std::less<>> items;
@@ -152,7 +160,6 @@ namespace dingosdk::profile_runtime {
         const auto& inventory = snapshot->customization.value("inventory", dingosdk::Json::object());
 
         std::size_t projected_size = inventory.size();
-
         for (const auto& key : keys) {
             if (!inventory.contains(key))
                 ++projected_size;
@@ -161,19 +168,41 @@ namespace dingosdk::profile_runtime {
         dingosdk::logging::log(
             dingosdk::logging::Level::debug,
             dingosdk::logging::Channel::profile,
-            "Cosmetic inventory: {} existing entries; {} installed cosmetics; {} projected entries",
+            "Cosmetic inventory has {} existing entries. Of {} installed cosmetics {} need to be added to catalog",
             inventory.size(),
             keys.size(),
             projected_size
         );
 
-        if (projected_size > 8192) {
+        // IDK if better to just back out of loading or let user see it attempt to load and immediatly crash to get them to actually disable shit.
+        if (keys.size() >= dingosdk::profile_runtime::MAX_CATALOG_SIZE) {
+            dingosdk::logging::log(
+                dingosdk::logging::Level::error,
+                dingosdk::logging::Channel::profile,
+                "Your modlists cosmetic inventory catalog is to big! Max size can only be {}, your attempting to add {} items! Game most likely will crash on loading...", 
+                dingosdk::profile_runtime::MAX_CATALOG_SIZE,
+                keys.size()
+            );
+            s.store->clear_cosmetic_inventory();
+        }
+        // They most likely have a working setup still, just too much old items they don't use still in their catalog.
+        else if (inventory.size() >= dingosdk::profile_runtime::MAX_CATALOG_SIZE) {
             dingosdk::logging::log(
                 dingosdk::logging::Level::warning,
                 dingosdk::logging::Channel::profile,
-                "Cosmetic inventory would exceed 8192 entries; clearing stale inventory before seeding"
+                "Your local cosmetic inventory catalog has already surpassed the max of {} by {} items. Clearing list...", 
+                dingosdk::profile_runtime::MAX_CATALOG_SIZE, 
+                inventory.size() - dingosdk::profile_runtime::MAX_CATALOG_SIZE
             );
-
+            s.store->clear_cosmetic_inventory();
+        }
+        else if (projected_size > dingosdk::profile_runtime::MAX_CATALOG_SIZE) {
+            dingosdk::logging::log(
+                dingosdk::logging::Level::info,
+                dingosdk::logging::Channel::profile,
+                "Projected cosmetic inventory size would exceed the max of {}. Clearing stale inventory before seeding...", 
+                dingosdk::profile_runtime::MAX_CATALOG_SIZE
+            );
             s.store->clear_cosmetic_inventory();
         }
 
@@ -326,7 +355,8 @@ namespace dingosdk::profile_runtime {
             const bool initialized = initialize_missing_starter(recipes);
             if (cosmetic_runtime().diagnostics.insert("starter_template_expression").second)
                 dingosdk::logging::event(dingosdk::logging::Channel::customization, dingosdk::Json{ {"event", "local_starter_template_expression"}, {"initialized", initialized} }.dump().c_str());
-        } catch (...) {
+        }
+        catch (...) {
             cosmetic_diagnostic("starter", "expression_setup_failed");
         }
     }
@@ -338,7 +368,8 @@ namespace dingosdk::profile_runtime {
         if (id == "profile" || !complete_starter_recipes(defaults)) return false;
         try {
             profile::validate_player_card(saved);
-        } catch (...) {
+        }
+        catch (...) {
             return false;
         }
         auto& s = local_runtime();
@@ -391,6 +422,12 @@ namespace dingosdk::profile_runtime {
             std::vector<CosmeticBorrowedArray<CosmeticNativeItem>> item_arrays;
             words.reserve(16 * 257); item_arrays.reserve(16);
             std::vector<CosmeticRuntime::HeldSlot> held;
+            // (Looked up once: Json::value returns a copy, and this was asked for every slot, a copy
+            // of the whole inventory each time, in the game's own load call.)
+            static const auto no_inventory = dingosdk::Json::object();
+            const auto inventory_found = snapshot.customization.find("inventory");
+            const auto& inventory = inventory_found != snapshot.customization.end() && inventory_found->is_object()
+                ? *inventory_found : no_inventory;
             for (std::size_t i = 0; i < saved->recipes.size(); ++i) {
                 const auto& recipe = saved->recipes[i]; const auto& expected = defaults.recipes[i];
                 if (recipe.template_key != expected.template_key || recipe.template_version != expected.template_version ||
@@ -435,8 +472,9 @@ namespace dingosdk::profile_runtime {
                                 "saved for when it is installed again.", id, slot->asset, problem);
                             held.push_back({ i, *slot, expected.items[j].asset });
                             slot = &expected.items[j];
-                        } else {
-                            const auto& inventory = snapshot.customization.value("inventory", dingosdk::Json::object());
+                        }
+                        else {
+                            //const auto& inventory = snapshot.customization.value("inventory", dingosdk::Json::object());
                             if (inventory.contains(slot->asset) && !inventory.at(slot->asset).get<bool>())
                                 slot = &expected.items[j];
                         }
@@ -460,7 +498,8 @@ namespace dingosdk::profile_runtime {
             else c.held_slots[id] = std::move(held);
             dingosdk::logging::event(dingosdk::logging::Channel::customization, "{\"event\":\"local_cosmetic_loadout_loaded\"}");
             return true;
-        } catch (...) {
+        }
+        catch (...) {
             if (!id.empty()) cosmetic_runtime().blocked_loadouts.insert(id);
             dingosdk::logging::event(dingosdk::logging::Channel::customization, "{\"event\":\"local_cosmetic_loadout_load_failed\"}");
             return false;
@@ -527,7 +566,8 @@ namespace dingosdk::profile_runtime {
             s.copy_cosmetic(reinterpret_cast<void*>(p + 0x20), reinterpret_cast<const void*>(first), reinterpret_cast<const void*>(last));
             if (!previous || *previous != value) dingosdk::logging::event(dingosdk::logging::Channel::customization, "{\"event\":\"local_cosmetic_loadout_saved\"}");
             else cosmetic_diagnostic("save", "unchanged", id);
-        } catch (...) {
+        }
+        catch (...) {
             dingosdk::logging::event(dingosdk::logging::Channel::customization, "{\"event\":\"local_cosmetic_loadout_save_failed\"}");
         }
     }

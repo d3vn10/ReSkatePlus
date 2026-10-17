@@ -53,7 +53,7 @@ Older/newer versions _should_ work unless the packet structure or SteamAPI hands
 - **Special/Developer menu access.** View and utilize the special and developer menus that are normally locked to
   "reserved" players.
 
-## Getting started
+## Getting Started
 
 1. Download the latest `ReSkatePlus_<version>.zip` from
    [Releases](https://github.com/d3vn10/ReSkatePlus/releases).
@@ -95,6 +95,21 @@ CachyOS: the launcher, the server browser, joining a public server and hosting a
 custom map and then join a server on another map, the screen can stay black
 ([#31](https://github.com/Dingo-Shenanigans/ReSkate/issues/31)): load the server's map first.
 
+### Multiplayer Map Downloads
+
+Missing multiplayer custom maps can be downloaded from Thunderstore after confirmation.
+The confirmation expires after two minutes. A session waits 30 minutes in all for the map to be
+checked, downloaded, installed, applied and joined; dedicated servers and player-hosted lobbies
+enforce the same limit on their own monotonic clocks. Ordinary map loading still gets 180
+seconds; loading after a live installation still gets 30 seconds.
+
+A download that has begun is not cut short when the session stops waiting: a large map on a slow
+connection goes on downloading (up to four hours), installs and is applied, and you are told to
+join the server again. Declining, or cancelling the download, stops it and removes the
+incomplete file. Installation stops before replacing an existing mod when cancellation is
+observed; a filesystem commit or live merge already in progress finishes safely rather than
+being forcibly interrupted. Retry after that work has finished, without restarting ReSkate.
+
 ### Controls
 
 | Key | Opens |
@@ -119,7 +134,7 @@ layouts without unexpectedly randomizing them.
 The console equivalents are `park random` and `park random-on-launch 0|1`. A dedicated server also
 accepts `park random` from its console or an admin.
 
-### Where things are
+### Where Things Are
 
 | What | Where |
 |---|---|
@@ -170,13 +185,13 @@ accepts `park random` from its console or an admin.
 Only install mods you trust. Mods change game data. Custom Lua scripts (`scripts/Custom`) are
 switched off in this version: nothing in that folder is read or run.
 
-## Dedicated servers
+## Dedicated Servers
 
 `ReSkateServer.exe` is a headless lobby that needs neither the game nor Steam installed. It is in the
 `ReSkateServer-<version>.zip` of each release. See [Server/README.txt](Server/README.txt) for setup,
 `ReSkateServer.json`, admin commands, votes and the anti-cheat checks.
 
-### Linux servers
+### Linux Servers
 
 Each release also ships `ReSkateServer-Linux-<version>.zip`: the same headless lobby as a native
 x86_64 Linux binary (no Wine, no game install). Setup in short:
@@ -190,7 +205,7 @@ unzip ReSkateServer-Linux-<version>.zip -d reskate-server && cd reskate-server
 Details (Steam `.so` files, `world-layers.json`, `systemd`, ports, building from source with
 `cmake --preset linux-x64`) are in [Server/README-linux.md](Server/README-linux.md).
 
-## Building from source
+## Building From Source
 
 ### Requirements
 
@@ -222,7 +237,7 @@ The files are written to `build/vs2022-x64/Release/`:
 To work in Visual Studio, open `build/vs2022-x64/DingoSDK.sln` after configuring and select
 **Release | x64**.
 
-### Running your build
+### Running Your Build
 
 Close the game. Copy `ReSkatePlusLauncher.exe` and `ReSkatePlus.dll` into your ReSkate+ folder (the one the
 launcher installed the game into, beside `Skate.exe`), then run the launcher.
@@ -247,7 +262,7 @@ Useful launcher flags:
 | `--no-loose-files` | ignore loose Lua and config files beside the game |
 | `--gpu-diagnostics` | record extra detail when the graphics driver crashes (DRED) |
 
-### CMake options
+### CMake Options
 
 | Option | Default | Effect |
 |---|---|---|
@@ -271,7 +286,7 @@ ctest --test-dir build/vs2022-x64 -C Release
 
 The project builds with `/W4 /WX`: warnings are errors.
 
-## Project layout
+## Project Layout
 
 The source tree loosely follows Frostbite's own layout.
 
@@ -292,7 +307,7 @@ The source tree loosely follows Frostbite's own layout.
 | `assets/`, `config/` | files built into the binaries: launcher art, emotes, default profile settings |
 | `cmake/` | the build, split by area |
 
-### Supporting a new game build
+### Supporting a New Game Build
 
 Feature code never contains addresses. Everything tied to one `Skate.exe` lives in
 `Engine/Game/Build/<build>/` and in the pins of
@@ -300,7 +315,7 @@ Feature code never contains addresses. Everything tied to one `Skate.exe` lives 
 the content cache. A new game build means a new table and new pins. Most hooks and patches check the
 bytes they expect before touching them, so code from the wrong build is refused rather than patched.
 
-## Crash reports and privacy
+## Crash Reports and Privacy
 
 When the launcher or the game crashes, ReSkate uploads a minidump and that session's log to the
 project's self-hosted Sentry server, so crashes can be fixed. The log never contains your Steam password or
@@ -319,7 +334,7 @@ ReSkate+ also keeps the game off EA's online services: the game's own crash repo
 remote configuration requests are turned off and blocked. Fast-travel artwork still comes from EA's
 image CDN (`dingo-dev-assets.akamaized.net`), which only downloads images.
 
-## Third-party code
+## Third-Party Code
 
 ReSkate+ uses Dear ImGui, Microsoft Detours, RapidJSON, spdlog, SQLite, LZ4, Zstandard, miniz, bcdec and
 Valve's networking headers, and the Montserrat and Permanent Marker fonts. Versions, licenses and local
@@ -343,7 +358,7 @@ The license covers ReSkate+'s own code. It does not cover:
   else from skate. The game and its content belong to Electronic Arts, and nothing here grants any
   rights to them.
 
-## AI disclosure
+## AI Disclosure
 
 Parts of ReSkate, including code, reverse-engineering notes and documentation, were written with the
 help of AI coding assistants. The maintainers direct and test that work, but AI-written code can contain

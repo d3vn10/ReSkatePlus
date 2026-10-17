@@ -35,7 +35,7 @@ namespace dingosdk::launcher_gui::detail {
                     out.z += (glow.colour.z - out.z) * a;
                 }
                 return ImGui::ColorConvertFloat4ToU32(out);
-                };
+            };
             constexpr int columns = 32, rows = 18;
             const float cell_x = size.x / columns, cell_y = size.y / rows;
             for (int row = 0; row < rows; ++row)
@@ -77,7 +77,8 @@ namespace dingosdk::launcher_gui::detail {
                         corners[corner] = ImVec2(centre.x + std::cos(a) * radius, centre.y + std::sin(a) * radius);
                     }
                     draw->AddQuad(corners[0], corners[1], corners[2], corners[3], rgba(255, 255, 255, alpha), 1.2f);
-                } else {
+                }
+                else {
                     draw->AddCircle(centre, radius, rgba(255, 255, 255, alpha), 0, 1.2f);
                 }
             }
@@ -185,60 +186,60 @@ namespace dingosdk::launcher_gui::detail {
             return pressed;
         }
 
-// A small tile in the bottom-left corner: what each release changed.
-bool changelog_tile(ImDrawList* draw, const Fonts& fonts, ImVec2 position, ImVec2 size, bool enabled) {
-    bool hovered{};
-    const bool pressed = tile_hit("##changelog", position, size, enabled, hovered);
-    const ImVec2 end(position.x + size.x, position.y + size.y);
-    rough_rect(draw, position, end, hovered ? color::tile_grey : color::tile, 9);
-    if (hovered) draw->AddRect(ImVec2(position.x - S(3), position.y - S(3)), ImVec2(end.x + S(3), end.y + S(3)), color::text, 0, 0, S(3));
-    const char* label = "CHANGELOGS";
-    const auto extent = fonts.heading->CalcTextSizeA(fonts.heading->FontSize, FLT_MAX, 0, label);
-    draw->AddText(fonts.heading, fonts.heading->FontSize,
-        ImVec2(position.x + (size.x - extent.x) * 0.5f, position.y + (size.y - extent.y) * 0.5f), color::text, label);
-    return pressed;
-}
-
-// The MODS tile, the biggest after PLAY: a mod browser nobody finds is no use.
-bool mods_tile(ImDrawList* draw, const Fonts& fonts, ImVec2 position, ImVec2 size, bool enabled,
-               const std::string& detail, const std::string& mark, bool bad) {
-    bool hovered{};
-    const bool pressed = tile_hit("##mods", position, size, enabled, hovered);
-    const ImVec2 end(position.x + size.x, position.y + size.y);
-    rough_rect(draw, position, end, color::tile, 4);
-    if (hovered) draw->AddRect(ImVec2(position.x - S(3), position.y - S(3)), ImVec2(end.x + S(3), end.y + S(3)), color::text, 0, 0, S(3));
-    // Title and detail centred as one block, so the tile's height can change.
-    const float block = fonts.tile->FontSize + (detail.empty() ? 0 : fonts.body->FontSize + S(6));
-    const float text_y = position.y + (size.y - block) * 0.5f;
-    draw->AddText(fonts.tile, fonts.tile->FontSize, ImVec2(position.x + S(18), text_y), color::text, "MOD MANAGER");
-    if (!detail.empty()) {
-        const float detail_y = text_y + fonts.tile->FontSize + S(6);
-        float room = end.x - S(86);        // the faded icon owns the rest
-        // A mod that did not load says so in the detail's colour; an update
-        // count is short enough for a pill beside it.
-        if (!mark.empty() && !bad) {
-            room -= badge_width(fonts, mark);
-            badge(draw, fonts,
-                ImVec2(room, detail_y + (fonts.body->FontSize - fonts.caption->FontSize - S(8)) * 0.5f),
-                mark, color::blue, color::ink);
-            room -= S(10);
+        // A small tile in the bottom-left corner: what each release changed.
+        bool changelog_tile(ImDrawList* draw, const Fonts& fonts, ImVec2 position, ImVec2 size, bool enabled) {
+            bool hovered{};
+            const bool pressed = tile_hit("##changelog", position, size, enabled, hovered);
+            const ImVec2 end(position.x + size.x, position.y + size.y);
+            rough_rect(draw, position, end, hovered ? color::tile_grey : color::tile, 9);
+            if (hovered) draw->AddRect(ImVec2(position.x - S(3), position.y - S(3)), ImVec2(end.x + S(3), end.y + S(3)), color::text, 0, 0, S(3));
+            const char* label = "CHANGELOGS";
+            const auto extent = fonts.heading->CalcTextSizeA(fonts.heading->FontSize, FLT_MAX, 0, label);
+            draw->AddText(fonts.heading, fonts.heading->FontSize,
+                ImVec2(position.x + (size.x - extent.x) * 0.5f, position.y + (size.y - extent.y) * 0.5f), color::text, label);
+            return pressed;
         }
-        const ImVec4 clip(position.x + S(20), detail_y, room, detail_y + fonts.body->FontSize + S(2));
-        draw->AddText(fonts.body, fonts.body->FontSize, ImVec2(position.x + S(20), detail_y),
-            bad ? color::danger : color::muted, detail.c_str(), nullptr, 0, &clip);
-    }
-    // The skate tool, faded like the wheel on SETTINGS.
-    const ImVec2 centre(end.x - S(46), position.y + size.y * 0.5f);
-    if (tile_icon(draw, g_icon_mods, centre, S(56), hovered)) return pressed;
-    const ImU32 ink = rgba(255, 255, 255, hovered ? 0.55f : 0.3f);
-    for (int layer = 0; layer < 3; ++layer) {
-        const float y = centre.y - S(12) + static_cast<float>(layer) * S(12);
-        const ImVec2 points[]{ImVec2(centre.x, y - S(7)), ImVec2(centre.x + S(20), y), ImVec2(centre.x, y + S(7)),
-                              ImVec2(centre.x - S(20), y)};
-        draw->AddPolyline(points, 4, ink, ImDrawFlags_Closed, S(3));
-    }
-    return pressed;
-}
+
+        // The MODS tile, the biggest after PLAY: a mod browser nobody finds is no use.
+        bool mods_tile(ImDrawList* draw, const Fonts& fonts, ImVec2 position, ImVec2 size, bool enabled,
+            const std::string& detail, const std::string& mark, bool bad) {
+            bool hovered{};
+            const bool pressed = tile_hit("##mods", position, size, enabled, hovered);
+            const ImVec2 end(position.x + size.x, position.y + size.y);
+            rough_rect(draw, position, end, color::tile, 4);
+            if (hovered) draw->AddRect(ImVec2(position.x - S(3), position.y - S(3)), ImVec2(end.x + S(3), end.y + S(3)), color::text, 0, 0, S(3));
+            // Title and detail centred as one block, so the tile's height can change.
+            const float block = fonts.tile->FontSize + (detail.empty() ? 0 : fonts.body->FontSize + S(6));
+            const float text_y = position.y + (size.y - block) * 0.5f;
+            draw->AddText(fonts.tile, fonts.tile->FontSize, ImVec2(position.x + S(18), text_y), color::text, "MOD MANAGER");
+            if (!detail.empty()) {
+                const float detail_y = text_y + fonts.tile->FontSize + S(6);
+                float room = end.x - S(86);        // the faded icon owns the rest
+                // A mod that did not load says so in the detail's colour; an update
+                // count is short enough for a pill beside it.
+                if (!mark.empty() && !bad) {
+                    room -= badge_width(fonts, mark);
+                    badge(draw, fonts,
+                        ImVec2(room, detail_y + (fonts.body->FontSize - fonts.caption->FontSize - S(8)) * 0.5f),
+                        mark, color::blue, color::ink);
+                    room -= S(10);
+                }
+                const ImVec4 clip(position.x + S(20), detail_y, room, detail_y + fonts.body->FontSize + S(2));
+                draw->AddText(fonts.body, fonts.body->FontSize, ImVec2(position.x + S(20), detail_y),
+                    bad ? color::danger : color::muted, detail.c_str(), nullptr, 0, &clip);
+            }
+            // The skate tool, faded like the wheel on SETTINGS.
+            const ImVec2 centre(end.x - S(46), position.y + size.y * 0.5f);
+            if (tile_icon(draw, g_icon_mods, centre, S(56), hovered)) return pressed;
+            const ImU32 ink = rgba(255, 255, 255, hovered ? 0.55f : 0.3f);
+            for (int layer = 0; layer < 3; ++layer) {
+                const float y = centre.y - S(12) + static_cast<float>(layer) * S(12);
+                const ImVec2 points[]{ ImVec2(centre.x, y - S(7)), ImVec2(centre.x + S(20), y), ImVec2(centre.x, y + S(7)),
+                                      ImVec2(centre.x - S(20), y) };
+                draw->AddPolyline(points, 4, ink, ImDrawFlags_Closed, S(3));
+            }
+            return pressed;
+        }
 
         // The STATUS tile: what ReSkate is doing, or what went wrong and what to do
         // about it. Laid out like the HUB's BOUNTIES tile, with the state in its edge.
@@ -369,39 +370,39 @@ bool mods_tile(ImDrawList* draw, const Fonts& fonts, ImVec2 position, ImVec2 siz
         draw->AddLine(ImVec2(cross.x - S(5), cross.y + S(5)), ImVec2(cross.x + S(5), cross.y - S(5)), color::text, S(1));
     }
 
-void frame(Launcher& launcher, const Fonts& fonts, HWND window, Ui& ui, ModsPanel& mods_panel) {
-    const auto& io = ImGui::GetIO();
-    const ImVec2 size = io.DisplaySize;
-    const float time = static_cast<float>(ImGui::GetTime());
-    const auto state = launcher.snapshot();
-    const bool qr_open = !state.qr.empty();
-    // The Thunderstore listing loads in the background from the start, so the
-    // MODS tile can say when installed mods have updates.
-    collect_listing(mods_panel);
-    refresh_listing(mods_panel, time);
-    // A mod dropped on the window opens the Mods panel and installs it.
-    {
-        std::lock_guard lock(g_dropped_mutex);
-        if (!g_dropped.empty() && !ui.settings && !ui.sign_in && !qr_open && !state.prompt && !mods_panel.installing) {
-            ui.mods = true;
-            mods_panel.tab = 0;
-            if (!mods_panel.scanned) scan(mods_panel, launcher.session());
-            start_install(mods_panel, g_dropped.front(), false);
+    void frame(Launcher& launcher, const Fonts& fonts, HWND window, Ui& ui, ModsPanel& mods_panel) {
+        const auto& io = ImGui::GetIO();
+        const ImVec2 size = io.DisplaySize;
+        const float time = static_cast<float>(ImGui::GetTime());
+        const auto state = launcher.snapshot();
+        const bool qr_open = !state.qr.empty();
+        // The Thunderstore listing loads in the background from the start, so the
+        // MODS tile can say when installed mods have updates.
+        collect_listing(mods_panel);
+        refresh_listing(mods_panel, time);
+        // A mod dropped on the window opens the Mods panel and installs it.
+        {
+            std::lock_guard lock(g_dropped_mutex);
+            if (!g_dropped.empty() && !ui.settings && !ui.sign_in && !qr_open && !state.prompt && !mods_panel.installing) {
+                ui.mods = true;
+                mods_panel.tab = 0;
+                if (!mods_panel.scanned) scan(mods_panel, launcher.session());
+                start_install(mods_panel, g_dropped.front(), false);
+            }
+            g_dropped.clear();
         }
-        g_dropped.clear();
-    }
-    // The Steam name for the plate, and the one-time offline notice, both come
-    // from the first Steam check; steam_offline_seen keeps it to one decision.
-    if (time - ui.steam_checked > 5) {
-        ui.steam_name = launcher_app::steam_persona_name();
-        ui.steam_checked = time;
-        if (!ui.steam_offline_seen) {
-            ui.steam_offline_seen = true;
-            ui.steam_offline = !launcher.settings().offline && !launcher_app::steam_signed_in();
+        // The Steam name for the plate, and the one-time offline notice, both come
+        // from the first Steam check; steam_offline_seen keeps it to one decision.
+        if (time - ui.steam_checked > 5) {
+            ui.steam_name = launcher_app::steam_persona_name();
+            ui.steam_checked = time;
+            if (!ui.steam_offline_seen) {
+                ui.steam_offline_seen = true;
+                ui.steam_offline = !launcher.settings().offline && !launcher_app::steam_signed_in();
+            }
         }
-    }
-    const bool modal = ui.settings || ui.changelog || ui.mods || ui.sign_in || qr_open || state.prompt.has_value() ||
-        ui.steam_offline || state.phase == Phase::mods_broken || ui.mods_update_prompt;
+        const bool modal = ui.settings || ui.changelog || ui.mods || ui.sign_in || qr_open || state.prompt.has_value() ||
+            ui.steam_offline || state.phase == Phase::mods_broken || ui.mods_update_prompt;
 
         ImGui::SetNextWindowPos(ImVec2(0, 0));
         ImGui::SetNextWindowSize(size);
@@ -458,7 +459,7 @@ void frame(Launcher& launcher, const Fonts& fonts, HWND window, Ui& ui, ModsPane
                 detail += " [Offline]";
             else if (!update::binary_updates_enabled())
                 detail += " [DEV]";
-                break;
+            break;
         case Phase::launching: label = "LAUNCHING"; enabled = false; break;
         case Phase::failed: label = "RETRY"; break;
         }
@@ -477,7 +478,7 @@ void frame(Launcher& launcher, const Fonts& fonts, HWND window, Ui& ui, ModsPane
             case Phase::failed: launcher.check(); break;
             default: break;
             }
-            };
+        };
         const auto play_mark = state.phase == Phase::ready && ui.mods_pending
             ? (ui.mods_pending == 1 ? std::string("1 MOD UPDATE") : std::format("{} MOD UPDATES", ui.mods_pending))
             : std::string();
@@ -516,14 +517,14 @@ void frame(Launcher& launcher, const Fonts& fonts, HWND window, Ui& ui, ModsPane
             mods_panel.scanned = false;
         }
 
-    // Level with PLAY's bottom edge, in the opposite corner.
-    const ImVec2 changelog_size(S(200), S(52));
-    if (changelog_tile(draw, fonts, ImVec2(S(60), size.y - S(56) - changelog_size.y), changelog_size, !modal))
-        ui.changelog = true;
+        // Level with PLAY's bottom edge, in the opposite corner.
+        const ImVec2 changelog_size(S(200), S(52));
+        if (changelog_tile(draw, fonts, ImVec2(S(60), size.y - S(56) - changelog_size.y), changelog_size, !modal))
+            ui.changelog = true;
 
-    if (enabled && !secondary && !modal &&
-        (ImGui::IsKeyPressed(ImGuiKey_Enter, false) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter, false))) act();
-    ImGui::EndDisabled();
+        if (enabled && !secondary && !modal &&
+            (ImGui::IsKeyPressed(ImGuiKey_Enter, false) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter, false))) act();
+        ImGui::EndDisabled();
 
         status_tile(fonts, state, ImVec2(S(60), S(200)), S(430), time, launcher.session().paths.logs, modal);
 
@@ -531,16 +532,19 @@ void frame(Launcher& launcher, const Fonts& fonts, HWND window, Ui& ui, ModsPane
         g_drag_allowed = !modal && !ImGui::IsAnyItemHovered();
         ImGui::End();
 
-    if (state.prompt) prompt_window(launcher, fonts, size, *state.prompt, ui);
-    else if (qr_open) qr_window(launcher, fonts, size, state.qr);
-    else if (ui.sign_in) sign_in_window(launcher, fonts, size, ui);
-    else if (ui.settings) settings_window(launcher, fonts, size, ui, window);
-    else if (ui.changelog) changelog_window(fonts, size, ui);
-    else if (ui.mods) mods_window(launcher, fonts, size, ui, mods_panel, window);
-    else if (state.phase == Phase::mods_broken)
-        mods_broken_window(launcher, fonts, size, ui, mods_panel, state.mod_problems);
-    else if (ui.mods_update_prompt) mods_outdated_window(launcher, fonts, size, ui, mods_panel);
-    else if (ui.steam_offline) steam_offline_window(fonts, size, ui);
-}
+        if (state.prompt) prompt_window(launcher, fonts, size, *state.prompt, ui);
+        else if (qr_open) qr_window(launcher, fonts, size, state.qr);
+        else if (ui.sign_in) sign_in_window(launcher, fonts, size, ui);
+        else if (ui.settings) settings_window(launcher, fonts, size, ui, window);
+        else if (ui.changelog) {
+            ui.notes.prereleases = launcher.settings().prereleases;
+            changelog_window(fonts, size, ui);
+        }
+        else if (ui.mods) mods_window(launcher, fonts, size, ui, mods_panel, window);
+        else if (state.phase == Phase::mods_broken)
+            mods_broken_window(launcher, fonts, size, ui, mods_panel, state.mod_problems);
+        else if (ui.mods_update_prompt) mods_outdated_window(launcher, fonts, size, ui, mods_panel);
+        else if (ui.steam_offline) steam_offline_window(fonts, size, ui);
+    }
 
 } // namespace dingosdk::launcher_gui::detail

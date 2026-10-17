@@ -3,11 +3,14 @@
 #include "Engine/Core/Profiling/profiler.h"
 #include "overlay_internal.h"
 #include "Extension/Trainer/trainer_page.h"
+#include "Extension/Skater/drone_flight.h"
 #include "Extension/HallOfMeat/hall_of_meat_overlay.h"
 #include "park_previews.h"
 #include "chat_emotes.h"
 #include "input_capture.h"
 #include "cursor.h"
+#include <algorithm>
+#include <chrono>
 #include <dxgi1_6.h>
 #include <imgui_internal.h>
 
@@ -200,58 +203,60 @@ bool select_presented_swapchain(IDXGISwapChain* presented) {
         return true;
     }
 
-    bool setup_graphics() {
-        auto& s = state();
-        DXGI_SWAP_CHAIN_DESC description{};
-        if (FAILED(s.swapchain->GetDesc(&description)) || description.BufferCount < 2
-            || description.BufferCount > 8 || description.SampleDesc.Count != 1
-            || !description.OutputWindow) return false;
-        dingosdk::logging::printf(dingosdk::logging::Level::debug, dingosdk::logging::Channel::graphics, "Swapchain setup: chain=%p queue=%p size=%ux%u buffers=%u format=%u usage=0x%x flags=0x%x effect=%u windowed=%d",
-            s.swapchain.Get(), s.queue.Get(), description.BufferDesc.Width, description.BufferDesc.Height,
-            description.BufferCount, static_cast<unsigned>(description.BufferDesc.Format),
-            description.BufferUsage, description.Flags, static_cast<unsigned>(description.SwapEffect),
-            description.Windowed);
-        if ((description.SwapEffect != DXGI_SWAP_EFFECT_FLIP_DISCARD &&
-            description.SwapEffect != DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL) ||
-            !(description.BufferUsage & DXGI_USAGE_RENDER_TARGET_OUTPUT) ||
-            (description.BufferUsage & DXGI_USAGE_READ_ONLY)) {
-            dingosdk::logging::write(dingosdk::logging::Level::warning, dingosdk::logging::Channel::graphics, "Unsupported or read-only swapchain; overlay drawing disabled.");
-            s.failed = true;
-            return false;
-        }
-        DWORD pid = 0;
-        GetWindowThreadProcessId(description.OutputWindow, &pid);
-        if (pid != GetCurrentProcessId()) return false;
-        if (FAILED(s.swapchain->GetDevice(IID_PPV_ARGS(&s.device)))) return false;
-        const auto adapter = s.device->GetAdapterLuid();
-        dingosdk::logging::printf(dingosdk::logging::Level::debug, dingosdk::logging::Channel::graphics, "Device=%p adapter_luid=%08lx:%08lx node_count=%u",
-            s.device.Get(), static_cast<unsigned long>(adapter.HighPart),
-            adapter.LowPart, s.device->GetNodeCount());
-        for (const auto* name : { L"sl.interposer.dll", L"sl.dlss_g.dll", L"nvngx_dlssg.dll",
-                                L"GameOverlayRenderer64.dll", L"DiscordHook64.dll", L"RTSSHooks64.dll" })
-            dingosdk::logging::printf(dingosdk::logging::Level::debug, dingosdk::logging::Channel::graphics, "Graphics module %ls loaded=%d", name, GetModuleHandleW(name) != nullptr);
-        if (s.queue->GetDesc().Type != D3D12_COMMAND_LIST_TYPE_DIRECT) {
-            dingosdk::logging::printf(dingosdk::logging::Level::warning, dingosdk::logging::Channel::graphics, "Graphics setup rejected a non-direct presentation queue");
-            return false;
-        }
-        ComPtr<ID3D12Device> queue_device;
-        const auto queue_device_result = s.queue->GetDevice(IID_PPV_ARGS(&queue_device));
-        if (FAILED(queue_device_result)) {
-            dingosdk::logging::printf(dingosdk::logging::Level::error, dingosdk::logging::Channel::graphics, "Graphics setup could not read the presentation queue device: result=0x%08lx",
-                static_cast<unsigned long>(queue_device_result));
-            return false;
-        }
-        const auto queue_adapter = queue_device->GetAdapterLuid();
-        if (queue_adapter.HighPart != adapter.HighPart || queue_adapter.LowPart != adapter.LowPart) {
-            dingosdk::logging::printf(dingosdk::logging::Level::warning, dingosdk::logging::Channel::graphics, "Graphics setup rejected a presentation queue from adapter=%08lx:%08lx",
-                static_cast<unsigned long>(queue_adapter.HighPart), queue_adapter.LowPart);
-            return false;
-        }
-        const auto swapchain_device_identity = object_identity(s.device.Get());
-        const auto queue_device_identity = object_identity(queue_device.Get());
-        dingosdk::logging::printf(dingosdk::logging::Level::debug, dingosdk::logging::Channel::graphics, "Presentation queue device=%p adapter_luid=%08lx:%08lx com_identity_match=%d",
-            queue_device.Get(), static_cast<unsigned long>(queue_adapter.HighPart), queue_adapter.LowPart,
-            swapchain_device_identity && queue_device_identity
+bool setup_graphics() {
+    auto& s = state();
+    DXGI_SWAP_CHAIN_DESC description{};
+    if (FAILED(s.swapchain->GetDesc(&description)) || description.BufferCount < 2
+        || description.BufferCount > 8 || description.SampleDesc.Count != 1
+        || !description.OutputWindow) return false;
+    dingosdk::logging::printf(dingosdk::logging::Level::debug, dingosdk::logging::Channel::graphics, "Swapchain setup: chain=%p queue=%p size=%ux%u buffers=%u format=%u usage=0x%x flags=0x%x effect=%u windowed=%d",
+        s.swapchain.Get(), s.queue.Get(), description.BufferDesc.Width, description.BufferDesc.Height,
+        description.BufferCount, static_cast<unsigned>(description.BufferDesc.Format),
+        description.BufferUsage, description.Flags, static_cast<unsigned>(description.SwapEffect),
+        description.Windowed);
+    if ((description.SwapEffect != DXGI_SWAP_EFFECT_FLIP_DISCARD &&
+         description.SwapEffect != DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL) ||
+        !(description.BufferUsage & DXGI_USAGE_RENDER_TARGET_OUTPUT) ||
+        (description.BufferUsage & DXGI_USAGE_READ_ONLY)) {
+        dingosdk::logging::write(dingosdk::logging::Level::warning, dingosdk::logging::Channel::graphics, "Unsupported or read-only swapchain; overlay drawing disabled.");
+        s.failed = true;
+        return false;
+    }
+    DWORD pid = 0;
+    GetWindowThreadProcessId(description.OutputWindow, &pid);
+    if (pid != GetCurrentProcessId()) return false;
+    if (FAILED(s.swapchain->GetDevice(IID_PPV_ARGS(&s.device)))) return false;
+    dingosdk::overlay::record_gpu_identity(s.device.Get());
+    dingosdk::overlay::watch_device_removal(s.device.Get());
+    const auto adapter = s.device->GetAdapterLuid();
+    dingosdk::logging::printf(dingosdk::logging::Level::debug, dingosdk::logging::Channel::graphics, "Device=%p adapter_luid=%08lx:%08lx node_count=%u",
+        s.device.Get(), static_cast<unsigned long>(adapter.HighPart),
+        adapter.LowPart, s.device->GetNodeCount());
+    for (const auto* name : {L"sl.interposer.dll", L"sl.dlss_g.dll", L"nvngx_dlssg.dll",
+                            L"GameOverlayRenderer64.dll", L"DiscordHook64.dll", L"RTSSHooks64.dll"})
+        dingosdk::logging::printf(dingosdk::logging::Level::debug, dingosdk::logging::Channel::graphics, "Graphics module %ls loaded=%d", name, GetModuleHandleW(name) != nullptr);
+    if (s.queue->GetDesc().Type != D3D12_COMMAND_LIST_TYPE_DIRECT) {
+        dingosdk::logging::printf(dingosdk::logging::Level::warning, dingosdk::logging::Channel::graphics, "Graphics setup rejected a non-direct presentation queue");
+        return false;
+    }
+    ComPtr<ID3D12Device> queue_device;
+    const auto queue_device_result = s.queue->GetDevice(IID_PPV_ARGS(&queue_device));
+    if (FAILED(queue_device_result)) {
+        dingosdk::logging::printf(dingosdk::logging::Level::error, dingosdk::logging::Channel::graphics, "Graphics setup could not read the presentation queue device: result=0x%08lx",
+            static_cast<unsigned long>(queue_device_result));
+        return false;
+    }
+    const auto queue_adapter = queue_device->GetAdapterLuid();
+    if (queue_adapter.HighPart != adapter.HighPart || queue_adapter.LowPart != adapter.LowPart) {
+        dingosdk::logging::printf(dingosdk::logging::Level::warning, dingosdk::logging::Channel::graphics, "Graphics setup rejected a presentation queue from adapter=%08lx:%08lx",
+            static_cast<unsigned long>(queue_adapter.HighPart), queue_adapter.LowPart);
+        return false;
+    }
+    const auto swapchain_device_identity = object_identity(s.device.Get());
+    const auto queue_device_identity = object_identity(queue_device.Get());
+    dingosdk::logging::printf(dingosdk::logging::Level::debug, dingosdk::logging::Channel::graphics, "Presentation queue device=%p adapter_luid=%08lx:%08lx com_identity_match=%d",
+        queue_device.Get(), static_cast<unsigned long>(queue_adapter.HighPart), queue_adapter.LowPart,
+        swapchain_device_identity && queue_device_identity
             && swapchain_device_identity.Get() == queue_device_identity.Get());
     // Streamline can expose separate COM wrapper identities for a swapchain
     // device and the device returned by its accepted presentation queue. The
@@ -344,6 +349,8 @@ bool select_presented_swapchain(IDXGISwapChain* presented) {
         return false;
     }
     s.commands->SetName(L"ReSkate overlay draw");
+    dingosdk::overlay::watch_draws(s.commands.Get());
+    dingosdk::overlay::watch_addresses(s.commands.Get());
     s.fence->SetName(L"ReSkate overlay fence");
     s.fence_event = CreateEventW(nullptr, FALSE, FALSE, nullptr);
     if (!s.fence_event) return false;
@@ -359,9 +366,16 @@ bool select_presented_swapchain(IDXGISwapChain* presented) {
     // Thumbnails are read from the game's own data at startup; the read is
     // normally long finished by the time the first frame gets here.
     // Emotes and Hall of Meat's images reserve their room before the park previews build the atlas, and fill it after.
-    const auto emote_count = reserve_chat_emotes(*ImGui::GetIO().Fonts, std::chrono::seconds(5));
-    reserve_hall_of_meat_images(*ImGui::GetIO().Fonts, std::chrono::seconds(5));
-    const auto preview_count = load_park_previews(*ImGui::GetIO().Fonts, std::chrono::seconds(5));
+    // (Five seconds for the three together, not each: this is the game's render thread, and three
+    // reads still under way at the first frame held it up to fifteen.)
+    const auto waited_until = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    const auto left = [&] {
+        return std::max(std::chrono::milliseconds(0),
+            std::chrono::duration_cast<std::chrono::milliseconds>(waited_until - std::chrono::steady_clock::now()));
+    };
+    const auto emote_count = reserve_chat_emotes(*ImGui::GetIO().Fonts, left());
+    reserve_hall_of_meat_images(*ImGui::GetIO().Fonts, left());
+    const auto preview_count = load_park_previews(*ImGui::GetIO().Fonts, left());
     fill_chat_emotes(*ImGui::GetIO().Fonts);
     fill_hall_of_meat_images(*ImGui::GetIO().Fonts);
     if (emote_count)
@@ -594,6 +608,7 @@ void render(IDXGISwapChain* presented, UINT flags) {
     auto& s = state();
     if (flags & DXGI_PRESENT_TEST) return;
     dingosdk::profiler::record_present();
+    DINGO_PROFILE_ZONE("present/overlay");
     std::lock_guard lock(s.render_mutex);
     // Said once: a log without this line is a game whose presentations never reach the overlay.
     if (static bool said{}; !std::exchange(said, true))
@@ -632,6 +647,7 @@ void render(IDXGISwapChain* presented, UINT flags) {
     const bool chat_frame = chat_pending();
     const bool map_download_frame = map_download_pending();
     const bool game_text_frame = game_text_pending();
+    const bool drone_hud_frame = drone_hud_pending();
     const bool skate_hud_frame = skate_hud_pending();
     const bool nametag_frame = nametags_pending();
     const bool meat_frame = hall_of_meat_pending();
@@ -639,6 +655,7 @@ void render(IDXGISwapChain* presented, UINT flags) {
     const bool perf_frame = perf_hud_pending() || trainer_hud_pending();
     const bool hub_frame = hub_page_pending();
     if (trainer_open_requested()) s.visible.store(true);
+    if (dingosdk::drone::menu_flag().load()) s.visible.store(true); // `dronemenu`: the menu opens on its DRONE page
     const bool menu_frame = interactive_visible(s);
     if (!menu_frame) {
         if (s.ui_was_interactive) {
@@ -654,7 +671,7 @@ void render(IDXGISwapChain* presented, UINT flags) {
             sync_menu_cursor();
         }
         // Hidden, the overlay still draws while a notice or chat line is on screen.
-        if (s.loaded_notice_posted && !notices_pending() && !chat_frame && !game_text_frame && !skate_hud_frame &&
+        if (s.loaded_notice_posted && !notices_pending() && !chat_frame && !game_text_frame && !drone_hud_frame && !skate_hud_frame &&
             !nametag_frame && !meat_frame && !item_browser_frame && !perf_frame && !hub_frame && !map_download_frame) return;
     } else if (!s.ui_was_interactive) {
         s.ui_was_interactive = true;
@@ -708,6 +725,7 @@ void render(IDXGISwapChain* presented, UINT flags) {
     draw_hall_of_meat();
     draw_nametags();
     draw_game_text();
+    draw_drone_hud();
     draw_skate_hud();
     draw_perf_hud();
     draw_trainer_hud();
