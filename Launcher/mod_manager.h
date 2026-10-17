@@ -24,6 +24,10 @@ struct AlreadyInstalled : std::runtime_error {
     std::string name;
 };
 
+struct IncorrectFbmodUpload : std::runtime_error {
+    IncorrectFbmodUpload() : std::runtime_error("The ZIP contains a .fbmod file.") {}
+};
+
 using Progress = std::function<void(float fraction)>;
 
 struct InstallOptions {

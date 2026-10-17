@@ -512,6 +512,7 @@ namespace dingosdk::launcher_gui::detail {
         std::string activity;                // what the worker is doing, under mutex
         bool finished{};
         std::string finished_name, finished_error, finished_conflict, finished_note;
+        std::string finished_fbmod_url, fbmod_url;
         fs::path finished_source;
 
         std::thread dump_worker;
@@ -593,7 +594,7 @@ namespace dingosdk::launcher_gui::detail {
     void mod_icon(ModsPanel& panel, const thunderstore::Package* package, ImVec2 position, float size);
     void pump_icons(ModsPanel& panel);
     // The GET MODS page body, under the page header.
-    void browse_page(Launcher& launcher, const Fonts& fonts, ModsPanel& panel, float height, bool installing);
+    void browse_page(Launcher& launcher, const Fonts& fonts, ModsPanel& panel, float height, bool installing, Settings& settings);
     // The official mods (official_mods.h): what every player has, always on, and how each is doing.
     void official_page(const Fonts& fonts, ModsPanel& panel, float height);
     // Everything Thunderstore knows about one package, in a popup over the page.

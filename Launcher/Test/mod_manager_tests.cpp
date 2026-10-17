@@ -490,6 +490,12 @@ int main() {
                       .find("nothing for ReSkate to load") != std::string::npos &&
                   !fs::exists(store / L"Team-Empty"),
               "Thunderstore installs refuse a package with nothing to load");
+        make_zip(sources / L"fbmod.zip", {{"legacy.fbmod", "binary"}});
+        bool incorrect_fbmod{};
+        try { launcher_mods::install(store, sources / L"fbmod.zip", true, {}, cancel, options); }
+        catch (const launcher_mods::IncorrectFbmodUpload&) { incorrect_fbmod = true; }
+        check(incorrect_fbmod && !fs::exists(store / L"Team-Empty"),
+              "Thunderstore installs identify FBMOD uploads separately");
         check(install(store, sources / L"empty.zip") == "empty", "A plain install still takes a description-only mod");
     }
 

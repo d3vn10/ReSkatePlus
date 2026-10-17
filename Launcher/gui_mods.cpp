@@ -100,6 +100,12 @@ namespace dingosdk::launcher_gui::detail {
             if (!panel.finished) return;
             panel.finished = false;
             panel.progress = -1;
+            panel.fbmod_url = panel.finished_error.empty() ? std::move(panel.finished_fbmod_url) : std::string();
+            if (!panel.fbmod_url.empty() && panel.finished_error.empty()) {
+                panel.message.clear();
+                panel.message_error = false;
+                return;
+            }
             if (!panel.finished_conflict.empty()) {
                 panel.conflict_name = panel.finished_conflict;
                 panel.conflict_source = panel.finished_source;
@@ -1350,7 +1356,7 @@ namespace dingosdk::launcher_gui::detail {
         // edge; a message takes two lines off it until it is gone.
         const float status = panel.message.empty() ? S(4) : ImGui::GetTextLineHeight() * 2 + S(12);
         const float body = ImGui::GetWindowHeight() - status;
-        if (panel.tab == 1) browse_page(launcher, fonts, panel, body, installing);
+        if (panel.tab == 1) browse_page(launcher, fonts, panel, body, installing, launcher.settings());
         else if (panel.tab == 2) profiles_page(fonts, panel, window, body, installing);
         else if (panel.tab == 3) official_page(fonts, panel, body);
         else installed_page(launcher, fonts, panel, installed, body, installing, window);
@@ -1380,6 +1386,29 @@ namespace dingosdk::launcher_gui::detail {
         const char* uninstall = panel.confirm_remove.size() > 1 ? "Uninstall mods###uninstall" : "Uninstall mod###uninstall";
         if (!panel.confirm_remove.empty() && !ImGui::IsPopupOpen(uninstall)) ImGui::OpenPopup(uninstall);
         if (!panel.conflict_name.empty() && !ImGui::IsPopupOpen("Replace mod")) ImGui::OpenPopup("Replace mod");
+        constexpr const char* fbmod_upload = "Incorrect Thunderstore upload###fbmod_upload";
+        if (!panel.fbmod_url.empty() && !ImGui::IsPopupOpen(fbmod_upload)) ImGui::OpenPopup(fbmod_upload);
+        ImGui::SetNextWindowSize(ImVec2(S(500), 0));
+        if (ImGui::BeginPopupModal(fbmod_upload, nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove)) {
+            ImGui::PushTextWrapPos(0);
+            ImGui::TextUnformatted("User has uploaded mod incorrectly, ZIP file contains a FBMOD. It cannot be installed "
+                "through the mod manager. Would you like to open the Thunderstore page to download and build it yourself?");
+            ImGui::PopTextWrapPos();
+            ImGui::Spacing();
+            if (ImGui::Button("No", ImVec2(S(110), 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
+                panel.fbmod_url.clear();
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            push_primary_button();
+            if (ImGui::Button("Yes", ImVec2(S(110), 0))) {
+                open_url(panel.fbmod_url);
+                panel.fbmod_url.clear();
+                ImGui::CloseCurrentPopup();
+            }
+            pop_primary_button();
+            ImGui::EndPopup();
+        }
         ImGui::SetNextWindowSize(ImVec2(S(460), 0));
         if (ImGui::BeginPopupModal(uninstall, nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove)) {
             const auto names = panel.confirm_remove;

@@ -353,10 +353,12 @@ namespace dingosdk::launcher_gui::detail {
         panel.cancel = false;
         panel.progress = 0;
         panel.message.clear();
+        panel.fbmod_url.clear();
         set_activity(panel, "Starting download...");
         const auto root = panel.root;
         panel.worker = std::thread([&panel, root, packages = std::move(packages)] {
             std::string name, error, note;
+            std::string fbmod_url;
             std::size_t done = 0;
             // One that fails does not stop the ones after it: each is its own download, and the
             // list ends with what could not be installed. Cancelling does stop the rest.
@@ -380,6 +382,12 @@ namespace dingosdk::launcher_gui::detail {
                         error = package.title() + ": " + failure.what();
                         break;
                     }
+                    if (dynamic_cast<const launcher_mods::IncorrectFbmodUpload*>(&failure)) {
+                        if (package.package_url.starts_with("https://")) {
+                            if (fbmod_url.empty()) fbmod_url = package.package_url;
+                            continue;
+                        }
+                    }
                     failed.push_back(package.title() + ": " + failure.what());
                 }
             }
@@ -400,6 +408,7 @@ namespace dingosdk::launcher_gui::detail {
             panel.finished_error = error;
             panel.finished_conflict.clear();
             panel.finished_note = note;
+            panel.finished_fbmod_url = std::move(fbmod_url);
             panel.finished_source.clear();
             panel.activity.clear();
             panel.installing = false;
@@ -588,7 +597,7 @@ namespace dingosdk::launcher_gui::detail {
         ImGui::EndChild();
     }
 
-    void browse_page(Launcher& launcher, const Fonts& fonts, ModsPanel& panel, float height, bool installing) {
+    void browse_page(Launcher& launcher, const Fonts& fonts, ModsPanel& panel, float height, bool installing, Settings& settings) {
         auto& store = panel.store;
         const auto installed = installed_versions(panel.list);
 
@@ -616,7 +625,7 @@ namespace dingosdk::launcher_gui::detail {
         ImGui::SameLine();
         std::vector<std::string> categories;
         for (const auto& package : store.packages) {
-            if (nsfw(package)) continue;   // (and no category that only they have)
+            if (nsfw(package) && !settings.nsfw_mods) continue;   // (and no category that only they have)
             for (const auto& category : package.categories)
                 if (std::find(categories.begin(), categories.end(), category) == categories.end()) categories.push_back(category);
         }
@@ -785,10 +794,25 @@ namespace dingosdk::launcher_gui::detail {
             const ImVec4 clip(text_x, start.y, button_x - S(14), start.y + tall);
             draw->AddText(fonts.body, fonts.body->FontSize, ImVec2(text_x, start.y + S(32)), color::text, line.c_str(),
                 nullptr, 0, &clip);
+            float pill_x = button_x - S(14);
+            const float pill_y = start.y + (tall - fonts.caption->FontSize - S(8)) * 0.5f;
+            if (package.deprecated) {
+                const std::string label = "DEPRECATED";
+                pill_x -= badge_width(fonts, label);
+                badge(draw, fonts, ImVec2(pill_x, pill_y), label, color::warning, color::ink);
+                pill_x -= S(8);
+            }
+            if (nsfw(package)) {
+                const std::string label = "NSFW";
+                pill_x -= badge_width(fonts, label);
+                badge(draw, fonts, ImVec2(pill_x, pill_y), label, color::danger, color::ink);
+                pill_x -= S(8);
+            }
+            const ImVec4 details_clip(text_x, start.y + S(55), std::max(text_x, pill_x - S(8)), start.y + tall);
             draw->AddText(fonts.caption, fonts.caption->FontSize, ImVec2(text_x, start.y + S(55)), color::muted,
                 std::format("v{}{}  /  {} downloads  /  {}", version.number,
                     version.file_size ? "  /  " + size_text(version.file_size) : std::string(),
-                    count_text(package.downloads), date_text(package.date_updated)).c_str());
+                    count_text(package.downloads), date_text(package.date_updated)).c_str(), nullptr, 0, &details_clip);
             end_row();
             ImGui::PopID();
         });
