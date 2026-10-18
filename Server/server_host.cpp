@@ -82,7 +82,7 @@ std::string Host::guest_name(const Guest &g) const {
 }
 // The name a joining player is known by here. It is the one their game sent, which the
 // server cannot check against Steam, so it is made safe to show and to type: never blank,
-// never the server's or ReSkate's own, never read as a SteamID64 by kick or ban (which take
+// never the server's or ReSkate+'s own, never read as a SteamID64 by kick or ban (which take
 // a number as one), and never the same as another player's.
 std::string Host::player_name(std::string_view wanted, std::uint64_t id) const {
     const auto fallback = "Player " + std::to_string(id % 10000);
@@ -334,7 +334,7 @@ void Host::send_required(Guest &g, const std::vector<std::uint8_t> &bytes) {
         transport_.disconnect(g.member.id, "Cannot deliver required session data. Join again.");
 }
 void Host::measure_pose(Guest &from, const Packet &packet) {
-    auto raw = encode(packet, true, packet.pose_interval_us);
+    auto raw = encode(packet, true);
     // As DeltaSender would send it: the patch packed, behind its 34 byte header.
     const auto cost = [&](const Guest::Earlier &reference) -> std::uint64_t {
         if (reference.raw.empty()) return 0;
@@ -640,7 +640,7 @@ void Host::broadcast(const Packet &packet, bool reliable, bool fresh, std::uint6
                 if (config_.bone_scale_limit >= 1.f) limit_bone_scale(data.packet.pose, config_.bone_scale_limit);
                 limit_bone_reach(data.packet.pose, config_.bone_reach_limit);
             }
-            data.raw = encode(data.packet, true, data.packet.pose_interval_us);
+            data.raw = encode(data.packet, true);
             data.wire = encode_wire_bytes(data.raw);
         }
         outgoing.push_back({&p, id, p.sender.prepare(data.packet, data.raw, data.wire, data.deltas), delivery, slot ? slot : interval, variant});
@@ -727,7 +727,7 @@ void Host::introduce() {
     }
 }
 void Host::send_roster() {
-    // A tag the ReSkate team does not allow as a word is not worn (once per change of the roles).
+    // A tag the ReSkate+ team does not allow as a word is not worn (once per change of the roles).
     if (!role_tags_checked_) {
         role_tags_checked_ = true;
         for (auto &role : config_.roles.list)
@@ -1136,7 +1136,7 @@ void Host::receive(std::uint64_t peer, std::span<const std::uint8_t> bytes, std:
     }
     case PacketKind::map_request: {
         if (p.build != supported_build::game_sha256_bytes || (link->member.epoch && link->member.epoch != p.epoch))
-            return drop(peer, "Invalid map request. Update ReSkate to the server's version and join again.");
+            return drop(peer, "Invalid map request. Update ReSkate+ to the server's version and join again.");
         if (link->handshaken) return;
         if (p.map && p.map != map_) return drop(peer, "The server changed maps while you were joining. Join again.");
         if (p.map_fetching) fetching(*link);

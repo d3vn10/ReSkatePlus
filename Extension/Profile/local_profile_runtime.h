@@ -90,20 +90,24 @@ std::optional<float> local_ground_height(float x, float z, float top, float bott
 std::optional<std::array<float, 3>> local_surface_hit(const std::array<float, 3>& from, const std::array<float, 3>& to);
 // Small allowlisted progression commands, executed on the game update thread.
 bool set_local_progression(const std::vector<std::string>& arguments);
-// Small ReSkate-owned booleans saved beside the profile under a "ReSkate."
+// Small ReSkate+-owned booleans saved beside the profile under a "ReSkate+."
 // prefix. Absent until first written; never exposed to the game's own settings.
 namespace profile_runtime {
 bool local_profile_store_ready() noexcept;
 std::optional<bool> local_preference(std::string_view key) noexcept;
 void set_local_preference(std::string_view key, bool value) noexcept;
-// The same "ReSkate." store for numbers and text. A key keeps the type it was
+// The same "ReSkate+." store for numbers and text. A key keeps the type it was
 // first saved with. set_local_values saves several at once (one transaction).
 std::optional<Json> local_value(std::string_view key) noexcept;
 void set_local_values(const std::vector<std::pair<std::string, Json>>& values) noexcept;
-// ReSkate menu scale, clamped to a legible range. Cached so the overlay can
+// ReSkate+ menu scale, clamped to a legible range. Cached so the overlay can
 // read it every frame without touching the database.
-float local_menu_scale() noexcept;
-bool set_local_menu_scale(float value) noexcept;
+// The ReSkate+ menu's size: the window's, or (`fullscreen`) the full screen menu's.
+float local_menu_scale(bool fullscreen = false) noexcept;
+bool set_local_menu_scale(float value, bool fullscreen = false) noexcept;
+// Whether the ReSkate+ menu fills the screen (made for a controller) or is a window. Cached likewise.
+bool local_menu_fullscreen() noexcept;
+void set_local_menu_fullscreen(bool fullscreen) noexcept;
 // The game's camera height option (UseHighCam, true is the high camera) as the game writes it,
 // which its camera height button does: the listener returns the height to keep instead. Runs on
 // the thread that writes the option.

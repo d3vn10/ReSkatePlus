@@ -544,7 +544,7 @@ std::uintptr_t validated_remote_load_library(HANDLE process, std::string* note) 
         fail(message.c_str());
     }
     if (hooked_entry && note) {
-        *note = "Skate's LoadLibraryW is hooked at its entry; the rest of it is Windows' own, so ReSkate is "
+        *note = "Skate's LoadLibraryW is hooked at its entry; the rest of it is Windows' own, so ReSkate+ is "
                 "loading through it.";
         if (const auto foreign = foreign_modules(process); !foreign.empty())
             *note += " Loaded into Skate and not part of Windows: " + foreign + ".";

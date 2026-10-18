@@ -1,6 +1,6 @@
 // Mods that add copies of items the game's store sells (Engine/Vfs/mod_store_copies.h).
 //
-// ReSkate never hands out a store item, and tells one by its key. The mods that got round that
+// ReSkate+ never hands out a store item, and tells one by its key. The mods that got round that
 // (2026-10-05) all did it the same way: each store item again under a key of its own, which is
 // in no catalogue and so was handed out like any mod's item. The check tells a copy by what it
 // is made of, and the merge leaves a mod that adds one out whole, saying only that it could

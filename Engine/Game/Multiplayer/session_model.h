@@ -36,7 +36,7 @@ struct MultiplayerLobby {
     int players = 1, capacity = multiplayer_player_limit;
     // A dedicated server rather than a player's lobby: joined by its code.
     bool dedicated{};
-    // A dedicated server the ReSkate team runs (developer_identity.h): first in the browser.
+    // A dedicated server the ReSkate+ team runs (developer_identity.h): first in the browser.
     bool official{};
     int ping = -1; // ms, when the server answered directly
     // A dedicated server that takes direct connections: its address (host byte order) and UDP
@@ -103,12 +103,12 @@ inline constexpr std::size_t multiplayer_chat_max_bytes = 200;
 inline constexpr std::size_t multiplayer_chat_history = 50;
 struct MultiplayerChatLine {
     std::uint64_t sequence{};   // local arrival order, increasing within the process
-    std::uint64_t sender{};     // Steam id; 0 for a notice from ReSkate itself
+    std::uint64_t sender{};     // Steam id; 0 for a notice from ReSkate+ itself
     std::uint64_t received{};   // local monotonic time (microseconds) the line arrived
     std::string name, text;
     bool local{};               // sent by this player
     // The sender's role, as their nametag shows it: its colour (IM_COL32 layout, 0 = none)
-    // and a tag shown in a box before the name ("Dev", "ReSkate Admin", "Content Creator", "Centrix", "Homie", "Admin", "Host", "Friend", "Server" or empty).
+    // and a tag shown in a box before the name ("Developer", "ReSkate Admin", "Content Creator", "Centrix", "Homie", "Admin", "Host", "Friend", "Server" or empty).
     std::uint32_t color{};
     std::string tag;
     // With the chat filter on, `text` is masked and this is the line as sent (same length), so
@@ -189,7 +189,7 @@ struct MultiplayerModel {
     bool chat_visible{true};
     // Local: bad words in chat names and messages show as **** (on by default).
     bool chat_filter{true};
-    // Local, for ReSkate's nametags: `nametag_distance` is how far away a player's name still
+    // Local, for ReSkate+'s nametags: `nametag_distance` is how far away a player's name still
     // shows (past it they are a dot), `nametag_dots` whether those dots and the ones at the
     // screen's edge for off-screen players show at all, `nametags_friends` names only the
     // player's Steam friends.
@@ -216,10 +216,10 @@ struct MultiplayerModel {
     float chat_bubbles_distance{40.f};
     float chat_bubbles_duration{5.f};
     int chat_bubbles_history{3};
-    // Local: the tag the ReSkate backend gives this player ("Dev", "ReSkate Admin", "Content Creator", "Centrix" or "Homie"; empty
+    // Local: the tag the ReSkate+ backend gives this player ("Developer", "ReSkate Admin", "Content Creator", "Centrix" or "Homie"; empty
     // for most players) and its role colour, and whether they show it, and the animated items
     // that come with it, to everyone.
-    // The local player is on the ReSkate team's developer, staff or homie list: the player list
+    // The local player is on the ReSkate+ team's developer, staff or homie list: the player list
     // gives each player's Steam ID.
     bool steam_ids_shown{};
     std::string identity_tag;
@@ -291,7 +291,7 @@ struct MultiplayerModel {
     std::uint64_t player_map_updates{};
     bool public_host{}, lobby_listed{}, lobby_searching{}, lobby_joining{}, lobby_searched{};
     std::uint64_t public_lobby{}; // Verified public listing, never a private invitation.
-    std::string lobby_status, browser_status = "Refresh to find public ReSkate lobbies.";
+    std::string lobby_status, browser_status = "Refresh to find public ReSkate+ lobbies.";
     // When the lists may be searched again, on the steady clock in microseconds (browse_wait).
     std::uint64_t browse_ready_us{};
     std::vector<MultiplayerLobby> lobbies;

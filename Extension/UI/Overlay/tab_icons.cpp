@@ -79,7 +79,7 @@ bool decode(std::span<const unsigned char> bytes, std::vector<unsigned char> &pi
     return SUCCEEDED(converter->CopyPixels(nullptr, width * 4, static_cast<UINT>(pixels.size()), pixels.data()));
 }
 
-// ReSkate's own icons, built into ReSkate.dll: assets/tab_icons/tab_icons.json and tab_icons.png.
+// ReSkate+'s own icons, built into ReSkatePlus.dll: assets/tab_icons/tab_icons.json and tab_icons.png.
 void read_own(std::vector<Icon> &icons) {
     const auto json_bytes = embedded(L"TABICONS_JSON"), png = embedded(L"TABICONS_PNG");
     if (json_bytes.empty() || png.empty()) return;
@@ -100,7 +100,7 @@ void read_own(std::vector<Icon> &icons) {
             icons.push_back(std::move(icon));
         }
     } catch (const std::exception &e) {
-        logging::log(logging::Level::warning, logging::Channel::ui, "Tab icons: ReSkate's own are unavailable: {}", e.what());
+        logging::log(logging::Level::warning, logging::Channel::ui, "Tab icons: ReSkate+'s own are unavailable: {}", e.what());
     }
     if (com) CoUninitialize();
 }
@@ -133,7 +133,7 @@ void start_tab_icons(std::filesystem::path game_root) {
             read_game(root, icons);
             const auto game = icons.size();
             read_own(icons);
-            logging::log(logging::Level::info, logging::Channel::ui, "Tab icons: {} of the game's, {} of ReSkate's.", game,
+            logging::log(logging::Level::info, logging::Channel::ui, "Tab icons: {} of the game's, {} of ReSkate+'s.", game,
                          icons.size() - game);
         } catch (...) {}
         return icons;
@@ -205,7 +205,7 @@ std::vector<std::string> tab_icon_names() {
     std::vector<std::string> out;
     if (!loaded().filled) return out;
     for (const auto& name : loaded().order)
-        if (!name.starts_with("_")) out.push_back(name); // "_" ones are ReSkate's own marks, not tab icons
+        if (!name.starts_with("_")) out.push_back(name); // "_" ones are ReSkate+'s own marks, not tab icons
     return out;
 }
 } // namespace dingosdk::overlay

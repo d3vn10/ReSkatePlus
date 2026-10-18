@@ -79,6 +79,7 @@ add_library(dingosdk_runtime SHARED
     Extension/Music/spotify_station.cpp
     Extension/Music/spotify_cover.cpp
     Extension/Music/spotify_web.cpp
+    Extension/Music/plex_web.cpp
     Extension/Music/spotify_device.cpp
     Extension/Music/spotify_dashboard.cpp
     Extension/Music/external_audio.cpp
@@ -251,7 +252,7 @@ target_link_libraries(dingosdk_runtime PRIVATE dingosdk_custom_level_manifest)
 set_target_properties(dingosdk_runtime PROPERTIES OUTPUT_NAME "ReSkatePlus" PREFIX "")
 
 # The game as a Spotify Connect device (Extension/Music/spotify_device.h): SpotifyHelper/, a
-# Rust library on librespot, built by cargo and linked into ReSkate.dll. Without cargo the DLL
+# Rust library on librespot, built by cargo and linked into ReSkatePlus.dll. Without cargo the DLL
 # is built without it, and Spotify is played through its own app. (Not in Debug builds: the
 # library is built with the release C runtime.)
 find_program(DINGOSDK_CARGO cargo HINTS "$ENV{USERPROFILE}/.cargo/bin")
@@ -307,7 +308,7 @@ if(EXISTS "${PROJECT_SOURCE_DIR}/assets")
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/assets")
 endif()
 # Chat emotes (Better Chat's pack format; Extension/UI/Overlay/chat_emotes.h), built into
-# ReSkate.dll when the repository has assets/emotes/emotes.json and emotes.png.
+# ReSkatePlus.dll when the repository has assets/emotes/emotes.json and emotes.png.
 set(dingosdk_emotes "${PROJECT_SOURCE_DIR}/assets/emotes")
 if(EXISTS "${dingosdk_emotes}")
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${dingosdk_emotes}")
@@ -320,7 +321,7 @@ if(EXISTS "${dingosdk_emotes}/emotes.json" AND EXISTS "${dingosdk_emotes}/emotes
         "EMOTES_PNG RCDATA \"${dingosdk_emotes_native}\\\\emotes.png\"\n")
     target_sources(dingosdk_runtime PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated/emotes.rc")
 endif()
-# ReSkate's own icons for the player's item tabs (Extension/UI/Overlay/tab_icons.h), drawn by
+# ReSkate+'s own icons for the player's item tabs (Extension/UI/Overlay/tab_icons.h), drawn by
 # assets/tab_icons/make_tab_icons.py.
 set(dingosdk_tab_icons "${PROJECT_SOURCE_DIR}/assets/tab_icons")
 if(EXISTS "${dingosdk_tab_icons}/tab_icons.json" AND EXISTS "${dingosdk_tab_icons}/tab_icons.png")
@@ -332,9 +333,9 @@ if(EXISTS "${dingosdk_tab_icons}/tab_icons.json" AND EXISTS "${dingosdk_tab_icon
         "TABICONS_PNG RCDATA \"${dingosdk_tab_icons_native}\\\\tab_icons.png\"\n")
     target_sources(dingosdk_runtime PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated/tab_icons.rc")
 endif()
-# Game content ReSkate carries itself (Engine/Vfs/builtin_packs.h), one zip each in assets/builtin:
+# Game content ReSkate+ carries itself (Engine/Vfs/builtin_packs.h), one zip each in assets/builtin:
 # the FPV drone's model (tools/models/build_drone_pack.py; without it other players' drones use a
-# stand-in prop). A missing zip is left out. (Mods that are content for ReSkate's features, such
+# stand-in prop). A missing zip is left out. (Mods that are content for ReSkate+'s features, such
 # as Board Break's decks, are official mods the launcher downloads: Launcher/official_mods.h.)
 # Each zip is made into a zstd pack by ReSkateBuiltinPacker as the build goes (again only when the
 # zip changes), which is what the DLL carries: compressed whole, a pack's repeated files cost

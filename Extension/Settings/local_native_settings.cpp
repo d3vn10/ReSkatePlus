@@ -92,7 +92,7 @@ const dingosdk::Json* saved_native_option(unsigned location, const char* key) {
 }
 
 namespace {
-// Options the game keeps on this device (location 0) whose default ReSkate changes. The game
+// Options the game keeps on this device (location 0) whose default ReSkate+ changes. The game
 // saves these itself, so nothing is stored here but the fact that the default was applied:
 // once per profile, the first time the game asks for the option. After that the option is the
 // player's, to switch in the game's own menus.
@@ -101,7 +101,7 @@ namespace {
 struct OwnDefault {
     std::string_view key;
     bool value;
-    const char* applied; // the ReSkate preference that records it
+    const char* applied; // the ReSkate+ preference that records it
 };
 constexpr OwnDefault own_defaults[]{{"Accessibility_Party_Menu_Narration", false, "Defaults.PartyMenuNarration"}};
 

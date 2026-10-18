@@ -6,7 +6,7 @@
 #include <optional>
 
 // The pause menu's Hub page lists live-service tiles in two native TileLists.
-// ReSkate has no store, skate.Pass, bounties, missions or crew bounties, so
+// ReSkate+ has no store, skate.Pass, bounties, missions or crew bounties, so
 // those tiles go; News and Rip Score (profile) stay. The Hub resolves a press
 // by the tile's position, so a tile with a kept tile after it is hidden in
 // place (an empty gap with no action) rather than removed; trailing ones are
@@ -187,7 +187,7 @@ void align_hub_column(const Context &c) {
 
 // Runs every frame while the pause menu is open, so the removed tiles never
 // get a frame on screen when the Hub is rebuilt. Never lets the Hub disturb
-// ReSkate's own tabs: a failure is logged once and retried later.
+// ReSkate+'s own tabs: a failure is logged once and retried later.
 void update_hub(const Context &c) {
     static std::uint64_t next_update{};
     static std::string last_error;

@@ -107,7 +107,7 @@ bool start_morph_memory_pool(std::uintptr_t base, std::string& error) {
         return false;
     }
     if (!pools_not_constructed(base)) {
-        error = "Morph allocators already exist; restart through ReSkate Launcher";
+        error = "Morph allocators already exist; restart through ReSkate+ Launcher";
         return false;
     }
     auto* target = reinterpret_cast<void*>(base + morph::constructor_rva);

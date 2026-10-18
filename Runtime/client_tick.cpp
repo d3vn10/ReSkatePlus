@@ -164,7 +164,7 @@ void apply_performance_settings() {
         }
     } catch (...) {}
 }
-// The game's own connection is a loopback to the world it hosts in the same process (ReSkate's
+// The game's own connection is a loopback to the world it hosts in the same process (ReSkate+'s
 // multiplayer runs beside it), so its in-game timeouts (Game.cfg 15 s, Branch.cfg 5 s) can only
 // fire when the game itself stalls that long; a long replay export does (the encoder sets the
 // pace of every frame), and the game then dropped the player to the splash screen with
@@ -1242,7 +1242,7 @@ void update_model(std::uintptr_t client, TickState& frame) {
 }
 void tick(std::uintptr_t client, std::uintptr_t update) {
     const auto incoming_error = GetLastError();
-    // The profiler's client update timing: the native update, and ReSkate's own work around it.
+    // The profiler's client update timing: the native update, and ReSkate+'s own work around it.
     const auto tick_start = dingosdk::profiler::now_ns();
     auto& r = runtime();
     dingosdk::poll_level_loading(client);
@@ -1393,7 +1393,7 @@ void tick(std::uintptr_t client, std::uintptr_t update) {
             next_presence = GetTickCount64() + 2000;
             const auto mp = dingosdk::multiplayer::model();
             const bool session = mp.active && !mp.echo && (mp.hosting || mp.connected);
-            // A destination is "root|level": the level names the map. Maps ReSkate adds are "reskate <name>".
+            // A destination is "root|level": the level names the map. Maps ReSkate+ adds are "reskate <name>".
             const std::string_view destination = session && !mp.map.empty() ? std::string_view(mp.map) : std::string_view(r.multiplayer_map);
             auto map = dingosdk::world_level_name(destination.substr(destination.find_last_of('|') + 1));
             if (map.size() > 8 && (map.starts_with("reskate ") || map.starts_with("ReSkate "))) map.erase(0, 8);
@@ -1438,7 +1438,7 @@ void tick(std::uintptr_t client, std::uintptr_t update) {
         }
         if (state == 13 || state == 21) {
             DINGO_PROFILE_ZONE("tick/camera view");
-            // The camera ReSkate's nametags start from, and the spectate camera's lesson in how
+            // The camera ReSkate+'s nametags start from, and the spectate camera's lesson in how
             // the game frames the local skater.
             if (dingosdk::publish_local_camera_view(r.base, client))
                 if (const auto view = dingosdk::latest_game_view())
@@ -1459,7 +1459,7 @@ void tick(std::uintptr_t client, std::uintptr_t update) {
             dingosdk::multiplayer::tick_steam_friend_join();
         }
         // Model creation requires cleanup on every native unload, including
-        // transitions that bypass the ReSkate request scheduler.
+        // transitions that bypass the ReSkate+ request scheduler.
         if (r.native_loading_logging) {
             DINGO_PROFILE_ZONE("tick/native menu");
             dingosdk::multiplayer::tick_native_menu(r.base, loading);

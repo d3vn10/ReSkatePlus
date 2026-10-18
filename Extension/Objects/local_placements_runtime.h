@@ -9,7 +9,7 @@ struct PlacementBatch {
     std::uint32_t type{};
     std::vector<PlacementApplied> applied;
     std::uint32_t network_source{};
-    bool native{}; // Dispatched by the game's own placement messages, not ReSkate.
+    bool native{}; // Dispatched by the game's own placement messages, not ReSkate+.
 };
 
 extern thread_local PlacementBatch* placement_batch;

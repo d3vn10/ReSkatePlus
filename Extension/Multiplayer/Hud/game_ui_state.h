@@ -2,7 +2,7 @@
 #include <cstdint>
 
 // The game's own menu and HUD visibility (UI/Foundations/State/DelMar_UI_ScreenData), which
-// ReSkate's nametags and chat follow: both stay off screen in the main and pause menus and
+// ReSkate+'s nametags and chat follow: both stay off screen in the main and pause menus and
 // while the game hides its UI.
 namespace dingosdk::multiplayer {
 struct GameUiState {

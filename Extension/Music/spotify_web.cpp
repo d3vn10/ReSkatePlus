@@ -31,7 +31,7 @@
 
 namespace dingosdk::spotify_web {
 namespace {
-constexpr wchar_t agent[] = L"ReSkate";
+constexpr wchar_t agent[] = L"ReSkatePlus";
 constexpr char scopes[] = "playlist-read-private playlist-read-collaborative user-modify-playback-state user-read-playback-state user-library-read";
 
 std::mutex mutex; // everything below it
@@ -100,7 +100,7 @@ std::string sha256_base64url(const std::string& text) {
 // The token that renews the sign-in, kept so that only this Windows account can read it.
 std::string sealed(const std::string& text) {
     DATA_BLOB in{static_cast<DWORD>(text.size()), reinterpret_cast<BYTE*>(const_cast<char*>(text.data()))}, out{};
-    if (text.empty() || !CryptProtectData(&in, L"ReSkate Spotify", nullptr, nullptr, nullptr, CRYPTPROTECT_UI_FORBIDDEN, &out)) return {};
+    if (text.empty() || !CryptProtectData(&in, L"ReSkate+ Spotify", nullptr, nullptr, nullptr, CRYPTPROTECT_UI_FORBIDDEN, &out)) return {};
     std::string hex;
     for (DWORD i = 0; i < out.cbData; ++i) hex += std::format("{:02x}", out.pbData[i]);
     LocalFree(out.pbData);
@@ -269,7 +269,7 @@ std::string await_callback(const std::string& expected_state) {
                 if (!good) code = "-"; // refused in the browser: stop waiting
             }
             const std::string page = std::string("<html><body style=\"font-family:sans-serif;background:#121212;color:#fff;text-align:center;padding-top:20vh\"><h2>") +
-                (good ? "ReSkate is signed in to Spotify" : "ReSkate was not signed in") + "</h2><p>You can close this and go back to the game.</p></body></html>";
+                (good ? "ReSkate+ is signed in to Spotify" : "ReSkate+ was not signed in") + "</h2><p>You can close this and go back to the game.</p></body></html>";
             const auto answer = std::format("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", page.size(), page);
             send(client, answer.data(), static_cast<int>(answer.size()), 0);
             shutdown(client, SD_SEND);

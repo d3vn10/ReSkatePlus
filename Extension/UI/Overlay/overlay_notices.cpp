@@ -21,7 +21,7 @@ namespace dingosdk::overlay::detail {
         return !notices.empty();
     }
 
-    // Notices in the top-left corner: "ReSkate loaded" the first time the overlay
+    // Notices in the top-left corner: "ReSkate+ loaded" the first time the overlay
     // draws, then whatever notify() queued (a broken mod, a map that is not
     // loading), stacked and fading out on their own. They take no input.
     void draw_notices() {

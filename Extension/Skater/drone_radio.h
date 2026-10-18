@@ -304,7 +304,7 @@ inline bool read_device(UINT id, Sample& out) {
 
 // Reads the radio. Safe to call from any thread; rescans for a controller at most once a second.
 inline Sample poll() {
-    // While the drone flies with a controller, ReSkate keeps the game from reading it; this read
+    // While the drone flies with a controller, ReSkate+ keeps the game from reading it; this read
     // has to see it all the same.
     detail::InputAccess access;
     static std::atomic<int> cached{-1};

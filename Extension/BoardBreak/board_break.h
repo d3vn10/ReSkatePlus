@@ -11,7 +11,7 @@
 // the bail cause that led to the wipeout) decides whether the board breaks: a heavy one always, a
 // lighter one now and then.
 //
-// The pieces are not drawn by ReSkate: they are in the deck model of a content mod, one mod for
+// The pieces are not drawn by ReSkate+: they are in the deck model of a content mod, one mod for
 // each deck shape, any folder named Board_Break_<Name> (Engine/Vfs/mod_catalog.h). The game has one
 // deck model for every board; such a mod replaces it with the same deck plus four stretches of it
 // (nose, front, back, tail) cut along the break rows, each on a spare bone of the board's rig

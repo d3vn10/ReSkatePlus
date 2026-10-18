@@ -28,7 +28,7 @@ std::atomic<CreateProcessAFn> original_create_a{};
 std::atomic<ShellExecuteExWFn> original_shell_execute{};
 
 // The Origin SDK starts the EA app from HKLM\...\Origin\ClientPath when its
-// LSX connection fails. ReSkate never wants it: Steam (or offline mode) is the
+// LSX connection fails. ReSkate+ never wants it: Steam (or offline mode) is the
 // platform, and the offline runtime answers every EA service locally.
 constexpr std::array<std::wstring_view, 8> blocked{
     L"eadesktop.exe", L"ealauncher.exe", L"ealaunchhelper.exe", L"eabackgroundservice.exe",

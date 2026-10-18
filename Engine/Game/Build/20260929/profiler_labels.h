@@ -6,10 +6,10 @@
 // labelled in Runtime/runtime_init.cpp). Anything else shows as its Ghidra address; name more in
 // ReSkate.labels.tsv next to Skate.exe without rebuilding.
 namespace dingosdk::game::build::v20260929::profiler_labels {
-// The client game update ReSkate's tick hooks (runtime::client_tick).
+// The client game update ReSkate+'s tick hooks (runtime::client_tick).
 inline constexpr std::uintptr_t client_update = 0x2e77190;
 // The client frame job: names its end job "clientEndJob", runs the frame's update passes
-// (0x4b3c750; ReSkate's tick is called from one of them) and returns when the frame is done.
+// (0x4b3c750; ReSkate+'s tick is called from one of them) and returns when the frame is done.
 // Runtime/frame_timing.cpp times it as the client frame. Once per client frame.
 inline constexpr Fingerprint client_frame_job{0x2e77770, {
     0x48,0x89,0x5c,0x24,0x20,0x55,0x56,0x57,0x41,0x56,0x41,0x57,0x48,0x8d,0xac,0x24,

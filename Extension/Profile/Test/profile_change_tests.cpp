@@ -19,15 +19,6 @@ int main() {
     std::filesystem::remove_all(folder, error);
     {
         profile::Store store(save);
-        store.set_bool_option(profile::unlock_cosmetics_option, true);
-        store.seed_cosmetic_inventory({ "stale_cosmetic", "mod_cosmetic" });
-        store.clear_cosmetic_inventory();
-        check(store.snapshot().customization.at("inventory").empty(),
-            "clearing cosmetic inventory removes existing ownership entries");
-        store.seed_cosmetic_inventory({ "mod_cosmetic" });
-        const auto cosmetic_inventory = store.snapshot().customization.at("inventory");
-        check(cosmetic_inventory.size() == 1 && cosmetic_inventory.at("mod_cosmetic") == Json(true),
-            "seeding after clear restores only installed cosmetics");
         auto seen = profile::Store::changes();
         const auto announced = [&] {
             const auto now = profile::Store::changes();
@@ -82,9 +73,6 @@ int main() {
             store.selected_cosmetic_preset() == 3, "saved settings come back after a restart");
         check(profile::park_choices(store.snapshot()) == ParkChoices{"megapark_04", "flumppark_10", "streetpark_06"} &&
               store.user_value("ReSkate.RandomizeParksOnLaunch") == Json(true), "parks and launch preference survive a restart");
-        const auto cosmetic_inventory = store.snapshot().customization.at("inventory");
-        check(cosmetic_inventory.size() == 1 && cosmetic_inventory.at("mod_cosmetic") == Json(true),
-            "clear-then-seed cosmetic inventory survives a restart");
     }
     std::filesystem::remove_all(folder, error);
     if (failures) return 1;

@@ -33,7 +33,7 @@ std::optional<MultiplayerLobby> read_lobby(std::uint64_t id, std::uint64_t owner
                                            const std::function<std::string(const char *)> &get);
 struct LobbyStatus {
     bool listed{}, searching{}, joining{}, searched{};
-    std::string hosting, browser = "Refresh to find public ReSkate lobbies.";
+    std::string hosting, browser = "Refresh to find public ReSkate+ lobbies.";
     std::vector<MultiplayerLobby> rows;
 };
 class SteamLobbies {

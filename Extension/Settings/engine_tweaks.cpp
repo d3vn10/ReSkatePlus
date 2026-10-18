@@ -95,7 +95,7 @@ using CullSchedule = std::uintptr_t (*)(std::uintptr_t, std::uintptr_t, std::uin
 using SettingsLookup = std::uintptr_t (*)(std::uintptr_t manager, std::uintptr_t type);
 CullSchedule original_cull{};
 std::atomic<int> tree_wanted{-1}; // -1: the game's own value
-std::atomic<int> tree_stock{-1};  // the value before ReSkate changed it, while changed
+std::atomic<int> tree_stock{-1};  // the value before ReSkate+ changed it, while changed
 std::atomic<int> tree_seen{-1};   // what the last frame culled with
 
 // At the start of the scheduler, before it or the jobs it starts read the flag: both see the
@@ -427,7 +427,7 @@ std::string status(Tweak tweak) {
         const int seen = tree_seen.load(), stock = tree_stock.load();
         return std::format("Mesh cull tree {}: the last frame culled {}{}.",
             tree_wanted.load() == 1 ? "on" : "off (the game's own setting)",
-            seen < 0 ? "before ReSkate looked" : seen ? "with the octree" : "flat (every chunk against every view)",
+            seen < 0 ? "before ReSkate+ looked" : seen ? "with the octree" : "flat (every chunk against every view)",
             stock >= 0 ? std::format("; the game's value was {}", stock) : "");
     }
     case Tweak::job_wake:

@@ -45,7 +45,7 @@ struct Observation {
 };
 struct Lease {
     Observation original, applied;
-    // A player's console change, not one of ReSkate's own, and the value before it (ReSkate's,
+    // A player's console change, not one of ReSkate+'s own, and the value before it (ReSkate+'s,
     // when it had changed the setting first).
     bool player{};
     Observation player_from;
@@ -654,7 +654,7 @@ void put_back_locked(Runtime &r) {
         if (index < r.leases.size() && r.leases[index] && r.leases[index]->player) {
             const auto back = text(r.leases[index]->player_from.value);
             const auto result = change(index, back, false);
-            // Whatever remains is ReSkate's own change, or nothing.
+            // Whatever remains is ReSkate+'s own change, or nothing.
             if (r.leases[index]) r.leases[index]->player = false;
             logging::log(logging::Level::info, logging::Channel::runtime,
                          "Multiplayer: {} changes how the game plays; put back for the session ({}).", r.models[index].name, result);

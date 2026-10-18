@@ -82,7 +82,7 @@ inline constexpr std::uintptr_t party_client = engine::client_game_manager;
 
 // Party requests (analysis/party-re/native-core.md 2.3): the natives behind the Social menu's and
 // player card's party buttons. Each fills an async handle and answers through a script delegate
-// (last argument); without a native (Blaze) group they fail, so ReSkate answers them itself.
+// (last argument); without a native (Blaze) group they fail, so ReSkate+ answers them itself.
 inline constexpr std::uintptr_t request_invite = 0x84be30;      // (Handle*, const u64* eaid, Delegate*)
 inline constexpr std::uintptr_t request_join_group = 0x7797a0;  // (Handle*, u64 group, i32 reason (1 direct, 2 invite), Delegate*)
 inline constexpr std::uintptr_t request_join_player = 0x77a0e0; // (Handle*, const u64* eaid, Delegate*)

@@ -157,7 +157,7 @@ void sync(const fs::path& mods_root) {
     std::error_code error;
     fs::create_directories(root, error);
 
-    // The list: ReSkate's, else the last one read, else ReSkate's own.
+    // The list: ReSkate+'s, else the last one read, else ReSkate+'s own.
     std::vector<Mod> list;
     std::string source;
     bool authoritative = true;
@@ -166,14 +166,14 @@ void sync(const fs::path& mods_root) {
         list = parse_list(body);
         if (list.empty() && body.find("\"mods\"") == std::string::npos) throw std::runtime_error("not a list of official mods");
         std::ofstream(root / list_file, std::ios::binary | std::ios::trunc) << body;
-        source = "ReSkate";
+        source = "ReSkate+";
     } catch (const std::exception& failure) {
-        log(logging::Level::warning, std::string("Official mods: the list could not be read from ReSkate (") + failure.what() + ")");
+        log(logging::Level::warning, std::string("Official mods: the list could not be read from ReSkate+ (") + failure.what() + ")");
         list = parse_list(read_text(root / list_file));
         source = "the last list read";
         if (list.empty() && !fs::exists(root / list_file, error)) {
             list = fallback_list();
-            source = "ReSkate's own list";
+            source = "ReSkate+'s own list";
             authoritative = false;
         }
     }
@@ -215,7 +215,7 @@ void sync(const fs::path& mods_root) {
             shown.working = false;
         });
     }
-    // An official mod the list no longer names goes (it came from ReSkate, not the player).
+    // An official mod the list no longer names goes (it came from ReSkate+, not the player).
     if (authoritative && !s.cancel) {
         std::set<std::string> named;
         for (const auto& mod : list) named.insert(mod.full_name);

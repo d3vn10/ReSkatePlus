@@ -51,7 +51,7 @@ void warn_outdated_mods(const mods::Catalog& catalog) {
             if (length > 0) MultiByteToWideChar(CP_UTF8, 0, value.data(), static_cast<int>(value.size()), result.data(), length);
             return result;
         };
-        MessageBoxW(nullptr, wide(text).c_str(), L"ReSkate: outdated mods disabled",
+        MessageBoxW(nullptr, wide(text).c_str(), L"ReSkate+: outdated mods disabled",
                     MB_OK | MB_ICONWARNING | MB_TOPMOST | MB_SETFOREGROUND);
     }).detach();
 }
@@ -221,7 +221,7 @@ bool start_mod_layers(std::uintptr_t base, std::string& error) {
                         progress.total ? static_cast<float>(progress.done) / static_cast<float>(progress.total)
                                        : -1.0f);
     });
-    startup::status("Starting ReSkate\xE2\x80\xA6");
+    startup::status("Starting ReSkate+\xE2\x80\xA6");
     logging::log(logging::Level::info, logging::Channel::assets, "Mods read in {} ms",
         std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started).count());
     for (const auto& note : catalog.notes)

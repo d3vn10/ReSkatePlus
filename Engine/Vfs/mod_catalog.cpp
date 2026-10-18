@@ -102,7 +102,7 @@ bool changes_the_deck(const fs::path& mod) {
     }
     return false;
 }
-// The player's choice of deck is kept beside ReSkate's other files for the user, so that it is
+// The player's choice of deck is kept beside ReSkate+'s other files for the user, so that it is
 // there before the profile is: the mods are put together as the game starts.
 fs::path board_break_deck_file() {
     std::array<wchar_t, 1024> text{};
@@ -318,7 +318,7 @@ Catalog load_catalog(const std::filesystem::path& data_root, const MergeObserver
         result.issue = "The engine data root could not be resolved";
         return result;
     }
-    // Content ReSkate carries itself (builtin_packs.h), unpacked first: it makes the Mods folder
+    // Content ReSkate+ carries itself (builtin_packs.h), unpacked first: it makes the Mods folder
     // when there is none, so the content loads without any mod installed.
     std::vector<std::string> builtin_notes;
     const auto builtin = unpack_builtin_packs(data_root / mods_folder, builtin_notes);
@@ -337,11 +337,11 @@ Catalog load_catalog(const std::filesystem::path& data_root, const MergeObserver
     try {
         for (const auto& name : list.missing)
             result.notes.push_back("mods.json names a folder that is not present: " + name);
-        // A mod ReSkate keeps itself (an official mod, or one retired with it: builtin_packs.h) is
+        // A mod ReSkate+ keeps itself (an official mod, or one retired with it: builtin_packs.h) is
         // left out, should the launcher not have taken it away yet: its content would load twice.
         std::erase_if(list.entries, [&](const ModEntry& entry) {
             if (!kept_by_reskate(data_root / mods_folder, entry.mod.name)) return false;
-            result.notes.push_back(entry.mod.name + " is an official mod ReSkate keeps itself; the copy in the Mods folder is left out");
+            result.notes.push_back(entry.mod.name + " is an official mod ReSkate+ keeps itself; the copy in the Mods folder is left out");
             return true;
         });
         // After every installed mod, so none of theirs is ever shadowed by it; always on. Official
@@ -354,7 +354,7 @@ Catalog load_catalog(const std::filesystem::path& data_root, const MergeObserver
         // inside becomes a mod of its own for the run, listed after the pack as <folder>#<deck>, so
         // that a pack's decks are chosen, set aside and switched like decks in folders of their own.
         // It carries the pack's build stamp; mods.json and the mod list only know the pack. The
-        // pack's own layout is no deck here, whatever its folder is named: it is the deck a ReSkate
+        // pack's own layout is no deck here, whatever its folder is named: it is the deck a ReSkate+
         // from before deck packs breaks, and is set aside for the decks inside.
         std::vector<std::string> packs;
         for (std::size_t i = 0; i < list.entries.size(); ++i) {
@@ -448,7 +448,7 @@ Catalog load_catalog(const std::filesystem::path& data_root, const MergeObserver
         auto exclusions = read_exclusions(result.root);
         const auto sdk = sdk_identity();
         std::map<std::string, Exclusion, std::less<>> still_excluded;
-        // `remembered`: it stays out on later launches without a retry, until its files or ReSkate change.
+        // `remembered`: it stays out on later launches without a retry, until its files or ReSkate+ change.
         const auto leave_out = [&](std::size_t index, std::vector<std::string> problems, const std::string& fingerprint, bool remembered = true) {
             auto mod = std::move(result.mods[index]);
             result.mods.erase(result.mods.begin() + static_cast<std::ptrdiff_t>(index));
@@ -464,7 +464,7 @@ Catalog load_catalog(const std::filesystem::path& data_root, const MergeObserver
             const auto found = list.excluded.find(result.mods[i].name);
             if (found == list.excluded.end()) continue;
             const auto& previous = exclusions.at(result.mods[i].name);
-            if (sdk.empty() || previous.sdk != sdk) continue; // a new ReSkate may merge it now
+            if (sdk.empty() || previous.sdk != sdk) continue; // a new ReSkate+ may merge it now
             // One left out because the game was of another build is looked at again below: the
             // game may have been put right since (its files verified), with the mod untouched.
             // Remembered, it stayed out for good with the game fixed (seen 2026-10-13).
@@ -489,11 +489,11 @@ Catalog load_catalog(const std::filesystem::path& data_root, const MergeObserver
             if (build.empty()) continue;
             result.notes.push_back("Leaving out " + result.mods[i].name + ": it was made for game build " + build +
                                    ", the installed game is " + game_build);
-            // (When it is the game that is of another build than ReSkate's, the mod is not what
+            // (When it is the game that is of another build than ReSkate+'s, the mod is not what
             // needs seeing to.)
             leave_out(i, {"made for game build " + build + ", not the installed " + game_build +
                           (game_build != supported_build::game_data_changelist
-                               ? "; your game files are not the version ReSkate supports: in the launcher, open Settings and press Verify game files"
+                               ? "; your game files are not the version ReSkate+ supports: in the launcher, open Settings and press Verify game files"
                                : "; rebuild it with ReSkate Studio for this game build")},
                       mod_fingerprint(result.mods[i].directory), false); // (checked on every launch: the game's build can change under it)
         }

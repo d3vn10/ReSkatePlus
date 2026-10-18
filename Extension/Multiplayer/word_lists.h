@@ -3,7 +3,7 @@
 #include <string>
 #include <string_view>
 
-// The chat word lists the ReSkate backend keeps (its admin panel's Words page), which come in
+// The chat word lists the ReSkate+ backend keeps (its admin panel's Words page), which come in
 // the same answer as the identity lists (developer_identity.h): "filtered_words" and
 // "forbidden_words". They take the place of the list the game was built with
 // (Engine/Core/Text/word_filter.h) once the backend has any; an answer without them changes

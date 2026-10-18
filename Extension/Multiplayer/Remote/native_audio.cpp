@@ -157,7 +157,7 @@ void fingerprint(Address base, Address rva, const std::array<std::uint8_t, N> &b
 }
 void install(Address base) {
     auto &s = state();
-    require(!s.attempted, "Sound hook installation requires restarting ReSkate.");
+    require(!s.attempted, "Sound hook installation requires restarting ReSkate+.");
     fingerprint(base, sound::submit, sound::submit_prefix);
     fingerprint(base, sound::frame_copy, sound::frame_copy_prefix);
     fingerprint(base, sound::frame_reset, sound::frame_reset_prefix);

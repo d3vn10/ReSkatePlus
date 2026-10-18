@@ -79,7 +79,7 @@ Clock::time_point arrived(const ChatState& c, std::uint64_t sequence) {
     return {};
 }
 
-// The sender's role colour, as their nametag shows it; ReSkate's notices muted. Lines without
+// The sender's role colour, as their nametag shows it; ReSkate+'s notices muted. Lines without
 // a role (older sessions) fall back to a steady colour per sender.
 ImU32 name_colour(const MultiplayerChatLine& line) {
     if (line.server) return line.color ? line.color : multiplayer::nametag_server;

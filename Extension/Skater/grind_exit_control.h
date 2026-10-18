@@ -29,11 +29,11 @@
 //     board the other way; from the pop on the stick is the game's again, for the body's rotation.
 //   - Multiplayer: on in any session, whatever the host's settings. It changes only how the local
 //     player's inputs pick the exit side (the speed is the game's own); other players see the
-//     result through the poses ReSkate already syncs.
+//     result through the poses ReSkate+ already syncs.
 // It is limited to the supported game build: the launch hook is the trainer's, which installs
 // only when the game's code matches (Extension/Trainer/trainer_jump.cpp), and every address
 // comes from Engine/Game/Build/20260929. With debug logging on, every
-// pop out of a grind is written to ReSkate.log with
+// pop out of a grind is written to ReSkate+.log with
 // what was decided and why. On/off, the side convention and the stance are kept in
 // %LOCALAPPDATA%\ReSkate\grindexit\control.txt.
 namespace dingosdk::grind_exit_control {

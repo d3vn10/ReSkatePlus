@@ -1,6 +1,9 @@
 #include "gui_internal.h"
 #include "gui_renderer.h"
 #include "official_mods.h"
+
+#include "Engine/Vfs/builtin_packs.h"
+
 #include "mod_manager.h"
 #include "updater.h"
 
@@ -353,12 +356,10 @@ namespace dingosdk::launcher_gui::detail {
         panel.cancel = false;
         panel.progress = 0;
         panel.message.clear();
-        panel.fbmod_url.clear();
         set_activity(panel, "Starting download...");
         const auto root = panel.root;
         panel.worker = std::thread([&panel, root, packages = std::move(packages)] {
             std::string name, error, note;
-            std::string fbmod_url;
             std::size_t done = 0;
             // One that fails does not stop the ones after it: each is its own download, and the
             // list ends with what could not be installed. Cancelling does stop the rest.
@@ -382,12 +383,6 @@ namespace dingosdk::launcher_gui::detail {
                         error = package.title() + ": " + failure.what();
                         break;
                     }
-                    if (dynamic_cast<const launcher_mods::IncorrectFbmodUpload*>(&failure)) {
-                        if (package.package_url.starts_with("https://")) {
-                            if (fbmod_url.empty()) fbmod_url = package.package_url;
-                            continue;
-                        }
-                    }
                     failed.push_back(package.title() + ": " + failure.what());
                 }
             }
@@ -408,7 +403,6 @@ namespace dingosdk::launcher_gui::detail {
             panel.finished_error = error;
             panel.finished_conflict.clear();
             panel.finished_note = note;
-            panel.finished_fbmod_url = std::move(fbmod_url);
             panel.finished_source.clear();
             panel.activity.clear();
             panel.installing = false;
@@ -485,10 +479,10 @@ namespace dingosdk::launcher_gui::detail {
             return { mod.installed.empty() ? "NOT DOWNLOADED" : "UPDATE FAILED", mod.installed.empty() ? color::danger : color::warning, true };
         }
         std::string source_text(const official_mods::State& state) {
-            if (state.source == "ReSkate") return "List from ReSkate's server";
+            if (state.source == "ReSkate" || state.source == "ReSkatePlus") return "List from ReSkate+'s server";
             if (state.source == "the last list read") return "Offline: using the last list";
             if (state.source.empty()) return state.syncing ? "Reading the list..." : "";
-            return "Using the list ReSkate came with";
+            return "Using the list ReSkate+ came with";
         }
     }
 
@@ -500,7 +494,7 @@ namespace dingosdk::launcher_gui::detail {
 
         const bool trouble = std::any_of(state.mods.begin(), state.mods.end(), [](const auto& mod) { return standing_of(mod).trouble; });
         page_banner(fonts, "OFFICIAL MODS", "ALWAYS ON",
-            "Mods made for ReSkate's own features. Every player has them, kept at their latest version from Thunderstore: "
+            "Mods made for ReSkate+'s own features. Every player has them, kept at their latest version from Thunderstore: "
             "they load after your mods and are always on.",
             state.syncing ? "CHECKING FOR UPDATES" : trouble ? "NEEDS ATTENTION" : state.mods.empty() ? "NONE RIGHT NOW" : "ALL UP TO DATE",
             state.syncing ? color::blue : trouble ? color::warning : state.mods.empty() ? color::tile_grey : color::good,
@@ -588,7 +582,7 @@ namespace dingosdk::launcher_gui::detail {
             if (ImGui::Button("OPEN FOLDER", ImVec2(button, S(32)))) open_path(folder);
             ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-                ImGui::SetTooltip("%s", mod.installed.empty() ? "Not downloaded yet" : "Where ReSkate keeps it");
+                ImGui::SetTooltip("%s", mod.installed.empty() ? "Not downloaded yet" : "Where ReSkate+ keeps it");
 
             ImGui::SetCursorScreenPos(ImVec2(start.x, start.y + tall + S(12)));
             ImGui::Dummy(ImVec2(across, 0));
@@ -607,7 +601,7 @@ namespace dingosdk::launcher_gui::detail {
             const auto have = std::count_if(store.packages.begin(), store.packages.end(),
                 [&](const ts::Package& package) { return installed.contains(ts::folder_for(package.full_name)); });
             page_banner(fonts, "GET MODS", nullptr,
-                "Mods for ReSkate from Thunderstore. Open one to read about it, or tick several and install them together. "
+                "Mods for ReSkate+ from Thunderstore. Open one to read about it, or tick several and install them together. "
                 "Official mods are kept for you, so they are not listed here.",
                 !store.loaded ? (store.loading || store.error.empty() ? "LOADING" : "OFFLINE")
                 : waiting ? std::format("{} {} WAITING", waiting, waiting == 1 ? "UPDATE" : "UPDATES")
@@ -812,7 +806,7 @@ namespace dingosdk::launcher_gui::detail {
             draw->AddText(fonts.caption, fonts.caption->FontSize, ImVec2(text_x, start.y + S(55)), color::muted,
                 std::format("v{}{}  /  {} downloads  /  {}", version.number,
                     version.file_size ? "  /  " + size_text(version.file_size) : std::string(),
-                    count_text(package.downloads), date_text(package.date_updated)).c_str(), nullptr, 0, &details_clip);
+                    count_text(package.downloads), date_text(package.date_updated)).c_str());
             end_row();
             ImGui::PopID();
         });

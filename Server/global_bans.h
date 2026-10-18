@@ -3,7 +3,7 @@
 #include <string>
 #include <string_view>
 
-// The ReSkate backend's ban list (its admin panel's Bans page), which a dedicated
+// The ReSkate+ backend's ban list (its admin panel's Bans page), which a dedicated
 // server enforces beside its own: Host::tick turns those players away
 // (multiplayer::reskate_banned). The server reads the list at startup and every
 // ten minutes; until it has, and while the backend cannot be reached, it bans

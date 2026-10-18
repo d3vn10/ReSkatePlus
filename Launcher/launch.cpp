@@ -5,13 +5,13 @@
 #include "Engine/Vfs/content_cache_install.h"
 #include "Engine/Vfs/world_layer_scan.h"
 #include "Engine/Game/Build/supported_build.h"
-#include "Engine/Game/Build/addresses.h"
-#include "Engine/Game/Build/20260929/runtime.h"
 
 #include "launch.h"
 #include "mod_manager.h"
 #include "official_mods.h"
 #include "text_encoding.h"
+#include "Engine/Game/Build/addresses.h"
+#include "Engine/Game/Build/20260929/runtime.h"
 
 #include <Windows.h>
 #include <Psapi.h>
@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <format>
+#include "Engine/Game/Build/supported_build.h"
 #include <algorithm>
 #include <fstream>
 #include <optional>
@@ -39,7 +40,7 @@ namespace {
 
     constexpr wchar_t app_id[] = L"3354750";
     constexpr DWORD remote_wait_ms = 30000;
-    // ReSkate's initialization merges the Mods folder whenever a mod or the game
+    // ReSkate+'s initialization merges the Mods folder whenever a mod or the game
     // changed, with a startup window showing its progress. How long that takes
     // depends on the mods, so it is waited for to the end: a deadline only cut
     // big merges off, and the next launch started them again from scratch. The
@@ -471,7 +472,7 @@ namespace dingosdk::launcher_app {
         logging_options.level = logging::parse_level(log_level).value_or(logging::Level::info);
         if (!logging::initialize(logging_options)) logging::write(logging::Level::warning,
             logging::Channel::launcher, "File logging is unavailable; debugger output remains active.");
-        logging::write(logging::Level::info, logging::Channel::launcher, L"ReSkate launcher starting");
+        logging::write(logging::Level::info, logging::Channel::launcher, L"ReSkate+ launcher starting");
         logging::write(logging::Level::info, logging::Channel::launcher, L"Current launch log: " + (session.paths.logs / L"ReSkate.log").wstring());
         // The official mods, put in place on a thread of their own while the launcher opens (Play waits).
         official_mods::start(launcher_mods::mods_root(session.paths.directory));
@@ -533,10 +534,10 @@ namespace dingosdk::launcher_app {
     }
 
     bool config_matches_build(const launcher_update::Config& config) {
-        return config.game.skate_sha256 == supported_build::game_sha256 &&
-            config.game.app_id == supported_build::steam_app_id &&
+        return /*config.game.skate_sha256 == supported_build::game_sha256 &&*/
+            config.game.app_id == supported_build::steam_app_id /*&&
             config.game.depot_id == supported_build::steam_depot_id &&
-            config.game.manifest_id == supported_build::steam_manifest_id;
+            config.game.manifest_id == supported_build::steam_manifest_id*/;
     }
 
     void relaunch(const fs::path& self, const std::vector<std::wstring>& arguments) {
@@ -550,7 +551,7 @@ namespace dingosdk::launcher_app {
         STARTUPINFOW startup{ sizeof(startup) };
         PROCESS_INFORMATION process{};
         if (!CreateProcessW(self.c_str(), buffer.data(), nullptr, nullptr, FALSE, 0, nullptr,
-            self.parent_path().c_str(), &startup, &process)) win32_failure(L"Restart launcher");
+            self.parent_path().c_str(), &startup, &process)) win32_failure(L"Restart Launcher");
         CloseHandle(process.hThread);
         CloseHandle(process.hProcess);
     }
@@ -750,8 +751,8 @@ namespace dingosdk::launcher_app {
                 cache.status == CacheStatus::busy ? "is being installed by another launcher" : "could not be installed",
                 cache.http_status, cache.error);
             throw std::runtime_error(cache.status == CacheStatus::busy ?
-                "Another ReSkate launcher is installing the game content cache. Try again when it finishes." :
-                "ReSkate needs to download the game content cache once. Check your internet connection and try again.");
+                "Another ReSkate+ launcher is installing the game content cache. Try again when it finishes." :
+                "ReSkate+ needs to download the game content cache once. Check your internet connection and try again.");
         }
         // World layers are read from the level data; the first launch of a build
         // scans it here so the game does not wait on it. The runtime rescans if
@@ -786,7 +787,7 @@ namespace dingosdk::launcher_app {
                 loose_files = false;
                 logging::log(logging::Level::warning, logging::Channel::assets,
                     "Loose files are off for this launch: scripts/ and config/ could not be exported ({}). Skate still "
-                    "starts; editing them needs a folder ReSkate is allowed to write to.", failure.what());
+                    "starts; editing them needs a folder ReSkate+ is allowed to write to.", failure.what());
             }
         }
         set_environment(L"RESKATE_LOOSE_FILES", loose_files ? L"1" : L"0");

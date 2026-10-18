@@ -53,8 +53,8 @@ OwnWords use_own_words(const ServerConfig &config) {
 
 std::string own_words_text(const ServerConfig &config, const OwnWords &words) {
     std::ostringstream out;
-    out << "Chat words: " << (config.global_words ? "the ReSkate team's lists are used"
-                                                : "the ReSkate team's lists are off (\"use_global_word_filter\": false)")
+    out << "Chat words: " << (config.global_words ? "the ReSkate+ team's lists are used"
+                                                : "the ReSkate+ team's lists are off (\"use_global_word_filter\": false)")
         << "; this server filters " << words.filtered << " word(s) of its own (data/words_filtered.txt, " << words.sent.size()
         << " sent to players) and blocks " << words.blocked << " (data/words_blocked.txt).";
     if (!words.problem.empty()) out << " Problem: " << words.problem << ".";

@@ -47,7 +47,7 @@ struct LaunchOptions {
     bool log_trace{};
     bool loose_files{true};
     bool offline{};
-    // Virtual-key codes that open ReSkate's menu and console (--menu-key /
+    // Virtual-key codes that open ReSkate+'s menu and console (--menu-key /
     // --console-key); passed to the game as RESKATE_MENU_KEY / RESKATE_CONSOLE_KEY.
     unsigned menu_key{0x2D};     // VK_INSERT
     unsigned console_key{0xC0};  // VK_OEM_3, the key left of 1
@@ -112,15 +112,15 @@ std::string sha256_file(const std::filesystem::path& path);
 void validate_steam_api_file(const std::filesystem::path& path);
 
 // -offline: the launcher sets RESKATE_OFFLINE=1 so the game runs without Steam,
-// as "Half-Square Employee", with multiplayer hidden. Read once per process.
-inline constexpr const char* offline_player_name = "Half-Square Employee";
+// as "Half-Squared Employee", with multiplayer hidden. Read once per process.
+inline constexpr const char* offline_player_name = "Half-Squared Employee";
 bool offline_mode() noexcept;
 // The SteamID offline mode reports: RESKATE_OFFLINE_STEAM_ID, the account
 // Steam was last signed in to, so the game keeps the same settings save.
 std::uint64_t offline_steam_id() noexcept;
 
 #ifdef _WIN32
-// Keys that open ReSkate's menu and console in game.
+// Keys that open ReSkate+'s menu and console in game.
 inline constexpr unsigned default_menu_key = 0x2D;     // VK_INSERT
 inline constexpr unsigned default_console_key = 0xC0;  // VK_OEM_3
 struct OverlayKeys { unsigned menu{default_menu_key}, console{default_console_key}; };

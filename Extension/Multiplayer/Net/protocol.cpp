@@ -25,7 +25,7 @@ namespace dingosdk::multiplayer {
             return nullptr;
         }
     }
-    std::uint16_t protocol_version = protocol_revisions.front().version;
+    std::uint16_t protocol_version = protocol_revisions.back().version;
     bool protocol_supports_typing() noexcept {
         const auto* revision = protocol_revision(protocol_version);
         return revision && revision->typing;
@@ -1419,12 +1419,6 @@ namespace dingosdk::multiplayer {
         catch (...) {
             return {};
         }
-    }
-    std::optional<Packet> decode_50(std::span<const std::uint8_t> bytes) noexcept {
-        return decode_revision(bytes, 50);
-    }
-    std::optional<Packet> decode_51(std::span<const std::uint8_t> bytes) noexcept {
-        return decode_revision(bytes, 51);
     }
 
     namespace {

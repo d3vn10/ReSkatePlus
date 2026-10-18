@@ -43,7 +43,7 @@ ParkDocument decode_park(std::string_view text) {
         throw std::runtime_error("Park file exceeds 2 MB.");
     const auto doc = profile::decode_placements(text);
     if (doc.maps.size() != 1 || doc.extensions.value("format", std::string{}) != "reskate-park")
-        throw std::runtime_error("Expected a ReSkate park containing exactly one base map.");
+        throw std::runtime_error("Expected a ReSkate+ park containing exactly one base map.");
     return {doc.maps.begin()->first, doc.maps.begin()->second};
 }
 void save_park(const std::filesystem::path &directory, std::string_view name, const ParkDocument &park) {

@@ -1,7 +1,7 @@
 #pragma once
 // Frostbite skinned MeshSet resources: one level of detail's triangles, and how each vertex is
 // weighted to the skeleton's bones. Only what a skinned mesh needs; the layout was worked out
-// on skate.'s costume meshes, first by gBGYo's ReSkate fork (github.com/gBGYo/ReSkate).
+// on skate.'s costume meshes, first by gBGYo's ReSkate+ fork (github.com/gBGYo/ReSkate).
 #include "binary_io.h"
 #include <array>
 #include <cstddef>
@@ -40,18 +40,12 @@ struct MeshLod {
                                                       std::span<const std::byte> geometry, std::uint32_t* index_format = nullptr);
 struct SkinnedVertex {
     std::array<float, 3> position{};       // model space
-    std::array<float, 2> uv0{};
-    std::array<float, 2> uv1{};
-    std::array<std::uint8_t, 4> source_id_color{};
     std::array<std::uint16_t, 8> bones{};  // skeleton bones
     std::array<std::uint8_t, 8> weights{}; // summing to 255; 0 for an unused influence
 };
 struct SkinnedMesh {
     std::vector<SkinnedVertex> vertices;
     std::vector<std::uint32_t> triangles; // vertex indices, three a triangle
-    bool has_uv0{};
-    bool has_uv1{};
-    bool has_source_id_color{};
 };
 // That level's sections as one mesh, from its geometry chunk. Throws when they do not fit.
 [[nodiscard]] SkinnedMesh read_skinned_mesh(std::span<const std::byte> resource, std::size_t lod,

@@ -112,14 +112,14 @@ struct Peak {
         if (value < said + stock / 16 && now_past == past) return;
         said = value;
         logging::log(now_past && !past ? logging::Level::warning : logging::Level::info, logging::Channel::world,
-            "World pools: {} {} of ReSkate's {} ({:.0f}% of the game's own {}){}", name, value, capacity, 100.0 * value / stock, stock,
+            "World pools: {} {} of ReSkate+'s {} ({:.0f}% of the game's own {}){}", name, value, capacity, 100.0 * value / stock, stock,
             now_past && !past ? ": past the game's own size" : "");
         past = now_past;
     }
 };
 
 void watch(std::uintptr_t base) {
-    SetThreadDescription(GetCurrentThread(), L"ReSkate world pool watch");
+    SetThreadDescription(GetCurrentThread(), L"ReSkate+ World Pool Watch");
     std::vector<std::uint64_t> page(pages::page_entries);
     Peak entities{"entity slots", contract::entity_slots_stock, pages::capacity};
     Peak instances{"render instances", contract::render_instances_stock, std::size_t{512} << pages::render_instance_page_shift};

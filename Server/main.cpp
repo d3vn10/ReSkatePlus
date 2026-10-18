@@ -1,4 +1,4 @@
-// ReSkate dedicated server: a headless session host that players find in the
+// ReSkate+ dedicated server: a headless session host that players find in the
 // in-game server browser. Runs from its own folder, next to steam_api64.dll and
 // the Steam client files (steamclient64.dll, tier0_s64.dll, vstdlib_s64.dll).
 // On Linux the Steam files are libsteam_api.so and steamclient.so.
@@ -278,9 +278,9 @@ int run(int argc, wchar_t **argv, bool skip_update) {
             const auto catalog = world_layer_scan::scan(argv[2]);
             if (catalog.layers.empty()) throw std::runtime_error("no world layers found; is that the Skate folder?");
             if (catalog.layers.size() != supported_build::world_layer_count)
-                throw std::runtime_error("that game has " + std::to_string(catalog.layers.size()) + " world layers, and the build ReSkate supports has " +
+                throw std::runtime_error("that game has " + std::to_string(catalog.layers.size()) + " world layers, and the build ReSkate+ supports has " +
                                          std::to_string(supported_build::world_layer_count) +
-                                         ": it is another version of skate. (one Steam has updated?). Give the folder ReSkate's own game is in");
+                                         ": it is another version of skate. (one Steam has updated?). Give the folder ReSkate+'s own game is in");
             std::ofstream out(argv[3], std::ios::binary | std::ios::trunc);
             out << world_layer_scan::to_json(catalog, "server");
             if (!out) throw std::runtime_error("cannot write the file");
@@ -309,9 +309,9 @@ int run(int argc, char **argv, bool skip_update) {
             const auto catalog = world_layer_scan::scan(std::filesystem::path(argv[2]));
             if (catalog.layers.empty()) throw std::runtime_error("no world layers found; is that the Skate folder?");
             if (catalog.layers.size() != supported_build::world_layer_count)
-                throw std::runtime_error("that game has " + std::to_string(catalog.layers.size()) + " world layers, and the build ReSkate supports has " +
+                throw std::runtime_error("that game has " + std::to_string(catalog.layers.size()) + " world layers, and the build ReSkate+ supports has " +
                                          std::to_string(supported_build::world_layer_count) +
-                                         ": it is another version of skate. (one Steam has updated?). Give the folder ReSkate's own game is in");
+                                         ": it is another version of skate. (one Steam has updated?). Give the folder ReSkate+'s own game is in");
             std::ofstream out(std::filesystem::path(argv[3]), std::ios::binary | std::ios::trunc);
             out << world_layer_scan::to_json(catalog, "server");
             if (!out) throw std::runtime_error("cannot write the file");
@@ -614,13 +614,13 @@ int run(int argc, char **argv, bool skip_update) {
             next_ban_check = now_time + (check.ok ? std::chrono::minutes(10) : std::chrono::minutes(1));
             // Said when it changes, not every ten minutes.
             if (config.global_bans && check.ok && (check.changed || bans_unread))
-                write_log("Global bans: " + std::to_string(check.banned) + " player(s) banned from ReSkate multiplayer cannot join.");
+                write_log("Global bans: " + std::to_string(check.banned) + " player(s) banned from ReSkate+ multiplayer cannot join.");
             if (check.ok && check.words_changed)
                 write_log("Word lists: " + std::to_string(check.filtered_words) + " filtered and " + std::to_string(check.forbidden_words) +
-                          " not allowed at all, from the ReSkate team's lists." +
+                          " not allowed at all, from the ReSkate+ team's lists." +
                           (config.word_warnings ? "" : " (\"word_warnings\" is 0: a message with one is not passed on, and nobody is kicked)."));
             else if (!check.ok && !bans_unread)
-                write_log("The ReSkate team's lists (global bans and chat words) could not be read (" + check.problem +
+                write_log("The ReSkate+ team's lists (global bans and chat words) could not be read (" + check.problem +
                           "). Trying again every minute; until then the ones already read hold.");
             bans_unread = !check.ok;
         }
@@ -630,7 +630,7 @@ int run(int argc, char **argv, bool skip_update) {
         }
         if (const auto now = std::chrono::steady_clock::now(); now >= next_advertise) {
             next_advertise = now + std::chrono::seconds(2);
-            // The ReSkate team's rule, read with its ban list: say when it starts or stops hiding this server.
+            // The ReSkatePlus team's rule, read with its ban list: say when it starts or stops hiding this server.
             if (const bool required = multiplayer::server_tokens_required(); required != tokens_required) {
                 tokens_required = required;
                 if (config.steam_token.empty() && config.listed)

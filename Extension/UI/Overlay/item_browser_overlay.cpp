@@ -353,7 +353,7 @@ bool item_browser_pending() {
 
 // The tabs' panel over the item grid. Adding (V): the tabs as tiles, the ones the highlighted item is
 // in lit; a click or Enter puts it in or takes it out, "+" makes a tab with it in. Changing (R): a click
-// picks a tab; its name, its icon (the game's own category icons first, then ReSkate's), its place,
+// picks a tab; its name, its icon (the game's own category icons first, then ReSkate+'s), its place,
 // or away with it. Arrow keys and Enter work too; Esc closes it.
 void draw_tab_panel(const ItemBrowserView& view, const ItemBrowserHost* h, ImFont* heading, ImFont* body, float scale) {
     auto& s = state();

@@ -76,7 +76,7 @@ void bus_stops(SkateMenu& menu, const ProgressionModel& model, const CallbacksV3
     for (const auto& row : model.bus_stops)
         if (!menu.bus_stop_map || static_cast<int>(row.world) + 1 == menu.bus_stop_map) rows.push_back(&row);
     note((std::to_string(rows.size()) + " bus stops, saved locally. Reload the level after edits to refresh their icons.").c_str());
-    ImGui::BeginChild("bus-stop-list", ImVec2(0, std::max(px(120), ImGui::GetContentRegionAvail().y)));
+    ImGui::BeginChild("bus-stop-list", ImVec2(0, std::max(px(120), ImGui::GetContentRegionAvail().y)), ImGuiChildFlags_NavFlattened);
     ImGui::BeginDisabled(!callbacks.queue_console_command);
     ImGuiListClipper clipper;
     clipper.Begin(static_cast<int>(rows.size()), list_row_height());
@@ -123,7 +123,7 @@ void challenge_progress(SkateMenu& menu, const ProgressionModel& model, const Ca
     note((std::to_string(rows.size()) + " challenges, " + std::to_string(done) + " fully complete, " +
           (!model.challenges_enabled ? "local challenges disabled" : model.challenges_hidden ? "hidden" : "saved locally") +
           ". Hover one to see its completed goals.").c_str());
-    ImGui::BeginChild("challenge-list", ImVec2(0, std::max(px(120), ImGui::GetContentRegionAvail().y)));
+    ImGui::BeginChild("challenge-list", ImVec2(0, std::max(px(120), ImGui::GetContentRegionAvail().y)), ImGuiChildFlags_NavFlattened);
     ImGuiListClipper clipper;
     clipper.Begin(static_cast<int>(rows.size()), list_row_height());
     while (clipper.Step()) for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; ++i) {
@@ -195,16 +195,6 @@ void progression_profile(SkateMenu& menu, const ProgressionModel& model, const C
         if (!valid) warn("Use score 0 to cap, cap 1 to 1,000,000,000, and level 1 to 10,000.");
     } else note("No saved RIP score is configured for this profile.");
     end_card();
-    /* Everything is unlocked by default
-     * ==================================================
-    begin_card(menu, "unlocks", "UNLOCKS");
-    bool everything = model.everything_unlocked;
-    if (toggle_row(menu, "Unlock every item",
-            "Own every cosmetic and object in the game's catalogue, including store and premium pass items. "
-            "Applies the next time the game starts.",
-            everything, callbacks.queue_console_command != nullptr))
-        progression_request(menu, callbacks, std::string("unlockall ") + (everything ? "1" : "0"));
-    end_card();*/
     begin_card(menu, "district-levels", "DISTRICT LEVELS");
     ImGui::BeginDisabled(!callbacks.queue_console_command);
     bool maxed = model.ranks_maxed;
@@ -255,7 +245,7 @@ void missions(SkateMenu& menu, const Model& model, const CallbacksV3& callbacks)
         ? (std::to_string(rows.size()) + " missions, saved locally. Reload the level after changing an active mission.").c_str()
         : model.mission_feedback.c_str());
     if (!model.missions_available) warn("The local profile is unavailable.");
-    ImGui::BeginChild("mission-list", ImVec2(0, std::max(px(120), ImGui::GetContentRegionAvail().y)));
+    ImGui::BeginChild("mission-list", ImVec2(0, std::max(px(120), ImGui::GetContentRegionAvail().y)), ImGuiChildFlags_NavFlattened);
     ImGui::BeginDisabled(!model.missions_available || !callbacks.queue_console_command);
     ImGuiListClipper clipper;
     clipper.Begin(static_cast<int>(rows.size()), list_row_height());
@@ -288,7 +278,7 @@ void progression_page(SkateMenu& menu, const Model& model, const CallbacksV3& ca
     category_tabs(menu, menu.progression_tab, {"MISSIONS", "CHALLENGES", "BUS STOPS", "PROFILE"}, "progression-categories");
     const bool feedback_shown = !menu.feedback.empty() && ImGui::GetTime() < menu.feedback_until;
     ImGui::PushID(menu.progression_tab);
-    ImGui::BeginChild("progression-category", ImVec2(0, page_body_height(menu)));
+    ImGui::BeginChild("progression-category", ImVec2(0, page_body_height(menu)), ImGuiChildFlags_NavFlattened);
     if (menu.progression_tab == 0) missions(menu, model, callbacks);
     else if (!model.progression.available) warn("The local profile is unavailable.");
     else {

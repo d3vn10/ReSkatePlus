@@ -168,7 +168,7 @@ namespace dingosdk::launcher_gui::detail {
     }
 
     void Launcher::check_again_if_update_choices_changed() {
-        // "Install ReSkate updates" or "Test pre-releases" changed: the update check runs again now,
+        // "Install ReSkate+ updates" or "Test pre-releases" changed: the update check runs again now,
         // so the release that applies (or keeping the files there are) is offered without a restart.
         // Not while a download, an update or a launch is under way, the game runs, or a merge waits
         // on an answer about mods: the next check or start picks it up then.
@@ -338,9 +338,11 @@ namespace dingosdk::launcher_gui::detail {
             std::lock_guard lock(mutex_);
             state_.config = config;
         }
+	    // (Unreachable GitHub: what the last check found stands.)
+	    if (config) prerelease_available_ = config->prerelease_available;
         const bool newer = config && (launcher_outdated(*config) || runtime_outdated(*config));
         if (newer && update::binary_updates_enabled() && binaries_ && settings_.updates) {
-            set(Phase::update_available, "A ReSkate update is ready",
+            set(Phase::update_available, "A ReSkate+ update is ready",
                 std::format("Version {}{} will be downloaded and installed.", config->prerelease ? "PRE-" : "",
                     config->runtime.version.empty() ? config->launcher.version : config->runtime.version));
             return;

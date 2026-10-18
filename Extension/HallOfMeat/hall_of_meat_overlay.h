@@ -3,7 +3,7 @@
 // up, the bones it hurt over the world, the bail's score card in the bottom left corner, and the
 // screen's red edge when a bone breaks. Drawn with skate.'s own icons, logo and UI shapes, read from
 // the installed game's data (Engine/Game/Build/20260929/ui_textures.h) and placed in the overlay's
-// font atlas like the chat emotes. All of it on the background draw list, under ReSkate's own menus
+// font atlas like the chat emotes. All of it on the background draw list, under ReSkate+'s own menus
 // and chat, taking no input.
 #include <chrono>
 

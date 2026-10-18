@@ -38,7 +38,7 @@ void reskate_stream_stop();
 
 namespace dingosdk::youtube_music {
 namespace {
-constexpr wchar_t agent[] = L"ReSkate";
+constexpr wchar_t agent[] = L"ReSkatePlus";
 constexpr wchar_t tool_address[] = L"https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe";
 constexpr wchar_t runtime_address[] = L"https://github.com/quickjs-ng/quickjs/releases/latest/download/qjs-windows-x86_64.exe";
 constexpr wchar_t sums_address[] = L"https://github.com/yt-dlp/yt-dlp/releases/latest/download/SHA2-256SUMS";
@@ -130,7 +130,7 @@ bool good_address(const std::string& address) {
 
 // A JavaScript runtime for yt-dlp, which YouTube's pages need worked out when they are asked
 // for as a signed-in player (without one, every song fails once there is a sign-in: seen
-// 2026-10-12). Node.js when it is installed, or Deno in ReSkate's bin folder, as they are the
+// 2026-10-12). Node.js when it is installed, or Deno in ReSkate+'s bin folder, as they are the
 // quicker (a song begins in about four seconds); else QuickJS, which this fetches into the bin
 // folder itself (about seven seconds: both timed 2026-10-12). The name yt-dlp knows it by and
 // where it is; empty when there is none.
@@ -659,7 +659,7 @@ void run() noexcept {
             std::lock_guard lock(mutex);
             signed_in = have_tools && (have_cookies || !browser_name.empty());
         }
-        if (signed_in) fetch_runtime(); // (a sign-in set by a ReSkate that did not fetch one)
+        if (signed_in) fetch_runtime(); // (a sign-in set by a ReSkate+ that did not fetch one)
     } catch (...) {}
     // Tiles whose picture could not be fetched (YouTube's are fetched from i.ytimg.com) are tried
     // again, sooner then later: fetched once at start, a game started while the connection was

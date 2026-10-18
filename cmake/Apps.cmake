@@ -135,7 +135,7 @@ endif()
 
 if(WIN32)
     # Launcher fonts (OFL / Apache, licences beside them) and the background photo,
-    # embedded when present. A ReSkateLauncher.background.jpg beside the exe
+    # embedded when present. A ReSkatePlusLauncher.background.jpg beside the exe
     # overrides the photo at runtime.
     set(launcher_fonts "${PROJECT_SOURCE_DIR}/External/fonts")
     set(launcher_resources
@@ -192,19 +192,19 @@ configure_file(cmake/templates/launcher_update_config.h.in generated/launcher_up
 
 if(WIN32)
     # ReSkateEmotePacker: a folder of pictures and GIFs -> the chat emote pack (emotes.json +
-    # emotes.png) that ReSkate.dll bakes in from assets/emotes.
+    # emotes.png) that ReSkatePlus.dll bakes in from assets/emotes.
     add_executable(dingosdk_emote_packer EmotePacker/main.cpp)
     target_link_libraries(dingosdk_emote_packer PRIVATE dingosdk_json windowscodecs ole32)
-    set_target_properties(dingosdk_emote_packer PROPERTIES OUTPUT_NAME "ReSkateEmotePacker")
+    set_target_properties(dingosdk_emote_packer PROPERTIES OUTPUT_NAME "ReSkatePlusEmotePacker")
     # ReSkateBuiltinPacker: a built-in content pack's zip (assets/builtin) -> the zstd pack
-    # ReSkate.dll carries (Engine/Vfs/builtin_pack_format.h). Run by the build (cmake/Runtime.cmake).
+    # ReSkatePlus.dll carries (Engine/Vfs/builtin_pack_format.h). Run by the build (cmake/Runtime.cmake).
     add_executable(dingosdk_builtin_packer BuiltinPacker/main.cpp)
     target_include_directories(dingosdk_builtin_packer PRIVATE "${PROJECT_SOURCE_DIR}")
     target_link_libraries(dingosdk_builtin_packer PRIVATE dingosdk_miniz dingosdk_zstd)
-    set_target_properties(dingosdk_builtin_packer PROPERTIES OUTPUT_NAME "ReSkateBuiltinPacker")
+    set_target_properties(dingosdk_builtin_packer PROPERTIES OUTPUT_NAME "ReSkatePlusBuiltinPacker")
 endif()
 
-# ReSkate dedicated server: 1-1 native desktop GUI on Windows (with --headless support), headless on Linux.
+# ReSkatePlus dedicated server: 1-1 native desktop GUI on Windows (with --headless support), headless on Linux.
 if(WIN32)
     add_executable(dingosdk_server WIN32 Server/main.cpp Server/GUI/server_gui.cpp Server/GUI/server_gui_renderer.cpp
         Server/server_engine.cpp Server/server_host.cpp Server/server_party.cpp
@@ -221,8 +221,8 @@ if(WIN32)
     target_link_libraries(dingosdk_server PRIVATE dingosdk_launcher_support dingosdk_world_layer_scan dingosdk_json
         dingosdk_lz4 dingosdk_zstd dingosdk_logging dingosdk_miniz dingosdk_word_filter dingosdk_https winhttp bcrypt winmm
         dingosdk_imgui d3d12 dxgi dwmapi shell32 windowscodecs ole32)
-    set_target_properties(dingosdk_server PROPERTIES OUTPUT_NAME "ReSkateServer")
-    dingosdk_version_info(dingosdk_server "ReSkate dedicated server" "ReSkateServer.exe" VFT_APP)
+    set_target_properties(dingosdk_server PROPERTIES OUTPUT_NAME "ReSkatePlusServer")
+    dingosdk_version_info(dingosdk_server "ReSkate+ Dedicated Server" "ReSkateServer.exe" VFT_APP)
 else()
     find_package(OpenSSL REQUIRED)
     add_executable(dingosdk_server Server/main.cpp Server/server_engine.cpp Server/server_host.cpp Server/server_party.cpp
@@ -236,5 +236,5 @@ else()
     target_include_directories(dingosdk_server SYSTEM PRIVATE "${PROJECT_SOURCE_DIR}/External/steam_networking")
     target_link_libraries(dingosdk_server PRIVATE dingosdk_launcher_support dingosdk_world_layer_scan dingosdk_json
         dingosdk_lz4 dingosdk_zstd dingosdk_miniz dingosdk_word_filter OpenSSL::Crypto dl pthread)
-    set_target_properties(dingosdk_server PROPERTIES OUTPUT_NAME "ReSkateServer")
+    set_target_properties(dingosdk_server PROPERTIES OUTPUT_NAME "ReSkatePlusServer")
 endif()

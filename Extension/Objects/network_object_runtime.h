@@ -39,7 +39,7 @@ inline constexpr std::uint32_t network_object_source_prefix = 0xd1000000;
 inline bool is_network_object_source(std::uint32_t source) {
     return (source & network_object_source_mask) == network_object_source_prefix;
 }
-// ReSkate/Steam owner for correlation only, never a native simulation owner.
+// ReSkate+/Steam owner for correlation only, never a native simulation owner.
 std::uint64_t network_object_creation_owner(std::uint32_t source);
 bool network_object_observe(std::uint64_t entity, const profile::PlacedObject &object,
                             std::uint32_t source = 0);

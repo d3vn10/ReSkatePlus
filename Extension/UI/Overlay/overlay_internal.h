@@ -173,7 +173,7 @@ struct State {
     IUnknown* swapchain_identity = nullptr;
     HWND swapchain_window = nullptr;
     std::atomic<bool> selected_window_destroyed{false};
-    // "ReSkate loaded" is queued as a notice the first time the overlay draws.
+    // "ReSkate+ loaded" is queued as a notice the first time the overlay draws.
     bool loaded_notice_posted = false;
     std::chrono::steady_clock::time_point last_selected_present{};
     std::chrono::steady_clock::time_point next_setup_attempt{};
@@ -184,6 +184,8 @@ struct State {
     // The map download card's icon (map_download_card.cpp), in the SRV heap's second slot, and
     // the buffer it was uploaded from, which lives until the next one replaces it.
     ComPtr<ID3D12Resource> card_texture, card_upload;
+    // The menu's map pictures (menu_map_pictures.cpp) in the third slot, likewise.
+    ComPtr<ID3D12Resource> menu_map_texture, menu_map_upload;
     ComPtr<ID3D12GraphicsCommandList> commands;
     ComPtr<ID3D12Fence> fence;
     HANDLE fence_event = nullptr;
@@ -309,16 +311,22 @@ struct CardPixels {
 bool take_card_pixels(CardPixels& pixels);
 void card_image_uploaded(ImTextureID texture, unsigned serial);
 void card_image_lost();
+// Decodes a PNG to RGBA; with `side`, scaled to a square of that many pixels.
+bool decode_picture(const std::string& png, CardPixels& out, UINT side);
+// The menu's map pictures (menu_map_pictures.cpp), the same way, in the SRV heap's third slot.
+bool take_menu_map_pixels(CardPixels& pixels);
+void menu_map_pixels_uploaded(ImTextureID texture, unsigned serial);
+void menu_map_pixels_lost();
 // Game debug text (game_text_overlay.cpp): polled every presented frame.
 bool game_text_pending();
 void draw_game_text();
 // The FPV drone's goggle display and stick overlay (drone_hud_overlay.cpp): polled every presented frame.
 bool drone_hud_pending();
 void draw_drone_hud();
-// ReSkate's S.K.A.T.E. throwdown HUD (skate_hud_overlay.cpp): polled every presented frame.
+// ReSkate+'s S.K.A.T.E. throwdown HUD (skate_hud_overlay.cpp): polled every presented frame.
 bool skate_hud_pending();
 void draw_skate_hud();
-// ReSkate's nametags (nametag_overlay.cpp): polled every presented frame.
+// ReSkate+'s nametags (nametag_overlay.cpp): polled every presented frame.
 bool nametags_pending();
 void draw_nametags();
 // The profiler's HUD (drawn whenever it is on) and window (only in an interactive frame),

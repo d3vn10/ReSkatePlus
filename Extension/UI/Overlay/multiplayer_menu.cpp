@@ -107,7 +107,7 @@ void host_page(SkateMenu &menu, const Model &model, const CallbacksV3 &) {
     ImGui::InputTextWithHint("##lobby-name", name_hint.c_str(), menu.multiplayer_lobby_name.data(),
                              menu.multiplayer_lobby_name.size());
     field(menu, "Player limit", "Includes you.");
-    ImGui::SliderInt("##player-limit", &capacity, 2, multiplayer_lobby_player_limit, "%d players");
+    dingosdk::overlay::menu::slider_int("##player-limit", &capacity, 2, multiplayer_lobby_player_limit, "%d players"); //::?
     menu.multiplayer_capacity = capacity;
     field(menu, "Update rate",
           "How often nearby skaters update. Higher is smoother but uses more upload bandwidth.");
@@ -251,7 +251,7 @@ void multiplayer_display_settings(SkateMenu &menu, const Model &model) {
         field(menu, "Player distance", "How far away other players are still shown as skaters. Past it they keep their nametag "
                                        "or dot. Lower it on a busy server for more frames and less memory; all the way up shows everyone.");
         float shown = menu.player_distance_pending.value_or(mp.player_distance);
-        ImGui::SliderFloat("##player-distance", &shown, player_distance_least, player_distance_unlimited,
+        dingosdk::overlay::menu::slider_float("##player-distance", &shown, player_distance_least, player_distance_unlimited, //::?
                            shown >= player_distance_unlimited ? "Everyone" : "%.0f m", ImGuiSliderFlags_AlwaysClamp);
         if (ImGui::IsItemActive()) menu.player_distance_pending = shown;
         if (ImGui::IsItemDeactivatedAfterEdit()) {
@@ -273,7 +273,7 @@ void multiplayer_display_settings(SkateMenu &menu, const Model &model) {
     }
     bool nametags = mp.nametags;
     if (toggle_row(menu, "Player nametags",
-                   "The name above each skater, with their distance: purple for ReSkate developers, red for content creators, "
+                   "The name above each skater, with their distance: purple for ReSkate+ developers, red for content creators, "
                    "gold for homies, pink for server admins, blue for the host, green for your Steam friends.",
                    nametags)) {
         std::array<char, 65> unused{};
@@ -283,7 +283,7 @@ void multiplayer_display_settings(SkateMenu &menu, const Model &model) {
         std::array<char, 65> unused{};
         field(menu, "Nametag distance", "How far away a player's name still shows. Past it they are a dot.");
         float distance = menu.nametag_distance_pending.value_or(mp.nametag_distance);
-        ImGui::SliderFloat("##nametag-distance", &distance, 10.f, 500.f, "%.0f m", ImGuiSliderFlags_AlwaysClamp);
+        dingosdk::overlay::menu::slider_float("##nametag-distance", &distance, 10.f, 500.f, "%.0f m", ImGuiSliderFlags_AlwaysClamp); //::?
         if (ImGui::IsItemActive()) menu.nametag_distance_pending = distance;
         if (ImGui::IsItemDeactivatedAfterEdit()) {
             send_private(menu, "nametag-distance", std::to_string(static_cast<int>(distance)), unused, false);
@@ -347,7 +347,7 @@ void multiplayer_display_settings(SkateMenu &menu, const Model &model) {
         std::array<char, 65> unused{};
         field(menu, "Bubble distance", "How far away a player can be and still show a chat bubble.");
         float distance = menu.chat_bubbles_distance_pending.value_or(mp.chat_bubbles_distance);
-        ImGui::SliderFloat("##bubble-distance", &distance, 5.f, 200.f, "%.0f m", ImGuiSliderFlags_AlwaysClamp);
+        dingosdk::overlay::menu::slider_float("##bubble-distance", &distance, 5.f, 200.f, "%.0f m", ImGuiSliderFlags_AlwaysClamp); //::?
         if (ImGui::IsItemActive()) menu.chat_bubbles_distance_pending = distance;
         if (ImGui::IsItemDeactivatedAfterEdit()) {
             send_private(menu, "chat-bubbles-distance", std::to_string(static_cast<int>(distance)), unused, false);
@@ -359,7 +359,7 @@ void multiplayer_display_settings(SkateMenu &menu, const Model &model) {
             menu.chat_bubbles_distance_pending.reset();
         field(menu, "Bubble duration", "How many seconds a chat bubble stays before it fades.");
         float duration = menu.chat_bubbles_duration_pending.value_or(mp.chat_bubbles_duration);
-        ImGui::SliderFloat("##bubble-duration", &duration, 1.f, 30.f, "%.0f s", ImGuiSliderFlags_AlwaysClamp);
+        dingosdk::overlay::menu::slider_float("##bubble-duration", &duration, 1.f, 30.f, "%.0f s", ImGuiSliderFlags_AlwaysClamp); //::?
         if (ImGui::IsItemActive()) menu.chat_bubbles_duration_pending = duration;
         if (ImGui::IsItemDeactivatedAfterEdit()) {
             send_private(menu, "chat-bubbles-duration", std::to_string(static_cast<int>(duration)), unused, false);
@@ -371,7 +371,7 @@ void multiplayer_display_settings(SkateMenu &menu, const Model &model) {
             menu.chat_bubbles_duration_pending.reset();
         field(menu, "Bubble history", "How many recent messages stack above each skater (1-8).");
         int history = menu.chat_bubbles_history_pending.value_or(mp.chat_bubbles_history);
-        ImGui::SliderInt("##bubble-history", &history, 1, 8, "%d lines", ImGuiSliderFlags_AlwaysClamp);
+        dingosdk::overlay::menu::slider_int("##bubble-history", &history, 1, 8, "%d lines", ImGuiSliderFlags_AlwaysClamp); //::?
         if (ImGui::IsItemActive()) menu.chat_bubbles_history_pending = history;
         if (ImGui::IsItemDeactivatedAfterEdit()) {
             send_private(menu, "chat-bubbles-history", std::to_string(history), unused, false);
@@ -394,7 +394,7 @@ void multiplayer_network_page(SkateMenu &menu, const Model &model, const Callbac
 void special_page(SkateMenu &menu, const Model &model, const CallbacksV3 &) {
     const auto &mp = model.multiplayer;
     std::array<char, 65> unused{};
-    ImGui::BeginChild("special", ImVec2(0, page_body_height(menu)));
+    ImGui::BeginChild("special", ImVec2(0, page_body_height(menu)), ImGuiChildFlags_NavFlattened);
     begin_card(menu, "special-tag", "YOUR TAG");
     {
         // Drawn the way chat and nametags draw it (role_badge.h), and faint while it is off.
@@ -417,17 +417,19 @@ void special_page(SkateMenu &menu, const Model &model, const CallbacksV3 &) {
     }
     bool tag = mp.identity_tag_shown;
     if (toggle_row(menu, "Show my tag",
-        "Your tag and the color of your name, in chat and on your nametag. "
-        "Off: your name looks like any other player's, to yourself and to everyone you skate with.",
-        tag)) {
-		if (!tag) dingosdk::overlay::menu::current_identity = *dingosdk::multiplayer::identity_mark(model.multiplayer.local_id);
+                   "Your tag and the color of your name, in chat and on your nametag. "
+                   "Off: your name looks like any other player's, to yourself and to everyone you skate with.",
+                   tag))
         send_private(menu, "mark-tag", tag ? "on" : "off", unused, false);
-    }
-
+    
     field(menu, "Current Identity");
-    if (!dingosdk::overlay::menu::current_identity) dingosdk::overlay::menu::current_identity = multiplayer::IdentityList::homie;
+    if (!dingosdk::overlay::menu::current_identity) {
+		dingosdk::overlay::menu::current_identity = dingosdk::multiplayer::identity_mark(mp.local_id);
+		if (!dingosdk::overlay::menu::current_identity)
+			dingosdk::overlay::menu::current_identity = multiplayer::IdentityList::homie;
+	}
     int current_id = static_cast<int>(*dingosdk::overlay::menu::current_identity);
-    if (choice(menu, "current-identity", current_id, { "Developer", "Homie", "Creator", "Centrix", "Server", "Staff" }, tag)) {
+    if (choice(menu, "current-identity", current_id, { "Developer", "Homie", "Content Creator", "Centrix", "Server", "ReSkate Admin" }, tag)) {
         switch (current_id) {
 			case 0: dingosdk::overlay::menu::current_identity = multiplayer::IdentityList::developer; break;
             default:
@@ -487,14 +489,14 @@ void special_page(SkateMenu &menu, const Model &model, const CallbacksV3 &) {
         // staff's to pick).
         field(menu, "Color");
         if (mp.identity_rainbow) {
-            static constexpr std::array<int, 5> modes{0, 2, 3, 1};
+            static constexpr std::array<int, 5> modes{0, 4, 2, 3, 1}; // 0,2,3,1
             int option = static_cast<int>(std::find(modes.begin(), modes.end(), style.mode) - modes.begin()) % 5;
-            if (choice(menu, "mode", option, {"RAINBOW", "GRADIENT", "SOLID", "OFF"}, shown))
+            if (choice(menu, "mode", option, {mp.identity_animation.c_str(), "RAINBOW", "GRADIENT", "SOLID", "OFF"}, shown))
                 send(modes[static_cast<std::size_t>(option)], style.speed);
         } else {
-            static constexpr std::array<int, 4> modes{2, 3, 1};
+            static constexpr std::array<int, 4> modes{0, 2, 3, 1}; // 2,3,1
             int option = static_cast<int>(std::find(modes.begin(), modes.end(), style.mode) - modes.begin()) % 4;
-            if (choice(menu, "mode", option, { "GRADIENT", "SOLID", "OFF"}, shown))
+            if (choice(menu, "mode", option, {mp.identity_animation.c_str(), "GRADIENT", "SOLID", "OFF"}, shown))
                 send(modes[static_cast<std::size_t>(option)], style.speed);
         }
         if (style.mode == 2 || style.mode == 3) {
@@ -543,11 +545,12 @@ void multiplayer_page(SkateMenu &menu, const Model &model, const CallbacksV3 &ca
     const bool has_session = mp.active || mp.lobby_joining;
     if (has_session && !menu.multiplayer_session_seen) menu.multiplayer_tab = multiplayer_session_tab;
     menu.multiplayer_session_seen = has_session;
-    category_tabs(menu, menu.multiplayer_tab, {"SERVERS", has_session ? "SESSION" : "HOST", "VOICE", "BANS"},
-                  "multiplayer-categories");
+    category_tabs(menu, menu.multiplayer_tab,
+                      {"SERVERS", has_session ? "SESSION" : "HOST", "VOICE", "BANS", "PLAYERS AND CHAT", "YOUR TAG"},
+                      "multiplayer-categories");
     if (menu.multiplayer_tab != multiplayer_voice_tab) menu.voice_bind_capture = 0;
     ImGui::PushID(menu.multiplayer_tab);
-    ImGui::BeginChild("multiplayer-category", ImVec2(0, page_body_height(menu)));
+    ImGui::BeginChild("multiplayer-category", ImVec2(0, page_body_height(menu)), ImGuiChildFlags_NavFlattened);
     switch (menu.multiplayer_tab) {
     case 0:
         join_page(menu, model, callbacks);
@@ -562,6 +565,12 @@ void multiplayer_page(SkateMenu &menu, const Model &model, const CallbacksV3 &ca
         break;
     case multiplayer_bans_tab:
         bans_page(menu, model);
+        break;
+    case multiplayer_chat_tab:
+        menu::multiplayer_display_settings(menu, model);
+        break;
+    default:
+        menu::special_page(menu, model, callbacks);
         break;
     }
     ImGui::EndChild();

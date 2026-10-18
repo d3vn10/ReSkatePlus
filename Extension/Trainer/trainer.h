@@ -1,5 +1,5 @@
 #pragma once
-// The ReSkate Trainer: live physics tuning, presets, practice markers and a telemetry HUD.
+// The ReSkate+ Trainer: live physics tuning, presets, practice markers and a telemetry HUD.
 //
 // The game thread owns the trainer's state (trainer.cpp). Every change is a `trainer ...`
 // console command, so the menu page (presentation thread) only queues commands and reads

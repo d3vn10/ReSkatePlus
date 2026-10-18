@@ -168,8 +168,7 @@ void voice_controls(SkateMenu &menu, const MultiplayerModel &mp) {
         field(menu, "Voice range", "How far apart players can be and still hear each other. Past this the host "
                                     "stops sending their voice.");
         float range = menu.voice_range_pending.value_or(mp.voice_range);
-        ImGui::SliderFloat("##voice-range", &range, min_voice_range, max_voice_range, "%.0f m",
-                           ImGuiSliderFlags_AlwaysClamp | ImGuiSliderFlags_Logarithmic);
+        dingosdk::overlay::menu::slider_float("##voice-range", &range, min_voice_range, max_voice_range, "%.0f m", ImGuiSliderFlags_AlwaysClamp | ImGuiSliderFlags_Logarithmic); //::?
         if (ImGui::IsItemActive()) menu.voice_range_pending = range;
         if (ImGui::IsItemDeactivatedAfterEdit()) {
             send_private(menu, "voice-range", std::to_string(static_cast<int>(range)), unused, false);
@@ -258,7 +257,7 @@ void voice_controls(SkateMenu &menu, const MultiplayerModel &mp) {
     if (ImGui::Button("Choose in Steam voice settings", ImVec2(-FLT_MIN, 0)))
         ShellExecuteW(nullptr, L"open", L"steam://settings/voice", nullptr, nullptr, SW_SHOWNORMAL);
     field(menu, "Your microphone", "How loud other players hear you.");
-    changed |= ImGui::SliderFloat("##microphone", &value.microphone, 0.f, max_voice_volume, "%.2fx", ImGuiSliderFlags_AlwaysClamp);
+    changed |= dingosdk::overlay::menu::slider_float("##microphone", &value.microphone, 0.f, max_voice_volume, "%.2fx", ImGuiSliderFlags_AlwaysClamp); //::?
     if (mp.voice.transmitting) {
         tag(menu, "TRANSMITTING", skate_theme::good);
         ImGui::SameLine();
@@ -269,14 +268,13 @@ void voice_controls(SkateMenu &menu, const MultiplayerModel &mp) {
 
     begin_card(menu, "hearing", "HEARING");
     field(menu, "Voices volume", "How loud you hear everyone. Adjust single players below.");
-    changed |= ImGui::SliderFloat("##listening", &value.volume, 0.f, max_voice_volume, "%.2fx", ImGuiSliderFlags_AlwaysClamp);
+    changed |= dingosdk::overlay::menu::slider_float("##listening", &value.volume, 0.f, max_voice_volume, "%.2fx", ImGuiSliderFlags_AlwaysClamp); //::?
     changed |= toggle_row(menu, "Proximity voice", "Hear players quieter the further away they are. Off: everyone at full volume.",
                           value.proximity);
     ImGui::BeginDisabled(!value.proximity);
     field(menu, "Hearing distance", "How far away you hear nearby players. Voices get quieter with distance and "
                                     "fade out towards this edge.");
-    changed |= ImGui::SliderFloat("##distance", &value.distance, min_hearing_distance, max_hearing_distance, "%.0f m",
-                                  ImGuiSliderFlags_AlwaysClamp | ImGuiSliderFlags_Logarithmic);
+    changed |= dingosdk::overlay::menu::slider_float("##distance", &value.distance, min_hearing_distance, max_hearing_distance, "%.0f m", ImGuiSliderFlags_AlwaysClamp | ImGuiSliderFlags_Logarithmic); //::?
     ImGui::EndDisabled();
     end_card();
 
@@ -314,9 +312,9 @@ void voice_controls(SkateMenu &menu, const MultiplayerModel &mp) {
             ImGui::TableNextRow(); ImGui::TableNextColumn();
             ImGui::AlignTextToFramePadding(); cell_text(peer.name);
             ImGui::TableNextColumn(); ImGui::SetNextItemWidth(-1);
-            if (ImGui::SliderFloat("##volume", &gain, 0.f, max_voice_volume, "%.2fx", ImGuiSliderFlags_AlwaysClamp) &&
+            if (dingosdk::overlay::menu::slider_float("##volume", &gain, 0.f, max_voice_volume, "%.2fx", ImGuiSliderFlags_AlwaysClamp) &&
                 send_private(menu, "voice-volume", std::to_string(peer.id) + " " + std::to_string(gain), unused, false))
-                menu.voice_volume_pending[peer.id] = {gain, ImGui::GetTime() + 2};
+                menu.voice_volume_pending[peer.id] = {gain, ImGui::GetTime() + 2}; //::?
             ImGui::TableNextColumn();
             if (player.muted) tag(menu, "MUTED", skate_theme::danger);
             else if (mp.voice.allowed && player.speaking) tag(menu, "SPEAKING", skate_theme::good);
@@ -348,9 +346,9 @@ void ban_popup(SkateMenu &menu) {
                                                                      : menu.ban_confirm_name.c_str());
         ImGui::PopFont();
         const bool server = menu.ban_confirm_on_server;
-        note(server ? "They are removed now and can never join this server again. Unban them any time in Multiplayer > Bans."
+        note(server ? "They are removed now and can never join this server again. Unban them any time in Online > Bans."
                     : "They are removed now and can never join a lobby you host, even with your join code. "
-                      "Unban them any time in Multiplayer > Bans.");
+                      "Unban them any time in Online > Bans.");
         ImGui::Dummy(ImVec2(0, px(4)));
         const float half = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * .5f;
         skate_theme::push_primary_button();
@@ -569,7 +567,7 @@ void session_page(SkateMenu &menu, const Model &model) {
         }
         ImGui::PushStyleColor(ImGuiCol_Text, skate_theme::grey_text);
         ImGui::TextUnformatted(detail.c_str());
-        // The ReSkate team's lists see who is who: the Steam ID, copied by a click.
+        // The ReSkate+ team's lists see who is who: the Steam ID, copied by a click.
         if (const auto id = peer ? peer->id : mp.local_id; mp.steam_ids_shown && id) {
             const auto text = std::to_string(id);
             ImGui::SameLine(0, 0);
@@ -702,11 +700,11 @@ void session_page(SkateMenu &menu, const Model &model) {
     if (!mp.tuning_status.empty()) note(mp.tuning_status.c_str());
     ImGui::Dummy(ImVec2(0, px(2)));
     bool force_layers = mp.force_world_layers;
-    if (toggle_row(menu, "Sync world layers", "Guests follow your World > Layers choices and cannot change their own.",
+    if (toggle_row(menu, "Sync world layers", "Guests follow your Map > Layers and crowds choices and cannot change their own.",
                    force_layers, controls(mp, "layer-sync"), force_layers ? "ON" : "OFF"))
         send_private(menu, "world-layer-sync", force_layers ? "on" : "off", unused, false);
     if (mp.dedicated)
-        note("The server's layers are set with server commands: layer <key> on|off (keys are listed in World > Layers).");
+        note("The server's layers are set with server commands: layer <key> on|off (keys are listed in Map > Layers and crowds).");
     else note(force_layers ? "Guests follow the host's world layers; their layer controls are locked."
                       : "Everyone picks their own world layers. Turning sync off restores each guest's own choices.");
     end_card();

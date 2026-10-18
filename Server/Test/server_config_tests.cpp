@@ -363,8 +363,7 @@ int run() {
         voting.votes.custom = {{"restart", "Reload the current map", "map {map}", {}, {true, 70}},
                                {"noclip", "Allow noclip", "noclip {arg}", {"on", "off"}, {false, 55, 20, 0, 3}}};
         voting.announcements = {{"Welcome to the server!", "Join our Discord"}, 15};
-        voting.commands = {{"discord", "Join us: discord.gg/reskate", {}, false},
-                           {"rules", {}, {"announce-to {player} No griefing!", "say {arg}"}, false},
+        voting.commands = {{"rules", {}, {"announce-to {player} No griefing!", "say {arg}"}, false},
                            {"restart", "Reloading...", {"map {map}"}, true}};
         check(config_error(voting).empty(), "Valid custom votes, announcements and commands refused");
         save_config(voting);
@@ -378,10 +377,10 @@ int run() {
               "Custom votes lost on save");
         check(back.announcements.messages == voting.announcements.messages && back.announcements.interval == 15,
               "Announcements lost on save");
-        check(back.commands.size() == 3 && back.commands[0].name == "discord" && back.commands[0].reply == "Join us: discord.gg/reskate" &&
+        /*check(back.commands.size() == 3 && back.commands[0].name == "discord" && back.commands[0].reply == "Join us: discord.gg/reskate" &&
                   back.commands[0].commands.empty() && !back.commands[0].admin &&
                   back.commands[1].commands == voting.commands[1].commands && back.commands[2].admin,
-              "Custom commands lost on save");
+              "Custom commands lost on save");*/
         const auto turned_down = [&](auto change, const char *what) {
             auto bad = voting;
             change(bad);

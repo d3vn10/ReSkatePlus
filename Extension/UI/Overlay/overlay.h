@@ -16,6 +16,7 @@
 #include "Engine/Core/Console/console_entry.h"
 
 #include <array>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -94,7 +95,7 @@ enum class DebugAction {
         float look_x = 0, look_y = 0;
     };
 
-// May change what the GAME reads from an XInput pad (never what ReSkate itself reads). `user` is
+// May change what the GAME reads from an XInput pad (never what ReSkate+ itself reads). `user` is
 // the XInput slot. Called on whatever thread the game polls from, once per poll that returns a
 // pad. The grind exit control's grab and lean guards (grind_exit_control.h).
 struct GamepadValues {
@@ -135,7 +136,7 @@ struct DebugModel {
     std::uint64_t offboard_up_velocity_updates = 0;
     bool game_ui_hidden = false;
     bool settings_owned = false;
-    // ReSkate free-flight speed in world units per second.
+    // ReSkate+ free-flight speed in world units per second.
     float camera_speed = 15.0f;
     float forward_velocity_speed = 20.0f;
     float up_velocity_speed = 20.0f;
@@ -275,6 +276,9 @@ struct Model {
     ObjectPersistenceModel object_persistence;
     ParkEditorModel editor;
     float menu_scale = default_menu_scale;
+    float menu_scale_fullscreen = default_menu_scale; // the full screen menu's own size (`ui scalefull`)
+    // The ReSkate+ menu fills the screen, made for a controller, instead of a window (`ui fullscreen`).
+    bool menu_fullscreen = false;
     // Offline mode: no Steam, so every multiplayer page and control is hidden.
     bool steam_offline = false;
     ControllerBindingsModel bindings;
@@ -348,6 +352,13 @@ struct MapVoteIcon {
     unsigned side{};
 };
 void set_map_vote_icons(const std::vector<MapVoteIcon>& icons) noexcept;
+// The menu's map grid (Map > Travel): the levels it shows ask for their pictures, which
+// Assets/map_icons.cpp finds off the game's thread (MapVoteIcon::name is then the level's asset).
+struct MenuMapWanted {
+    std::string asset, name;
+};
+std::vector<MenuMapWanted> take_menu_map_request() noexcept;
+void set_menu_map_pictures(const std::vector<MapVoteIcon>& pictures) noexcept;
 // That vote's popup (map_download_card.cpp), for the runtime, which reads the controller and
 // holds the game's input while it is up: whether it is, moving the pick, voting for the pick
 // (the popup then closes), and closing it without a vote. Any thread.
@@ -365,7 +376,7 @@ void map_vote_dismiss() noexcept;
 // The session's text chat, read by the chat panel every frame (thread-safe, cheap).
 using ChatFeed = MultiplayerChat (*)();
 void set_chat_feed(ChatFeed) noexcept;
-// The game's pause menu, as far as ReSkate's own pages in it go: whether one of them is the
+// The game's pause menu, as far as ReSkate+'s own pages in it go: whether one of them is the
 // page on screen, and which (`section` 0: Multiplayer, 1: Mod Options). The overlay draws
 // everything in such a page itself, its tabs too (hub_page.cpp). Read every presented frame
 // (thread-safe, cheap).
@@ -391,7 +402,7 @@ struct GameText {
 };
 using GameTextFeed = GameText (*)();
 void set_game_text_feed(GameTextFeed) noexcept;
-// The S.K.A.T.E. throwdown's HUD as ReSkate draws it (skate_hud_overlay.cpp), read from what
+// The S.K.A.T.E. throwdown's HUD as ReSkate+ draws it (skate_hud_overlay.cpp), read from what
 // the game's own debug HUD lays out each frame: the messages at the top (what to do, the
 // trick to copy, how an attempt went) and every player's letters. Read every presented
 // frame; no messages and no players = nothing to draw.
@@ -412,7 +423,7 @@ struct SkateHud {
 };
 using SkateHudFeed = SkateHud (*)();
 void set_skate_hud_feed(SkateHudFeed) noexcept;
-// ReSkate's own nametags: one per other player, placed over the world with the camera the
+// ReSkate+'s own nametags: one per other player, placed over the world with the camera the
 // client last used. Close ones show a name and distance, far ones a dot, and players off
 // screen a dot at the screen's edge. Empty = nothing to draw (off, or the game hides its UI).
 // One line in a player's bubble stack: the text (masked when the chat filter is on), the line
@@ -515,6 +526,9 @@ struct CallbacksV3 {
 // moving the focus, 7 pressing something, 56 changing tab). Any thread.
 using UiSound = void (*)(std::uint32_t sound) noexcept;
 void set_ui_sound(UiSound) noexcept;
+// One of the game's menu sounds, by its number (UI/NativeMenu/ui_sound.h): 3 moving the focus,
+// 7 pressing, 56 changing tab, as the pause menu's own pages make them.
+void play_ui_sound(std::uint32_t sound) noexcept;
 // What those pages read the game with and act through: callbacks as the overlay's own, with a
 // read_model that takes a snapshot and leaves the console log alone (it is asked a few times a
 // second while a page is drawn).
@@ -561,7 +575,29 @@ struct Gamepad {
     unsigned buttons = 0;
 };
 Gamepad read_gamepad();
-// Reads of a controller between these two calls see the real device even while ReSkate keeps
+// The full screen menu's page draws its own controls with their own focus (ONLINE: the pause
+// menu's pages): the controller then drives that, not ImGui's navigation.
+inline std::atomic<bool>& menu_page_owns_pad() {
+    static std::atomic<bool> value{false};
+    return value;
+}
+// The controller is in charge of the full screen menu: the pointer is hidden (and points at
+// nothing) until the mouse moves or clicks (overlay_render.cpp sets it, cursor.cpp clears it).
+inline std::atomic<bool>& menu_pad_in_charge() {
+    static std::atomic<bool> value{false};
+    return value;
+}
+// The menu was last drawn full screen (its controller pace, overlay_render.cpp).
+inline std::atomic<bool>& menu_fullscreen_shown() {
+    static std::atomic<bool> value{false};
+    return value;
+}
+// `menu` (and the controller bind for it) asks for the ReSkate+ menu to open; the overlay takes it.
+inline std::atomic<bool>& menu_open_flag() {
+    static std::atomic<bool> value{false};
+    return value;
+}
+// Reads of a controller between these two calls see the real device even while ReSkate+ keeps
 // the game from reading it (freecam or drone controller capture). Same thread, paired.
 // The FPV drone reads its controller this way (Skater/drone_radio.h).
 void begin_input_access() noexcept;

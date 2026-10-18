@@ -606,7 +606,7 @@ namespace dingosdk::multiplayer::session_detail {
     // Stores what guests may use and applies it to the local player (the host and a dedicated
     // server's admins are exempt).
     void apply_guest_tools(Session& s, bool noclip, bool no_bail, bool boosts);
-    // Shows the chosen nametags: ReSkate's (and none of the game's nametags or compass
+    // Shows the chosen nametags: ReSkate+'s (and none of the game's nametags or compass
     // arrows), the game's own, or none.
     void apply_nametags(const Session& s);
 } // namespace dingosdk::multiplayer::session_detail

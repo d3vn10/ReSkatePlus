@@ -89,6 +89,21 @@ namespace dingosdk::profile_runtime {
         return hash && reserved_hashes.contains(hash);*/
         return false;
     }
+	bool installed_item_owned(const profile::Snapshot& snapshot, std::string_view key, std::uint32_t /*hash*/, bool build_kit) {
+	    //if (cosmetic_runtime().ownership_unavailable || reserved_cosmetic_hash(hash)) return false;
+	    const auto option = snapshot.bool_options.find(build_kit ? profile::unlock_objects_option : profile::unlock_cosmetics_option);
+	    if (option != snapshot.bool_options.end() && option->second) return true;
+	    const dingosdk::Json* section = &snapshot.customization;
+	    if (build_kit) {
+	        const auto objects = snapshot.extensions.find("object_dropper");
+	        if (objects == snapshot.extensions.end() || !objects->is_object()) return false;
+	        section = &*objects;
+	    }
+	    const auto inventory = section->find("inventory");
+	    if (inventory == section->end() || !inventory->is_object()) return false;
+	    const auto saved = inventory->find(key);
+	    return saved != inventory->end() && saved->is_boolean() && saved->get<bool>();
+	}
     bool refresh_cosmetic_catalog() {
         auto& s = local_runtime(); auto& c = cosmetic_runtime();
         std::uintptr_t manager{}, vtable{}, buckets{};
@@ -97,7 +112,7 @@ namespace dingosdk::profile_runtime {
         if (!read(s.base + addr::engine::cosmetics_manager, manager) || !manager || !read(manager, vtable) ||
             vtable != s.base + addr::engine::cosmetics_manager_vtable || !read(manager + 0xa8, ready) || ready != 1 ||
             !read(manager + 0x30, buckets) || !read(manager + 0x38, bucket_count) ||
-            !read(manager + 0x3c, count) || !count || count > dingosdk::profile_runtime::MAX_CATALOG_SIZE || !bucket_count || bucket_count > 16384)
+            !read(manager + 0x3c, count) || !count || count > dingosdk::profile_runtime::MAX_CATALOG_SIZE || !bucket_count || bucket_count > dingosdk::profile_runtime::MAX_CATALOG_SIZE * 2)
             return false;
         if (c.item_manager == manager && c.item_count == count && !c.items.empty()) return true;
         std::map<std::string, CosmeticItemInfo, std::less<>> items;
@@ -142,89 +157,26 @@ namespace dingosdk::profile_runtime {
             !read(manager + 0x30, current_buckets) || current_buckets != buckets ||
             !read(manager + 0x3c, current_count) || current_count != count) return false;
         const auto& catalogs = content_cache::catalogs();
-        // ReSkate.UnlockEverything also seeds the items a free source does not
-        // grant (store, premium pass, retired offers). Only ownership changes:
-        // reserved_cosmetic() still judges what other players wear, so a peer's
-        // store item stays blanked here as before.
-        const bool unlock_everything = s.store->bool_option(profile::unlock_everything_option).value_or(false);
         c.ownership_unavailable = !catalogs.available;
-        std::vector<std::string> keys, objects, reserved_keys, reserved_objects;
-        for (const auto& [key, info] : items) {
-            std::string folded = key;
-            for (auto& letter : folded) if (letter >= 'A' && letter <= 'Z') letter = static_cast<char>(letter + ('a' - 'A'));
-            const bool held = !unlock_everything && catalogs.reserved(folded);
-            (info.build_kit ? (held ? reserved_objects : objects) : (held ? reserved_keys : keys)).push_back(key);
-        }
-
-        const auto snapshot = s.store->shared_snapshot();
-        const auto& inventory = snapshot->customization.value("inventory", dingosdk::Json::object());
-
-        std::size_t projected_size = inventory.size();
-        for (const auto& key : keys) {
-            if (!inventory.contains(key))
-                ++projected_size;
-        }
-
-        dingosdk::logging::log(
-            dingosdk::logging::Level::debug,
-            dingosdk::logging::Channel::profile,
-            "Cosmetic inventory has {} existing entries. Of {} installed cosmetics {} need to be added to catalog",
-            inventory.size(),
-            keys.size(),
-            projected_size
-        );
-
-        // IDK if better to just back out of loading or let user see it attempt to load and immediatly crash to get them to actually disable shit.
-        if (keys.size() >= dingosdk::profile_runtime::MAX_CATALOG_SIZE) {
-            dingosdk::logging::log(
-                dingosdk::logging::Level::error,
-                dingosdk::logging::Channel::profile,
-                "Your modlists cosmetic inventory catalog is to big! Max size can only be {}, your attempting to add {} items! Game most likely will crash on loading...", 
-                dingosdk::profile_runtime::MAX_CATALOG_SIZE,
-                keys.size()
-            );
-            s.store->clear_cosmetic_inventory();
-        }
-        // They most likely have a working setup still, just too much old items they don't use still in their catalog.
-        else if (inventory.size() >= dingosdk::profile_runtime::MAX_CATALOG_SIZE) {
-            dingosdk::logging::log(
-                dingosdk::logging::Level::warning,
-                dingosdk::logging::Channel::profile,
-                "Your local cosmetic inventory catalog has already surpassed the max of {} by {} items. Clearing list...", 
-                dingosdk::profile_runtime::MAX_CATALOG_SIZE, 
-                inventory.size() - dingosdk::profile_runtime::MAX_CATALOG_SIZE
-            );
-            s.store->clear_cosmetic_inventory();
-        }
-        else if (projected_size > dingosdk::profile_runtime::MAX_CATALOG_SIZE) {
-            dingosdk::logging::log(
-                dingosdk::logging::Level::info,
-                dingosdk::logging::Channel::profile,
-                "Projected cosmetic inventory size would exceed the max of {}. Clearing stale inventory before seeding...", 
-                dingosdk::profile_runtime::MAX_CATALOG_SIZE
-            );
-            s.store->clear_cosmetic_inventory();
-        }
-
-        if (!c.ownership_unavailable) {
-            s.store->seed_cosmetic_inventory(keys);
-            s.store->seed_object_inventory(objects);
-            s.store->reconcile_inventory(reserved_keys, reserved_objects);
-        }
+        // What is owned is worked out from the items installed (installed_item_owned), not saved item
+		// by item: the rows earlier versions saved go, once.
+		s.store->forget_unlocked_inventory();
+		std::size_t objects{};
 
         {
-            std::set<std::uint32_t> hashes;
-            for (const auto& [key, info] : items)
-                if (reserved_cosmetic(key)) hashes.insert(info.hash);
-            std::lock_guard lock(reserved_hash_mutex);
-            reserved_hashes = std::move(hashes);
-        }
+			std::set<std::uint32_t> hashes;
+	        for (const auto& [key, info] : items) {
+	            objects += info.build_kit;
+	            if (reserved_cosmetic(key)) hashes.insert(info.hash);
+	        }
+	        std::lock_guard lock(reserved_hash_mutex);
+	        reserved_hashes = std::move(hashes);
+	    }
 
         c.items = std::move(items); c.item_count = count; c.item_manager = manager;
         ++c.items_generation;
         std::ostringstream event;
-        event << "{\"event\":\"local_cosmetic_catalog\",\"installed\":" << keys.size()
-            << ",\"objects\":" << objects.size() << '}';
+        event << "{\"event\":\"local_cosmetic_catalog\",\"installed\":" << items.size() - objects << ",\"objects\":" << objects << '}';
         dingosdk::logging::event(dingosdk::logging::Channel::customization, event.str().c_str());
         return true;
     }
@@ -252,7 +204,8 @@ namespace dingosdk::profile_runtime {
                 if (slot.asset.empty() && item.hash) {
                     for (const auto& [key, info] : cosmetic_runtime().items)
                         if (info.hash == item.hash) {
-                            slot.asset = key; break;
+                            slot.asset = key;
+							break;
                         }
                 }
                 if (item.hash != cosmetic_hash(slot.asset)) return false;
@@ -308,7 +261,8 @@ namespace dingosdk::profile_runtime {
         // never the account-wide RIP Card callback. Configure the native manager, which
         // copies the definitions and continues its normal selection state machine.
         struct Definition {
-            std::uintptr_t resource; const std::uintptr_t* presets;
+            std::uintptr_t resource;
+			const std::uintptr_t* presets;
         };
         static_assert(sizeof(Definition) == 16);
         CosmeticBorrowedArray<std::uintptr_t> no_presets(0);
@@ -422,12 +376,6 @@ namespace dingosdk::profile_runtime {
             std::vector<CosmeticBorrowedArray<CosmeticNativeItem>> item_arrays;
             words.reserve(16 * 257); item_arrays.reserve(16);
             std::vector<CosmeticRuntime::HeldSlot> held;
-            // (Looked up once: Json::value returns a copy, and this was asked for every slot, a copy
-            // of the whole inventory each time, in the game's own load call.)
-            static const auto no_inventory = dingosdk::Json::object();
-            const auto inventory_found = snapshot.customization.find("inventory");
-            const auto& inventory = inventory_found != snapshot.customization.end() && inventory_found->is_object()
-                ? *inventory_found : no_inventory;
             for (std::size_t i = 0; i < saved->recipes.size(); ++i) {
                 const auto& recipe = saved->recipes[i]; const auto& expected = defaults.recipes[i];
                 if (recipe.template_key != expected.template_key || recipe.template_version != expected.template_version ||
@@ -464,8 +412,7 @@ namespace dingosdk::profile_runtime {
                         const auto category = slot_categories.find(slot->slot);
                         const char* problem = found == c.items.end() ? "is no longer installed" :
                             category == slot_categories.end() ||
-                            std::find(found->second.categories.begin(), found->second.categories.end(), category->second) ==
-                            found->second.categories.end() ? "no longer fits its slot" : nullptr;
+                            std::find(found->second.categories.begin(), found->second.categories.end(), category->second) == found->second.categories.end() ? "no longer fits its slot" : nullptr;
                         if (problem) {
                             dingosdk::logging::log(dingosdk::logging::Level::warning, dingosdk::logging::Channel::customization,
                                 "Saved outfit \"{}\": item {} {}; showing the default for that slot and keeping the item "
@@ -474,8 +421,7 @@ namespace dingosdk::profile_runtime {
                             slot = &expected.items[j];
                         }
                         else {
-                            //const auto& inventory = snapshot.customization.value("inventory", dingosdk::Json::object());
-                            if (inventory.contains(slot->asset) && !inventory.at(slot->asset).get<bool>())
+							if (!installed_item_owned(snapshot, slot->asset, found->second.hash, found->second.build_kit))
                                 slot = &expected.items[j];
                         }
                     }

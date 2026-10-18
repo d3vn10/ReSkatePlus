@@ -83,10 +83,7 @@ void guarded(void* errors, void* text) {
     const bool whole = describe_guarded(errors, text);
     --depth;
     if (!whole) faults.fetch_add(1, std::memory_order_relaxed);
-    if (!depth) {
-        described_loads.fetch_add(1, std::memory_order_relaxed);
-        tell(reinterpret_cast<std::uintptr_t>(text), emptied, whole);
-    }
+    if (!depth) tell(reinterpret_cast<std::uintptr_t>(text), emptied, whole);
 }
 } // namespace
 

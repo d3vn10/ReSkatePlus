@@ -58,11 +58,11 @@ struct Catalog {
 //     the launcher installs one mod folder per package. For the run each deck inside is a mod of
 //     its own, listed as <pack's folder>#<name>. The pack's own layout is not one of its decks,
 //     whatever the folder is named, and is set aside like any other deck model. It is what an
-//     older ReSkate loads from the pack: in a folder named Board_Break_<Name> the deck 2.0.6
+//     older ReSkate+ loads from the pack: in a folder named Board_Break_<Name> the deck 2.0.6
 //     breaks, which knows a deck by its folder's name only; under another name the game's own.
 // A deck goes by its name in small letters. These are the decks the feature was made with, in the
 // order the menus list them, and the console also knows them by their place here (deck 1 is the
-// first). Any other deck comes after them, by its name: a new shape needs no change to ReSkate.
+// first). Any other deck comes after them, by its name: a new shape needs no change to ReSkate+.
 inline constexpr std::array<std::string_view, 10> board_break_decks{"standard", "wide", "concave", "powell", "slim",
                                                                     "egg", "square", "shaped", "oldschool", "pig"};
 // The name of the deck a mod holds going by the mod's name (a folder's, or a pack's deck's), or

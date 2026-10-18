@@ -1,6 +1,7 @@
 #include "ebx_document.h"
 
 #include <algorithm>
+#include <cstring>
 #include <limits>
 #include <stdexcept>
 #include <unordered_map>
@@ -290,12 +291,19 @@ namespace dingosdk::frostbite::ebx
                 }
             }
 
-            const auto groupCount = static_cast<std::size_t>(nonnegative(reader, "reflection group"));
-            ensure_records(reader, chunk.end, groupCount, 12, "reflection group");
-            reader.skip(static_cast<std::ptrdiff_t>(groupCount * 12));
-            const auto mappingCount = static_cast<std::size_t>(nonnegative(reader, "reflection mapping"));
-            ensure_records(reader, chunk.end, mappingCount, 8, "reflection mapping");
-            reader.skip(static_cast<std::ptrdiff_t>(mappingCount * 8));
+		    const auto groupCount = static_cast<std::size_t>(nonnegative(reader, "reflection group"));
+		    ensure_records(reader, chunk.end, groupCount, 12, "reflection group");
+		    document.reflectionGroups.reserve(groupCount);
+		    for (std::size_t index = 0; index < groupCount; ++index) {
+		        ReflectionGroup group;
+		        group.hash = reader.u32();
+		        group.count = reader.u32();
+		        group.first = reader.u32();
+		        document.reflectionGroups.push_back(group);
+		    }
+		    const auto mappingCount = static_cast<std::size_t>(nonnegative(reader, "reflection mapping"));
+		    ensure_records(reader, chunk.end, mappingCount, 8, "reflection mapping");
+		    reader.skip(static_cast<std::ptrdiff_t>(mappingCount * 8));
 
             if (hashedNames) {
                 const auto nameCount = static_cast<std::size_t>(nonnegative(reader, "reflection name"));
@@ -354,10 +362,12 @@ namespace dingosdk::frostbite::ebx
             }
         }
 
-        class ValueReader final {
-        public:
-            ValueReader(const std::span<const std::byte> bytes, Document& document)
-                : bytes_(bytes), reader_(bytes), document_(document) {}
+		class ValueReader final {
+		public:
+		    ValueReader(const std::span<const std::byte> bytes, Document& document)
+		        : bytes_(bytes), reader_(bytes), document_(document) {
+		        for (const auto& record : document.arrays) arrayHashes_.emplace(record.offset, record.hash);
+		    }
 
             void read_instances() {
                 for (auto& instance : document_.instances) {
@@ -412,21 +422,33 @@ namespace dingosdk::frostbite::ebx
                 return result;
             }
 
-            void read_fields(Object& output, const TypeDescriptor& type, const std::size_t start) {
-                for (std::size_t fieldIndex = 0; fieldIndex < type.fieldCount; ++fieldIndex) {
-                    const auto descriptorIndex = static_cast<std::size_t>(type.fieldIndex) + fieldIndex;
-                    const auto& field = document_.fields[descriptorIndex];
-                    if (field.type() == FieldType::inherited) {
-                        if (field.classRef >= document_.types.size()) throw std::runtime_error("EBX base type is invalid");
-                        const Nesting nesting(depth_);
-                        read_fields(output, document_.types[field.classRef], start);
-                        continue;
-                    }
-                    const auto position = start + field.dataOffset;
-                    if (position > document_.dataEnd) throw std::runtime_error("EBX field offset exceeds EBXD");
-                    output.fields.push_back({ descriptorIndex, field.name, read_field(field, position) });
-                }
-            }
+		    void read_fields(Object& output, const TypeDescriptor& type, const std::size_t start) {
+		        for (std::size_t fieldIndex = 0; fieldIndex < type.fieldCount; ++fieldIndex) {
+		            const auto descriptorIndex = static_cast<std::size_t>(type.fieldIndex) + fieldIndex;
+		            const auto& field = document_.fields[descriptorIndex];
+		            if (field.type() == FieldType::inherited) {
+		                if (field.classRef >= document_.types.size()) throw std::runtime_error("EBX base type is invalid");
+		                const Nesting nesting(depth_);
+		                read_fields(output, document_.types[field.classRef], start);
+		                continue;
+		            }
+		            const auto position = start + field.dataOffset;
+		            if (position > document_.dataEnd) throw std::runtime_error("EBX field offset exceeds EBXD");
+		            auto value = read_field(field, position);
+		            if (field.category() == FieldCategory::array) {
+		                const auto* values = std::get_if<Value::Array>(&value.data);
+		                if (values && !values->empty()) {
+		                    std::int32_t displacement{};
+		                    std::memcpy(&displacement, bytes_.data() + position, sizeof(displacement));
+		                    const auto target = static_cast<std::int64_t>(position) + displacement -
+		                                        static_cast<std::int64_t>(document_.dataStart);
+		                    if (const auto found = arrayHashes_.find(target); found != arrayHashes_.end())
+		                        value.arrayHash = found->second;
+		                }
+		            }
+		            output.fields.push_back({descriptorIndex, field.name, std::move(value)});
+		        }
+		    }
 
             [[nodiscard]] Value read_field(const FieldDescriptor& field, const std::size_t position) {
                 if (field.category() == FieldCategory::array) {
@@ -553,11 +575,13 @@ namespace dingosdk::frostbite::ebx
                 return value;
             }
 
-            std::span<const std::byte> bytes_;
-            BinaryReader reader_;
-            Document& document_;
-            unsigned depth_{};
-        };
+		    std::span<const std::byte> bytes_;
+		    std::unordered_map<std::int64_t, std::uint32_t> arrayHashes_;   // record offset -> its hash
+
+		    BinaryReader reader_;
+		    Document& document_;
+		    unsigned depth_{};
+		};
 
     }
 
@@ -603,35 +627,37 @@ namespace dingosdk::frostbite::ebx
             throw std::runtime_error("RIFF EBX must contain exactly one REFL or RFL2 chunk");
         }
 
-        Document result;
-        reader.seek(8);
-        result.serializedLayout = reader.u32(Endian::big) == ebxs;
-        result.dataStart = align_up(data.begin, 16);
-        result.dataEnd = data.end;
-        if (result.dataStart > result.dataEnd) throw std::runtime_error("EBXD alignment exceeds the chunk");
-        const auto fixup = read_fixup(reader, fixupChunk, result);
-        read_extra(reader, extra, result);
-        const auto reflectionIds = read_reflection(reader, reflection2 ? *reflection2 : *reflection,
-            reflection2 != nullptr, result);
-        const auto& reflectionChunk = reflection2 ? *reflection2 : *reflection;
-        result.hashedReflectionNames = reflection2 != nullptr;
-        result.reflectionData.assign(bytes.begin() + static_cast<std::ptrdiff_t>(reflectionChunk.begin),
-            bytes.begin() + static_cast<std::ptrdiff_t>(reflectionChunk.end));
-        map_instances(result, fixup, reflectionIds);
-        ValueReader(bytes, result).read_instances();
-        std::ranges::sort(result.boxedValues, {}, &BoxedValueRecord::offset);
-        for (std::size_t index = 0; index < result.boxedValues.size(); ++index) {
-            auto& value = result.boxedValues[index];
-            const auto end = index + 1 < result.boxedValues.size()
-                ? result.boxedValues[index + 1].offset
-                : result.stringsOffset;
-            if (end < value.offset) throw std::runtime_error("EBXX boxed values are not ordered");
-            validate_data_offset(result, value.offset, end - value.offset, "EBXX boxed value bytes");
-            value.rawBytes.assign(bytes.begin() + static_cast<std::ptrdiff_t>(result.dataStart + value.offset),
-                bytes.begin() + static_cast<std::ptrdiff_t>(result.dataStart + end));
-        }
-        return result;
-    }
+	    Document result;
+	    reader.seek(8);
+	    result.serializedLayout = reader.u32(Endian::big) == ebxs;
+	    result.dataStart = align_up(data.begin, 16);
+	    result.dataEnd = data.end;
+	    if (result.dataStart > result.dataEnd) throw std::runtime_error("EBXD alignment exceeds the chunk");
+	    const auto fixup = read_fixup(reader, fixupChunk, result);
+	    read_extra(reader, extra, result);
+	    const auto reflectionIds = read_reflection(reader, reflection2 ? *reflection2 : *reflection,
+	                                                reflection2 != nullptr, result);
+	    const auto& reflectionChunk = reflection2 ? *reflection2 : *reflection;
+	    result.hashedReflectionNames = reflection2 != nullptr;
+	    result.reflectionData.assign(bytes.begin() + static_cast<std::ptrdiff_t>(reflectionChunk.begin),
+	                                 bytes.begin() + static_cast<std::ptrdiff_t>(reflectionChunk.end));
+	    result.payload.assign(bytes.begin() + static_cast<std::ptrdiff_t>(result.dataStart),
+	                          bytes.begin() + static_cast<std::ptrdiff_t>(result.dataEnd));
+	    map_instances(result, fixup, reflectionIds);
+	    ValueReader(bytes, result).read_instances();
+	    std::ranges::sort(result.boxedValues, {}, &BoxedValueRecord::offset);
+	    for (std::size_t index = 0; index < result.boxedValues.size(); ++index) {
+	        auto& value = result.boxedValues[index];
+	        const auto end = index + 1 < result.boxedValues.size()
+	            ? result.boxedValues[index + 1].offset
+	            : result.stringsOffset;
+	        if (end < value.offset) throw std::runtime_error("EBXX boxed values are not ordered");
+	        validate_data_offset(result, value.offset, end - value.offset, "EBXX boxed value bytes");
+	        value.rawBytes.assign(bytes.begin() + static_cast<std::ptrdiff_t>(result.dataStart + value.offset),
+	                              bytes.begin() + static_cast<std::ptrdiff_t>(result.dataStart + end));
+	    }
+	    return result;
+	}
 
     Guid read_file_guid(const std::span<const std::byte> bytes) {
         BinaryReader reader(bytes);

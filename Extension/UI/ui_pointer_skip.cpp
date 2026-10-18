@@ -21,7 +21,7 @@ Construct original_construct{};
 EnableCursor original_enable{};
 ForceCursor original_force{};
 Pointer original_still{}, original_moved{};
-// The game's InputManMouse: built at engine start (after ReSkate's hooks), and handed over again
+// The game's InputManMouse: built at engine start (after ReSkate+'s hooks), and handed over again
 // whenever the UI turns its cursor on or off.
 std::atomic<std::uintptr_t> mouse{};
 std::atomic<bool> skipping{true}, installed{};

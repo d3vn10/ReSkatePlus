@@ -198,7 +198,7 @@ bool SteamServer::start(const std::filesystem::path &folder, std::uint16_t port,
         };
         text("SteamAPI_ISteamGameServer_SetModDir", "skate");
         text("SteamAPI_ISteamGameServer_SetProduct", "reskate");
-        text("SteamAPI_ISteamGameServer_SetGameDescription", "ReSkate dedicated server");
+        text("SteamAPI_ISteamGameServer_SetGameDescription", "ReSkate+ Dedicated Server");
         symbol<void (*)(void *, bool)>(module_, "SteamAPI_ISteamGameServer_SetDedicatedServer")(server_, true);
         if (token.empty()) symbol<void (*)(void *)>(module_, "SteamAPI_ISteamGameServer_LogOnAnonymous")(server_);
         else text("SteamAPI_ISteamGameServer_LogOn", token.c_str());

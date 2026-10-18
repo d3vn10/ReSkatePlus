@@ -460,7 +460,7 @@ void watch_once() {
 }
 
 void watch() {
-    SetThreadDescription(GetCurrentThread(), L"ReSkate memory ledger");
+    SetThreadDescription(GetCurrentThread(), L"ReSkate+ Memory Ledger");
     for (;;) {
         Sleep(60000);
         try { watch_once(); } catch (...) {}

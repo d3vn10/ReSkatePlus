@@ -111,7 +111,7 @@ void told(const char* text) {
                 std::lock_guard lock(mutex);
                 track.available = true;
                 track.spotify = true;
-                track.app = "ReSkate device";
+                track.app = "ReSkate+ Device";
                 track.can_next = track.can_previous = track.can_pause = track.can_play = true;
                 track.artist = parts[2];
                 track.title = parts[3];
@@ -151,7 +151,7 @@ void start() noexcept {
         std::error_code ignored;
         std::filesystem::create_directories(cache, ignored);
         running.store(true);
-        if (!reskate_spotify_start("ReSkate", narrow(cache.wstring()).c_str(), &sound, &told)) {
+        if (!reskate_spotify_start("ReSkate+", narrow(cache.wstring()).c_str(), &sound, &told)) {
             running.store(false);
             say(logging::Level::warning, "it could not be started.");
         }
@@ -159,7 +159,7 @@ void start() noexcept {
         running.store(false);
     }
 #else
-    say(logging::Level::info, "not built into this ReSkate.dll (it needs Rust's cargo when ReSkate is built): Spotify is played through its own app.");
+    say(logging::Level::info, "not built into this ReSkatePlus.dll (it needs Rust's cargo when ReSkate+ is built): Spotify is played through its own app.");
 #endif
 }
 void library_gave_up() noexcept {
@@ -243,6 +243,6 @@ std::string status() {
     std::lock_guard lock(mutex);
     if (!gave_up_why.empty()) return "Spotify device: off (" + gave_up_why + ").";
     return std::format("Spotify device: {}{}.", !running.load() ? "not running (Spotify is played through its own app)" : !ready.load() ? "starting" : account.load() ? "a Spotify account is on it" :
-        "in Spotify's list of devices; pick \"ReSkate\" there once to use it", account.load() && !user_name.empty() ? " (" + user_name + ")" : std::string());
+        "in Spotify's list of devices; pick \"ReSkate+\" there once to use it", account.load() && !user_name.empty() ? " (" + user_name + ")" : std::string());
 }
 } // namespace dingosdk::spotify_device

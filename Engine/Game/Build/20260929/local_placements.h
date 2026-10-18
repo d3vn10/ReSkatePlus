@@ -17,7 +17,7 @@ inline constexpr std::uintptr_t teleport_manager = 0x71ee790;
 // skater is clear of them). The client keeps a 0x50-byte record per object; 0x7b3470 decides
 // each one's ghost byte (+0x3e) from a forced-solid byte (+0x3c), a forced-ghost byte (+0x3b),
 // a mode (everyone solid, party and friends solid, only your own solid) and whether the local
-// player is the native owner (0x7befd0). ReSkate's copies of other players' objects all have
+// player is the native owner (0x7befd0). ReSkate+'s copies of other players' objects all have
 // the local player as native owner, so only the forced bytes can ghost them.
 // Expression native 0x9447529e: void (const u64* entity, bool ghost). true forces the ghost;
 // false lets go of a forced ghost (or, on an object that was not forced, forces it solid),
@@ -31,7 +31,7 @@ inline constexpr std::uintptr_t object_ghost = 0x7ae620;
 // record again: void (store*, record*). The rules it follows are the build kit settings
 // (0x18d6ef0(*0x7482ce0, 0x723a510)): nothing is decided while their +0x8f byte is clear.
 inline constexpr std::uintptr_t thread_context = 0x18b6ae0, object_ghost_decide = 0x7b33e0;
-// A realm's context by its id: void* (context* out, u32 realm). ReSkate's placement updates run
+// A realm's context by its id: void* (context* out, u32 realm). ReSkate+'s placement updates run
 // in the local server's context, so the client's store is reached through the client realm.
 // Setting the store's +0xfb byte has the client decide every record again on its next update.
 // A record's entity is the client's copy, with an id of its own. What the two sides share is the

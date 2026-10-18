@@ -158,7 +158,7 @@ void register_world_commands(Commands &registry) {
     registry.add(std::move(load));
     for (std::size_t i = 0; i < world_layers().size(); ++i) {
         const auto &layer = world_layers()[i];
-        // (No command for a layer ReSkate keeps off.)
+        // (No command for a layer ReSkate+ keeps off.)
         if (world_layer_kept_off(layer.key)) continue;
         auto mode = argument("default|on|off");
         mode.choices = {"default", "on", "off"};

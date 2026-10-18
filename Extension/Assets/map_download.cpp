@@ -24,7 +24,7 @@ namespace {
 namespace fs = std::filesystem;
 namespace package = thunderstore_package;
 
-constexpr wchar_t agent[] = L"ReSkate";
+constexpr wchar_t agent[] = L"ReSkate+";
 constexpr char community[] = "reskate";
 // A map is at most a few gigabytes (an archive of one holds four); the download may take as
 // long as a slow line needs for that, whether or not the session is still waiting on it.

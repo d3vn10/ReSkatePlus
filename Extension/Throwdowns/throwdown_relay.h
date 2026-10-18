@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-// Links the players' own throwdowns in a ReSkate multiplayer session
+// Links the players' own throwdowns in a ReSkate+ multiplayer session
 // (analysis/throwdowns-native-mp.md). Every machine runs the same throwdown on its
 // own server with the other players as virtual participants (0x300 + their session
 // slot): a leader's drop is spawned on everyone else's server hosted by the

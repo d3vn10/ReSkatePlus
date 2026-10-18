@@ -113,7 +113,7 @@ void tick_ui_sounds(std::uintptr_t base, bool loading) noexcept {
     try {
         if (!supported(base)) {
             off = true;
-            logging::log(logging::Level::info, logging::Channel::ui, "Menu sounds: this game build differs from the supported one; ReSkate's pages stay silent.");
+            logging::log(logging::Level::info, logging::Channel::ui, "Menu sounds: this game build differs from the supported one; ReSkate+'s pages stay silent.");
             return;
         }
         const auto type = type_object.load(std::memory_order_acquire);
@@ -136,7 +136,7 @@ void tick_ui_sounds(std::uintptr_t base, bool loading) noexcept {
         const auto offset = sound_offset(type);
         if (!offset || !raise(base, type, *offset, sound)) {
             off = true;
-            logging::log(logging::Level::warning, logging::Channel::ui, "Menu sounds: the game's sound event could not be raised; ReSkate's pages stay silent.");
+            logging::log(logging::Level::warning, logging::Channel::ui, "Menu sounds: the game's sound event could not be raised; ReSkate+'s pages stay silent.");
         }
     } catch (...) {
         scanning.store(false);

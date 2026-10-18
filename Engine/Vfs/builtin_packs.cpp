@@ -18,7 +18,7 @@
 namespace dingosdk::mods {
 namespace {
 namespace fs = std::filesystem;
-// Each pack: its RCDATA resource in ReSkate.dll (cmake/Runtime.cmake) and its folder name.
+// Each pack: its RCDATA resource in ReSkatePlus.dll (cmake/Runtime.cmake) and its folder name.
 struct Embedded {
     const wchar_t* resource;
     const char* name;
@@ -49,7 +49,7 @@ bool carries_packs(HMODULE module) {
         return FindResourceW(module, pack.resource, MAKEINTRESOURCEW(10) /* RT_RCDATA */) != nullptr;
     });
 }
-// ReSkate.dll: this module when it is the DLL (the game), else ReSkate.dll beside the program
+// ReSkatePlus.dll: this module when it is the DLL (the game), else ReSkatePlus.dll beside the program
 // (the launcher, which sits beside Skate.exe and the DLL), as data only.
 void open_source(Source& source) {
     HMODULE self{};
@@ -58,7 +58,7 @@ void open_source(Source& source) {
         source.module = self;
         return;
     }
-    if (const auto loaded = GetModuleHandleW(L"ReSkate.dll"); carries_packs(loaded)) {
+    if (const auto loaded = GetModuleHandleW(L"ReSkatePlus.dll"); carries_packs(loaded)) {
         source.module = loaded;
         return;
     }
@@ -66,7 +66,7 @@ void open_source(Source& source) {
     const auto length = GetModuleFileNameW(nullptr, program.data(), static_cast<DWORD>(program.size()));
     if (!length || length >= program.size()) return;
     program.resize(length);
-    const auto dll = fs::path(program).parent_path() / L"ReSkate.dll";
+    const auto dll = fs::path(program).parent_path() / L"ReSkatePlus.dll";
     source.module = LoadLibraryExW(dll.c_str(), nullptr, LOAD_LIBRARY_AS_DATAFILE | LOAD_LIBRARY_AS_IMAGE_RESOURCE);
     source.owned = source.module != nullptr;
 }
@@ -107,7 +107,7 @@ bool write_file(const fs::path& path, const unsigned char* data, std::uint64_t s
     }
     return true;
 }
-// A pack in ReSkate's own format (builtin_pack_format.h): one zstd frame, unpacked whole.
+// A pack in ReSkate+'s own format (builtin_pack_format.h): one zstd frame, unpacked whole.
 bool unpack_packed(std::span<const unsigned char> bytes, const fs::path& target, std::string& issue) {
     const auto size = ZSTD_getFrameContentSize(bytes.data(), bytes.size());
     if (size == ZSTD_CONTENTSIZE_ERROR || size == ZSTD_CONTENTSIZE_UNKNOWN || size > max_pack_bytes + 16ull * 1024 * 1024) {
@@ -158,7 +158,7 @@ bool unpack_packed(std::span<const unsigned char> bytes, const fs::path& target,
     return true;
 }
 bool unpack(std::span<const unsigned char> bytes, const fs::path& target, std::string& issue) {
-    // ReSkate's own format (a zstd frame); else a plain zip, as a build without the packer embeds.
+    // ReSkate+'s own format (a zstd frame); else a plain zip, as a build without the packer embeds.
     if (bytes.size() >= 4 && bytes[0] == 0x28 && bytes[1] == 0xb5 && bytes[2] == 0x2f && bytes[3] == 0xfd)
         return unpack_packed(bytes, target, issue);
     struct Zip {
@@ -289,7 +289,7 @@ std::vector<BuiltinPack> unpack_builtin_packs(const fs::path& mods_root, std::ve
             }
             packs.push_back({std::string("reskate-builtin-") + pack.name, directory});
         }
-        // What an older ReSkate carried and this one does not (it became an official mod, or was
+        // What an older ReSkate+ carried and this one does not (it became an official mod, or was
         // dropped) goes: the Board Break deck list reads every folder in here.
         std::error_code error;
         const auto folder = mods_root / std::string(builtin_folder);

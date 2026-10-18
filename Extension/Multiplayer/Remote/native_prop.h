@@ -5,10 +5,10 @@
 #include <string>
 #include <string_view>
 
-// Models placed in the world by ReSkate: an object blueprint loaded on the map, created as a
+// Models placed in the world by ReSkate+: an object blueprint loaded on the map, created as a
 // client-only entity and moved every frame (Engine/Game/Build/<build>/world_props.h).
 namespace dingosdk::multiplayer {
-// Other players' FPV drones. The drone's own model (made by ReSkate Studio from
+// Other players' FPV drones. The drone's own model (made by ReSkate+ Studio from
 // assets/models/fpv/drone.glb) when it is loaded; until then a stand-in prop of the game's.
 inline constexpr std::string_view drone_model_blueprint = "reskate/drone/fpv_drone";
 inline constexpr std::string_view drone_model_stand_in = "world/props/common/construction/cmn_prp_trafficcone_01/cmn_prp_trafficcone_01";

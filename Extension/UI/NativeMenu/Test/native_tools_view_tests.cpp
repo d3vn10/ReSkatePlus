@@ -311,7 +311,7 @@ int main() {
             activate(split, maps, cb, "select-level", maps.levels[2].asset);
             check(split.destination.empty(), "Splash cannot be selected");
         }
-        std::puts("Native ReSkate control checks passed.");
+        std::puts("Native ReSkate+ control checks passed.");
         return 0;
     } catch (const std::exception& e) { std::fprintf(stderr, "%s\n", e.what()); return 1; }
 }

@@ -46,7 +46,7 @@ bool join_code(std::string_view text) {
     return true;
 }
 
-// Tells Discord how to start ReSkate for someone who presses Join while it is not running:
+// Tells Discord how to start ReSkate+ for someone who presses Join while it is not running:
 // the URL scheme Discord opens for an application ("discord-<id>:"), pointing at the launcher
 // beside the game. In the player's own part of the registry.
 void register_launcher() noexcept {
@@ -55,14 +55,14 @@ void register_launcher() noexcept {
         game.resize(GetModuleFileNameW(nullptr, game.data(), static_cast<DWORD>(game.size())));
         const auto slash = game.find_last_of(L"\\/");
         if (game.empty() || game.size() >= MAX_PATH || slash == std::wstring::npos) return;
-        const auto launcher = game.substr(0, slash + 1) + L"ReSkateLauncher.exe";
+        const auto launcher = game.substr(0, slash + 1) + L"ReSkatePlusLauncher.exe";
         if (GetFileAttributesW(launcher.c_str()) == INVALID_FILE_ATTRIBUTES) return;
         const auto scheme = L"discord-" + std::wstring(application_id.begin(), application_id.end());
         const auto put = [](const std::wstring &key, const wchar_t *name, const std::wstring &value) {
             RegSetKeyValueW(HKEY_CURRENT_USER, key.c_str(), name, REG_SZ, value.c_str(), static_cast<DWORD>((value.size() + 1) * sizeof(wchar_t)));
         };
         const auto root = L"Software\\Classes\\" + scheme;
-        put(root, nullptr, L"URL:Run ReSkate");
+        put(root, nullptr, L"URL:Run ReSkatePlus");
         put(root, L"URL Protocol", L"");
         // --no-gui: straight into the game, which is what pressing Join asked for.
         put(root + L"\\shell\\open\\command", nullptr, L"\"" + launcher + L"\" --no-gui");
@@ -228,7 +228,7 @@ std::string activity_command(const Presence *presence, unsigned long process, lo
         }
         auto assets = Json::object();
         assets["large_image"] = "resk8";
-        assets["large_text"] = "ReSkate";
+        assets["large_text"] = "ReSkate+";
         activity["assets"] = std::move(assets);
         args["activity"] = std::move(activity);
     } else {

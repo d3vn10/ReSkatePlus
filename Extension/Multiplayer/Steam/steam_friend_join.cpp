@@ -132,7 +132,7 @@ void tick_steam_friend_join() noexcept {
         for (const auto& event : events) {
             if (now - event.received > 10000) continue;
             // Ignore the base game's lobby events unless the friend explicitly
-            // advertised this lobby using ReSkate's namespaced connect value.
+            // advertised this lobby using ReSkate+'s namespaced connect value.
             if (!event.rich && (!event.friend_id || steam_join_target(bounded(api->get(api->friends, event.friend_id, "connect"))) != event.lobby)) continue;
             queue_command("join-friend-lobby", std::to_string(event.lobby), {});
         }

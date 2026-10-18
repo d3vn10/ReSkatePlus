@@ -151,7 +151,7 @@ bool draw_park_editor(ParkEditorUI &ui, const Model &model, const CallbacksV3 &c
     const auto flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
                        ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBackground |
                        ImGuiWindowFlags_NoBringToFrontOnFocus;
-    ImGui::Begin("ReSkate Park Editor", nullptr, flags);
+    ImGui::Begin("ReSkate+ Park Editor", nullptr, flags);
     auto *frame = ImGui::GetWindowDrawList();
     ImFont *title_font = font_or(ui.title_font), *bold_font = font_or(ui.bold_font);
 

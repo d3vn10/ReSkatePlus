@@ -405,7 +405,7 @@ void install(std::uintptr_t base) {
         return;
     }
     require(!shared().install_attempted,
-            "Multiplayer hook installation failed; restart ReSkate before retrying.");
+            "Multiplayer hook installation failed; restart ReSkate+ before retrying.");
     prefix(base, entities::descriptor_init, entities::descriptor_init_prefix);
     prefix(base, entities::create_entity, entities::create_entity_prefix);
     prefix(base, entities::descriptor_destroy, entities::descriptor_destroy_prefix);

@@ -36,7 +36,7 @@ bool relaunch_without_mangohud(const std::filesystem::path& self, const std::vec
 // Steam's client process is running and signed in to an account. When it is
 // not, start_game runs the game in offline mode.
 bool steam_signed_in();
-// Why steam_signed_in() is false, for ReSkate.log; empty when it is true.
+// Why steam_signed_in() is false, for ReSkate+.log; empty when it is true.
 std::wstring steam_offline_reason();
 // Display name of the signed-in Steam account (UTF-8), or empty when Steam is
 // not running, signed out, or the name cannot be read.
@@ -45,7 +45,7 @@ std::string steam_persona_name();
 // when Steam is not running, signed out, or has not cached it.
 std::filesystem::path steam_avatar_path();
 // Validates, starts, injects and resumes Skate; returns its process id.
-// `created` receives the id as soon as the process exists (ReSkate's startup
+// `created` receives the id as soon as the process exists (ReSkate+'s startup
 // splash can open before this returns). Throws a user-facing message.
 DWORD start_game(const Session& session, const launcher::LaunchOptions& options,
                  const std::function<void(DWORD)>& created = {});

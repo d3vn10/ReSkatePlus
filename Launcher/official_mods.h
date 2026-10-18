@@ -7,7 +7,7 @@
 #include <vector>
 
 // Official mods: Thunderstore packages every player has, always on, at their latest version. The
-// ReSkate backend names them (GET /api/v1/official-mods, beside the verified mods), so one is
+// ReSkate+ backend names them (GET /api/v1/official-mods, beside the verified mods), so one is
 // added or dropped without a release; the launcher keeps the last list it read, and has one of its
 // own for a first launch with no network. They live in Mods/.reskate-official/<Namespace-Name>
 // (Engine/Vfs/builtin_packs.h), which the game merges after every installed mod.
@@ -28,7 +28,7 @@ struct Mod {
 };
 struct State {
     std::vector<Mod> mods;
-    std::string source;      // where the list came from: "ReSkate", "the last list read" or "ReSkate's own list"
+    std::string source;      // where the list came from: "ReSkate+", "the last list read" or "ReSkate+'s own list"
     bool syncing{}, synced{};
 };
 
@@ -44,7 +44,7 @@ bool official(std::string_view full_name);
 // The pieces, for tests.
 // The backend's answer: its mods, or none when it is not that answer.
 std::vector<Mod> parse_list(std::string_view json);
-// The list ReSkate falls back on when it has never read one: Fourth Studio's Board Break pack and
+// The list ReSkate+ falls back on when it has never read one: Fourth Studio's Board Break pack and
 // Road Rash.
 std::vector<Mod> fallback_list();
 // For each official mod not in place yet, a copy in the Mods folder is moved in (stamped with its

@@ -29,7 +29,7 @@
 namespace dingosdk::server {
     using namespace multiplayer;
 
-    // The host side of a ReSkate session without a game: admission, the roster,
+    // The host side of a ReSkate+ session without a game: admission, the roster,
     // map changes and relaying every player's poses, outfits, voice, chat and
     // objects. It follows the protocol the in-game host speaks (session_*.cpp),
     // minus the host's own skater.

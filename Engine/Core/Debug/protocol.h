@@ -5,7 +5,7 @@
 
 namespace dingosdk::crash_report {
 inline constexpr DWORD protocol_version = 4;
-// Who asked for the dump: ReSkate's last-chance filter, or the game's own fatal handler about to
+// Who asked for the dump: ReSkate+'s last-chance filter, or the game's own fatal handler about to
 // write its dump (which it does without ever reaching that filter).
 enum class CaptureSource : DWORD { unhandled_exception, game_fatal_handler };
 inline constexpr DWORD capture_timeout_ms = 15000;

@@ -1,6 +1,6 @@
 #pragma once
 // The built-in pack format (Engine/Vfs/builtin_packs.h), as BuiltinPacker writes it at build time
-// from a zip in assets/builtin and ReSkate unpacks it: one zstd frame (with its content size and a
+// from a zip in assets/builtin and ReSkate+ unpacks it: one zstd frame (with its content size and a
 // checksum) holding
 //   "RSKPACK1", u32 file count,
 //   for each file: u16 name length, the name (UTF-8, '/' between folders), u64 size,

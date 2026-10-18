@@ -143,7 +143,7 @@ Handle player_record(Address manager, const PartyPlayer &player, std::uint32_t p
     put(info, 0xf0, std::uint32_t{player.local ? 0U : party ? 1U : online ? 4U : 5U});
     put(info, 0xcc, std::uint32_t{friend_record ? (party ? 3U : 2U) : 1U});
     put(info, 0xd8, std::uint32_t{online ? 0U : 2U});
-    // Player network (EadpPlayerNetwork): every ReSkate player is on Steam; left at 0 the
+    // Player network (EadpPlayerNetwork): every ReSkate+ player is on Steam; left at 0 the
     // UI shows the EA logo beside the name.
     put(info, 0xf4, std::uint32_t{4});
     const auto card_part = [&](std::uint32_t hash) {

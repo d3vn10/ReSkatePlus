@@ -19,7 +19,7 @@ using namespace menu_data;
 using namespace native_menu_detail;
 namespace {
 using menu_view::page_count, menu_view::tools_page;
-// ReSkate has no store: while its tabs are in, the native Store tab is taken out, and it is put
+// ReSkate+ has no store: while its tabs are in, the native Store tab is taken out, and it is put
 // back before our models are released. Native tabs are found by their label, not index.
 constexpr std::string_view store_tab_label = "ID_MENU_STORE", social_tab_label = "ID_MENU_SOCIAL";
 constexpr unsigned social_tab_index = 4; // Before the Store is removed.
@@ -161,11 +161,11 @@ unsigned social_index(const Context& context, Value menu) {
 }
 // Each time the pause menu opens the game rebuilds its native tabs (new keys,
 // the Store back in place) without ours and selects its default slot. Remember
-// the last ReSkate tab the player had open; when our tabs have gone missing,
+// the last ReSkate+ tab the player had open; when our tabs have gone missing,
 // keep that memory and select it again once they are re-inserted. Only one
 // page slot runs this; the tab stack is shared.
 // The pause menu's top bar shows the player's wallets (San Van Bucks,
-// Influence) through one presenter on the menu core. ReSkate has no store and
+// Influence) through one presenter on the menu core. ReSkate+ has no store and
 // the wallets' icons live on the retired CDN, so they draw as empty boxes:
 // publish an empty presenter instead. Checked each tick; cheap when already empty.
 constexpr std::uint32_t top_bar_currency = 0x75320e5f;
@@ -177,7 +177,7 @@ void hide_top_bar_currency(const Context& context, Value menu) {
 } // namespace
 void update_hub(const Context& context);
 namespace {
-// Which of ReSkate's pages is on screen, for the overlay (native_menu_page): when one was last
+// Which of ReSkate+'s pages is on screen, for the overlay (native_menu_page): when one was last
 // seen selected with the pause menu up (GetTickCount64; 0: not now), and which.
 std::atomic<std::uint64_t> page_seen{};
 std::atomic<int> page_shown{}; // 0: Multiplayer, 1: Mod Options
@@ -211,7 +211,7 @@ std::uint32_t restore_last_tab(const Context& context, Value menu) {
                 if (static_cast<int>(i) != selected) {
                     context.set(target, static_cast<int>(i));
                     context.set(context.path(menu, {content, 0x55511280}), static_cast<int>(i));
-                    logging::printf(logging::Level::info, logging::Channel::ui, "Pause menu reopened on ReSkate tab %u.", i);
+                    logging::printf(logging::Level::info, logging::Channel::ui, "Pause menu reopened on ReSkate+ tab %u.", i);
                 }
                 previous = static_cast<int>(i);
                 return key_at(static_cast<int>(i));
@@ -270,7 +270,7 @@ void insert(const Context& context) {
         if (candidate.core.handle != s.core.handle || !candidate.page.handle || !candidate.menu_item.handle ||
             context.type_of(candidate.page.handle) != candidate.page.type) return;
     }
-    require(count + missing.size() <= 16, "Native pause menu has no room for ReSkate tabs.");
+    require(count + missing.size() <= 16, "Native pause menu has no room for ReSkate+ tabs.");
     // Take the Store item out. Pause-menu detection needs at least five items in the stack, so
     // only together with ours.
     bool store_last{};
@@ -482,7 +482,7 @@ void initialize(const Context& context, Root root, const MultiplayerModel& model
                  context.address(context.path(s.core, {content, 0x54c9abee})));
     tab_label(context, s.menu_item, tab_names[s.slot], menu_key());
     // Seed both states with an already-live native fallback: Social for
-    // Multiplayer, Hub for ReSkate. Optional art must never gate either page.
+    // Multiplayer, Hub for ReSkate+. Optional art must never gate either page.
     // Copy only visual fields; actions remain attached to our own models.
     const auto core_items = context.path(s.core, {content, items});
     const auto source_tab = context.field(context.element(core_items, s.slot ? 1 : social_index(context, s.core)), tab_data);
@@ -696,15 +696,15 @@ void native_menu_before_level_transition(std::uintptr_t base, unsigned next) noe
     lifetime.before_transition(next, [&] {
         // Both shutdown and multiplayer pause dumps fault in the engine
         // while destroying a 0x590-byte menu item with an unloaded widget asset.
-        // Native level/sublevel exits bypass ReSkate's explicit load scheduler.
+        // Native level/sublevel exits bypass ReSkate+'s explicit load scheduler.
         // Release roots before those transitions and block ticks/actions until
         // state 13/21 announces the next active world.
         const bool owned = std::any_of(page_slots.begin(), page_slots.end(),
             [](unsigned slot) { return !page_state(slot).owned_models.empty(); });
         const bool cleaned = prepare_native_menu_level_load(base);
         if (owned || !cleaned) logging::printf(cleaned ? logging::Level::info : logging::Level::warning,
-            logging::Channel::ui, cleaned ? "Native ReSkate menu models released before state %u." :
-                "Native ReSkate menu cleanup could not finish before state %u.", next);
+            logging::Channel::ui, cleaned ? "Native ReSkate+ menu models released before state %u." :
+                "Native ReSkate+ menu cleanup could not finish before state %u.", next);
     });
 }
 overlay::HubPage native_menu_page() noexcept {

@@ -152,9 +152,7 @@ if(DINGOSDK_BUILD_MULTIPLAYER_TESTS)
         # By hand: what the music player outside the game is playing (Extension/Music/external_player.h).
         add_executable(dingosdk_external_player_probe Extension/Music/Test/external_player_probe.cpp Extension/Music/external_player.cpp)
         target_include_directories(dingosdk_external_player_probe PRIVATE "${PROJECT_SOURCE_DIR}")
-        target_compile_definitions(dingosdk_external_player_probe PRIVATE DINGOSDK_EXTERNAL_PLAYER_PROVIDERS=0)
-        add_executable(dingosdk_app_audio_probe Extension/Music/Test/app_audio_probe.cpp Extension/Music/app_audio_capture.cpp
-            Extension/Music/audio_dsp.cpp)
+        add_executable(dingosdk_app_audio_probe Extension/Music/Test/app_audio_probe.cpp Extension/Music/app_audio_capture.cpp)
         target_include_directories(dingosdk_app_audio_probe PRIVATE "${PROJECT_SOURCE_DIR}")
     endif()
     add_executable(dingosdk_word_filter_tests Engine/Core/Text/Test/word_filter_tests.cpp)

@@ -87,7 +87,7 @@ struct SlotFieldSpec {
 
 constexpr std::array<SlotFieldSpec, 4> slot_field_specs{{
     // Like the live game: three free presets; the rest stay locked (extra slots
-    // were bought with San Van Bucks, which ReSkate does not sell).
+    // were bought with San Van Bucks, which ReSkate+ does not sell).
     {SlotSettingsType::loadout, slot_addr::min_loadout_count_field, 0x3ac16662, 0x48,
         addr::engine::int32_type, 4, free_slot_count, "MinSkaterLoadoutCount"},
     {SlotSettingsType::loadout, slot_addr::force_own_max_slots_field, 0x2fe2d03d, 0x53,
@@ -329,7 +329,7 @@ void apply_slot_settings(SlotOverrideState& state) {
             std::string(field.name) + " settings object changed.");
         slot_require(!lease.owned || snapshot.value == lease.original ||
             snapshot.value == lease.applied,
-            std::string(field.name) + " changed outside ReSkate.");
+            std::string(field.name) + " changed outside ReSkate+.");
         slot_require(snapshot.value == field.desired ||
             slot_writable(snapshot.object + field.offset, field.size),
             std::string(field.name) + " is not writable.");
@@ -374,7 +374,7 @@ void restore_slot_settings(SlotOverrideState& state) {
             std::string(field.name) + " settings object changed.");
         slot_require(!lease.owned || snapshot.value == lease.applied ||
             snapshot.value == lease.original,
-            std::string(field.name) + " changed outside ReSkate.");
+            std::string(field.name) + " changed outside ReSkate+.");
         slot_require(!lease.owned || snapshot.value == lease.original ||
             slot_writable(snapshot.object + field.offset, field.size),
             std::string(field.name) + " is not writable for restoration.");

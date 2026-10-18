@@ -271,7 +271,8 @@ void wear(State& s, const SkaterItems& m, std::uintptr_t skater, std::uint64_t n
                 candidates.push_back(i);
         };
         for (std::size_t i = 0; i < slots.size(); ++i)
-            if (own_kind(i) && std::find(spare_slots.begin(), spare_slots.end(), lower(slots[i].name)) != spare_slots.end()) consider(i);
+            if (own_kind(i)) //if (own_kind(i) && std::find(spare_slots.begin(), spare_slots.end(), lower(slots[i].name)) != spare_slots.end())
+                consider(i);
         for (const auto spare : spare_slots)
             for (std::size_t i = 0; i < slots.size(); ++i)
                 if (lower(slots[i].name) == spare) consider(i);

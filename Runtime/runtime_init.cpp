@@ -14,6 +14,7 @@
 #include "Extension/World/stack_check_report.h"
 #include "Extension/Music/music_inject.h"
 #include "Extension/Music/spotify_web.h"
+#include "Extension/Music/plex_web.h"
 #include "Extension/Music/spotify_device.h"
 #include "Extension/Music/spotify_dashboard.h"
 #include "Extension/Music/youtube_music.h"
@@ -248,7 +249,7 @@ extern "C" __declspec(dllexport) BOOL WINAPI DingoSDKDebugInitialize() {
         dingosdk::overlay::set_nametag_feed(dingosdk::multiplayer::custom_nametags);
         // Engine functions the profiler's stack sampler names in its reports.
         static constexpr dingosdk::profiler::Label engine_labels[]{
-            {dingosdk::addr::profiler_labels::client_update, "Client game update (ReSkate tick hook)"},
+            {dingosdk::addr::profiler_labels::client_update, "Client game update (ReSkate+ tick hook)"},
             {dingosdk::addr::profiler_labels::client_frame_job.rva, "Client frame job"},
             {dingosdk::addr::profiler_labels::expression_vm, "Expression VM"},
             {dingosdk::addr::profiler_labels::expression_vm_profiled, "Expression VM (profiled)"},
@@ -341,6 +342,7 @@ extern "C" __declspec(dllexport) BOOL WINAPI DingoSDKDebugInitialize() {
         (void)dingosdk::spotify_rows::install(r.base);
         dingosdk::spotify_device::start(); // (the game as a device in the player's Spotify app)
         dingosdk::spotify_web::start();
+        dingosdk::plex_web::start();
         dingosdk::youtube_music::start(); // (the player's YouTube playlists, read before the music screen is built)
         dingosdk::spotify_dashboard::start(); // (the page in the browser that sets Spotify up) // (the player's playlists, fetched before the music screen is built)
         const bool fixed_stop_provider = (global_offline_hook && progression_guard_armed) &&

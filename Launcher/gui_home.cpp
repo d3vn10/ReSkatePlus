@@ -270,7 +270,7 @@ namespace dingosdk::launcher_gui::detail {
             return pressed;
         }
 
-        // The STATUS tile: what ReSkate is doing, or what went wrong and what to do
+        // The STATUS tile: what ReSkate+ is doing, or what went wrong and what to do
         // about it. Laid out like the HUB's BOUNTIES tile, with the state in its edge.
         void status_tile(const Fonts& fonts, const State& state, ImVec2 position, float width, float time,
             const fs::path& logs, bool modal) {
@@ -447,7 +447,7 @@ namespace dingosdk::launcher_gui::detail {
         else draw_background(draw, size, time);
         std::string version = "Launcher v";
         version += reskate_version;
-        if (update::binary_updates_enabled() && state.config && !state.config->launcher.version.empty())
+        if (!(update::binary_updates_enabled() && state.config && !state.config->launcher.version.empty()))
             version += " [DEV]";
         const bool greet = !launcher.settings().offline && !ui.steam_name.empty();
         draw_plate(draw, fonts, ImVec2(S(50), S(40)), greet ? "Welcome, " + ui.steam_name : "ReSkate+", version, launcher.settings().offline ? ImTextureID{} : ui.steam_avatar);
@@ -562,19 +562,21 @@ namespace dingosdk::launcher_gui::detail {
         g_drag_allowed = !modal && !ImGui::IsAnyItemHovered();
         ImGui::End();
 
-        if (state.prompt) prompt_window(launcher, fonts, size, *state.prompt, ui);
-        else if (qr_open) qr_window(launcher, fonts, size, state.qr);
-        else if (ui.sign_in) sign_in_window(launcher, fonts, size, ui);
-        else if (ui.settings) settings_window(launcher, fonts, size, ui, window);
-        else if (ui.changelog) {
-            ui.notes.prereleases = launcher.settings().prereleases;
-            changelog_window(fonts, size, ui);
-        }
-        else if (ui.mods) mods_window(launcher, fonts, size, ui, mods_panel, window);
-        else if (state.phase == Phase::mods_broken)
-            mods_broken_window(launcher, fonts, size, ui, mods_panel, state.mod_problems);
-        else if (ui.mods_update_prompt) mods_outdated_window(launcher, fonts, size, ui, mods_panel);
-        else if (ui.steam_offline) steam_offline_window(fonts, size, ui);
-    }
+	    // An update choice flipped while a check was already running is checked as soon as it ends.
+	    launcher.check_again_if_update_choices_changed();
+	    if (state.prompt) prompt_window(launcher, fonts, size, *state.prompt, ui);
+	    else if (qr_open) qr_window(launcher, fonts, size, state.qr);
+	    else if (ui.sign_in) sign_in_window(launcher, fonts, size, ui);
+	    else if (ui.settings) settings_window(launcher, fonts, size, ui, window);
+	    else if (ui.changelog) {
+	        ui.notes.prereleases = launcher.settings().prereleases;
+	        changelog_window(fonts, size, ui);
+	    }
+	    else if (ui.mods) mods_window(launcher, fonts, size, ui, mods_panel, window);
+	    else if (state.phase == Phase::mods_broken)
+	        mods_broken_window(launcher, fonts, size, ui, mods_panel, state.mod_problems);
+	    else if (ui.mods_update_prompt) mods_outdated_window(launcher, fonts, size, ui, mods_panel);
+	    else if (ui.steam_offline) steam_offline_window(fonts, size, ui);
+	}
 
 } // namespace dingosdk::launcher_gui::detail

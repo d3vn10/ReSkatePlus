@@ -13,7 +13,7 @@
 // All are added in the setup page (spotify_dashboard.h), decoded by the library that is built
 // into the DLL (SpotifyHelper/src/stream.rs), and heard through the game as Spotify's is.
 //
-// yt-dlp is not part of ReSkate: the player has it fetched from the setup page, from its own
+// yt-dlp is not part of ReSkate+: the player has it fetched from the setup page, from its own
 // releases on GitHub, into <Local AppData>\ReSkate\bin. What is added is kept in
 // <Local AppData>\ReSkate\youtube-music.json.
 namespace dingosdk::youtube_music {

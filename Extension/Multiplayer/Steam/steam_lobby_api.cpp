@@ -65,10 +65,10 @@ class NativeLobbyApi final : public LobbyApi {
         if (matchmaking_)
             return;
         if (launcher::offline_mode())
-            throw std::runtime_error("Multiplayer is unavailable in offline mode. Start Steam and relaunch ReSkate.");
+            throw std::runtime_error("Multiplayer is unavailable in offline mode. Start Steam and relaunch ReSkate+.");
         const auto module = GetModuleHandleW(L"steam_api64.dll");
         if (!module)
-            throw std::runtime_error("Steam is unavailable. Start ReSkate with Steam online.");
+            throw std::runtime_error("Steam is unavailable. Start ReSkate+ with Steam online.");
         std::wstring path(32768, L'\0');
         const auto length = GetModuleFileNameW(module, path.data(), static_cast<DWORD>(path.size()));
         if (!length || length >= path.size())

@@ -2,7 +2,7 @@
 #include "server_text.h"
 
 // Parties on a dedicated server. The server owns them (PartyBook): players ask through the
-// game's Social menu or the ReSkate menus (Packet::party) or in chat (/party), and every
+// game's Social menu or the ReSkate+ menus (Packet::party) or in chat (/party), and every
 // roster tells everyone who is in which party.
 namespace dingosdk::server {
 namespace {

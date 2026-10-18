@@ -23,10 +23,10 @@
 #include <vector>
 
 namespace dingosdk {
-struct SkaterSlotOverrideObservation;
-struct MainMissionOverrideObservation;
-struct FixedStopEntitlementProviderObservation;
-struct NeighborhoodUnlockOverrideObservation;
+	struct SkaterSlotOverrideObservation;
+	struct MainMissionOverrideObservation;
+	struct FixedStopEntitlementProviderObservation;
+	struct NeighborhoodUnlockOverrideObservation;
 }
 
 // Shared by the runtime's translation units only. Everything here runs inside

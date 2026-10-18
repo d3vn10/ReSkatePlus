@@ -138,7 +138,7 @@ void SteamLobbies::update_host(bool ready, unsigned players, std::string_view ma
             api_->open();
             if (host_name_.empty()) host_name_ = api_->name();
             if (!safe_text(host_name_, 128))
-                host_name_ = "ReSkate session";
+                host_name_ = "ReSkate+ Session";
             creating_ = {api_->create(capacity_), now, false};
             require(creating_.call != 0, "Steam could not create a lobby.");
             state_.hosting = "Creating a public Steam lobby...";
@@ -161,7 +161,7 @@ void SteamLobbies::refresh(std::uint64_t now) {
         last_search_ = now;
         state_.searching = true;
         state_.rows.clear();
-        state_.browser = "Searching Steam for open ReSkate lobbies...";
+        state_.browser = "Searching Steam for open ReSkate+ lobbies...";
     } catch (const std::exception &e) {
         state_.browser = e.what();
     }

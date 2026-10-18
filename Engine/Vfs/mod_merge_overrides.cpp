@@ -159,7 +159,8 @@ namespace dingosdk::mods::detail {
                             try {
                                 for (const auto& reference : decoded(encodedPayload).imports)
                                     imported.insert(reference.fileGuid);
-                            } catch (const std::exception&) {
+                            } 
+							catch (const std::exception&) {
                             }
                             std::optional<fb::BundleFileInfo> gameFile;
                             if (const auto gameAt = gameListing->first + game_copy->second.second;
@@ -272,8 +273,10 @@ namespace dingosdk::mods::detail {
                     if (background) SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
                     work();
                 });
-            } catch (const std::system_error&) {
-            } // fewer threads, or none: this one does the rest
+            } 
+			catch (const std::system_error&) {
+            	// fewer threads, or none: this one does the rest
+			}
             work();
         }
 
@@ -294,7 +297,8 @@ namespace dingosdk::mods::detail {
                     if (const auto existing = versions->second.find(change.game); existing != versions->second.end()) try {
                         for (const auto& reference : decoded(existing->second.encoded).imports)
                             imported.insert(reference.fileGuid);
-                    } catch (const std::exception&) {
+                    }
+					catch (const std::exception&) {
                     }
                     for (auto& script : scripts) {
                         auto& versions = out.scripts[script.name];
@@ -378,7 +382,8 @@ namespace dingosdk::mods::detail {
                                 for (const auto& reference : document.imports)
                                     if (beside->second.contains(reference.fileGuid) && stays(reference))
                                         names.insert(reference.fileGuid);
-                        } catch (const std::exception&) {
+                        }
+						catch (const std::exception&) {
                         }
                         auto& versions = out.changed[change.name];
                         const auto existing = versions.find(change.game);
@@ -413,7 +418,8 @@ namespace dingosdk::mods::detail {
                             if (existing->second.mod != mod->name && !existing->second.mod.ends_with(" + " + mod->name))
                                 existing->second.mod += " + " + mod->name;
                             existing->second.names.insert(names.begin(), names.end());
-                        } catch (const std::exception&) {
+                        }
+						catch (const std::exception&) {
                         }
                     }
                     for (const auto& [other, clash] : shadowed)
@@ -428,7 +434,8 @@ namespace dingosdk::mods::detail {
                             for (const auto& addition : list)
                                 if (addition.mod == mod->name && addition.asset.kind == fb::AssetKind::ebx) try {
                                     carried.push_back(fb::decode_cas(addition.encoded, { gameRoot }));
-                                } catch (const std::exception&) {
+                                }
+								catch (const std::exception&) {
                                 }
                                 // Each carried asset is gone through once, for all the chunks together: looking for
                                 // every chunk in every asset in turn took most of a merge with many of either.

@@ -26,13 +26,13 @@ inline constexpr std::string_view attach_advice =
 
 inline Problem explain(std::string_view raw) {
     // Most specific first: the later rules match whole families of failures.
-    if (mentions(raw, "must be beside 'ReSkatePlusLauncher'"))
-        return {"ReSkate is not in your skate. folder",
-                "Put 'ReSkatePlusLauncher' and 'ReSkatePlus.dll' beside 'Skate.exe', in the folder Steam opens with "
-                "skate. > Manage > Browse local files."};
+    if (mentions(raw, "must be beside ReSkatePlusLauncher.exe"))
+        return {"ReSkate+'s files are not together",
+                "Keep ReSkatePlusLauncher.exe and ReSkatePlus.dll together in a folder of their own (not Steam's "
+                "skate. folder) and run the launcher from there. It installs the game into that folder."};
     if (mentions(raw, "ReSkatePlus.dll is missing"))
         return {"ReSkatePlus.dll is missing",
-                "Extract 'ReSkatePlusLauncher' and 'ReSkatePlus.dll' from the same release zip into this folder, "
+                "Extract ReSkatePlusLauncher.exe and ReSkatePlus.dll from the same release zip into this folder, "
                 "then press RETRY."};
     if (mentions(raw, "ReSkatePlus.dll is not an x64") || mentions(raw, "DingoSDKDebugInitialize is outside"))
         return {"ReSkatePlus.dll is damaged",
@@ -46,9 +46,9 @@ inline Problem explain(std::string_view raw) {
                 "Verify the game files in Steam, or press DOWNLOAD to fetch the supported build again."};
     if (mentions(raw, "This launcher is out of date"))
         return {"This launcher is out of date",
-                "Download the newest ReSkate release from GitHub and extract it over this folder."};
+                "Download the newest ReSkate+ release from GitHub and extract it over this folder."};
     if (mentions(raw, "update server could not be reached"))
-        return {"The ReSkate update server could not be reached",
+        return {"The ReSkate+ update server could not be reached",
                 "Check your internet connection and press RETRY. If the game files are already correct you can "
                 "turn on Offline mode in Settings and play without the check."};
     if (mentions(raw, "not supported"))
@@ -60,11 +60,11 @@ inline Problem explain(std::string_view raw) {
                 "Check that the account you signed in with owns skate. and that you have about 14 GB free, "
                 "then press DOWNLOAD again. Signing in again often clears it."};
     if (mentions(raw, "installing the game content cache"))
-        return {"Another ReSkate launcher is busy",
+        return {"Another ReSkate+ launcher is busy",
                 "It is installing the game data this build needs. Wait for it to finish, then press RETRY."};
     if (mentions(raw, "content cache"))
         return {"The one-time game data download failed",
-                "ReSkate downloads the game's catalogues once per build. Check your internet connection and "
+                "ReSkate+ downloads the game's catalogues once per build. Check your internet connection and "
                 "press RETRY."};
     if (mentions(raw, "need different keys"))
         return {"The menu and console share a key",
@@ -73,12 +73,12 @@ inline Problem explain(std::string_view raw) {
     // number win32_failure puts in front of it.
     if (mentions(raw, "failed (740)"))
         return {"Skate.exe is set to always run as administrator",
-                "ReSkate has to start Skate itself, and Windows does not let it start a program marked to "
+                "ReSkate+ has to start Skate itself, and Windows does not let it start a program marked to "
                 "need administrator. Right-click Skate.exe, pick Properties, then Compatibility, and untick "
                 "\"Run this program as an administrator\". Starting ReSkatePlusLauncher.exe as "
                 "administrator works too."};
     if (mentions(raw, "LoadLibraryW is hooked")) {
-        std::string advice = "Security software or an overlay is modifying Skate while it starts, and ReSkate will "
+        std::string advice = "Security software or an overlay is modifying Skate while it starts, and ReSkate+ will "
                              "not load itself through that. Allow ReSkatePlusLauncher.exe and Skate.exe in it, or close "
                              "it, then press RETRY.";
         // The launcher named what it found in Skate; that is the useful half.
@@ -95,7 +95,7 @@ inline Problem explain(std::string_view raw) {
     if (mentions(raw, "validated Skate.exe") || mentions(raw, "loaded-image") || mentions(raw, "DOS header") ||
         mentions(raw, "module list") || mentions(raw, "VirtualAllocEx") || mentions(raw, "NtQueryInformationProcess") ||
         mentions(raw, "DingoSDKDebugInitialize") || mentions(raw, "Remote "))
-        return {"ReSkate could not attach to Skate", std::string(attach_advice)};
+        return {"ReSkate+ could not attach to Skate", std::string(attach_advice)};
     // Windows reports a refused write in the user's own language, so these
     // key on the operation names and the path, which are never translated.
     const bool write_failure = mentions(raw, "create_directories") || mentions(raw, "create_directory") ||
@@ -103,12 +103,11 @@ inline Problem explain(std::string_view raw) {
                                mentions(raw, "Cannot publish") || mentions(raw, "Cannot append") ||
                                mentions(raw, "Cannot replace");
     if (write_failure)
-        return {"ReSkate cannot write to its own folder",
-                "Move the whole ReSkate folder somewhere else, such as C:\\Games\\ReSkate, and start it from "
+        return {"ReSkate+ cannot write to its own folder",
+                "Move the whole ReSkate+ folder somewhere else, such as C:\\Games\\ReSkatePlus, and start it from "
                 "there. Program Files and OneDrive do not let it write."};
     return {std::string(raw),
-            "Press RETRY. If it keeps happening, copy the details below and share them with logs\\ReSkate.log "
-            "on the ReSkate Discord."};
+            "Press RETRY. If it keeps happening, check the logs\\ReSkate.log"};
 }
 
 } // namespace dingosdk::launcher_problem

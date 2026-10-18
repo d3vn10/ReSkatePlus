@@ -75,9 +75,10 @@ ReSkate+ supports one game build at a time (Steam build `25414733`).
 
 ### Linux (Proton)
 
-1. Install skate. with Steam and put `ReSkatePlusLauncher.exe` and `ReSkatePlus.dll` beside `Skate.exe`
-   (step 2 above, first option).
-2. In Steam → skate. → Properties → Launch Options, enter:
+1. Install skate. with Steam, and put `ReSkatePlusLauncher.exe` and `ReSkatePlus.dll` in a new, empty folder
+   of their own, for example `~/Games/ReSkatePlus` (not Steam's skate. folder: the launcher refuses to
+   run from there).
+2. In Steam → skate. → Properties → Launch Options, enter this with your own folder's path:
 
    ```
    bash -c 'exec "${@/*EAAntiCheat.GameServiceLauncher.exe//home/you/Games/ReSkatePlus/ReSkatePlusLauncher.exe}"' -- %command%

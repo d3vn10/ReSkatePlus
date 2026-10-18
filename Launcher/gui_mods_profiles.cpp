@@ -322,7 +322,7 @@ void profiles_page(const Fonts& fonts, ModsPanel& panel, HWND window, float heig
         if (!using_now && profiles::in_use(profile, panel.list)) using_now = &profile;
     page_banner(fonts, "PROFILES", nullptr,
         "A profile remembers which of your mods are on and in what order. Every mod stays installed once; loading a "
-        "profile switches the rest off. Share one as a code or a file, with ReSkate or r2modman.",
+        "profile switches the rest off. Share one as a code or a file, with ReSkate+ or r2modman.",
         using_now ? "IN USE: " + using_now->name : "NO PROFILE IN USE", using_now ? color::good : color::tile_grey,
         std::format("{} of {} saved", panel.profiles.list.size(), profiles::max_profiles));
 
@@ -340,7 +340,7 @@ void profiles_page(const Fonts& fonts, ModsPanel& panel, HWND window, float heig
         card(draw, right, ImVec2(across, tall));
         card_heading(fonts, ImVec2(left.x + pad, left.y + pad), "NEW PROFILE", "Saves what MY MODS shows now");
         card_heading(fonts, ImVec2(right.x + pad, right.y + pad), "IMPORT",
-            panel.profile_busy ? "Talking to Thunderstore..." : "A code or a .r2z file, from ReSkate or r2modman");
+            panel.profile_busy ? "Talking to Thunderstore..." : "A code or a .r2z file, from ReSkate+ or r2modman");
         const float inner = across - pad * 2;
         const float row = start.y + pad + heading;
 

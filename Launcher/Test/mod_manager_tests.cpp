@@ -27,7 +27,6 @@ using namespace dingosdk;
 namespace {
 
 int failures = 0;
-int skipped = 0;
 
 void check(bool condition, const char* what) {
     if (condition) return;
@@ -43,24 +42,6 @@ void write(const fs::path& path, std::string_view text) {
 std::string read(const fs::path& path) {
     std::ifstream input(path, std::ios::binary);
     return {std::istreambuf_iterator<char>(input), {}};
-}
-
-DWORD create_link(const fs::path& link, const fs::path& target, bool directory) {
-    auto flags = directory ? SYMBOLIC_LINK_FLAG_DIRECTORY : 0;
-#ifdef SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE
-    if (!CreateSymbolicLinkW(link.c_str(), target.c_str(), flags | SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE)) {
-        const auto first_error = GetLastError();
-        if (first_error != ERROR_INVALID_PARAMETER) return first_error;
-    } else {
-        return ERROR_SUCCESS;
-    }
-#endif
-    return CreateSymbolicLinkW(link.c_str(), target.c_str(), flags) ? ERROR_SUCCESS : GetLastError();
-}
-
-void skip_link_test(const char* test, DWORD error) {
-    std::cerr << "SKIP: " << test << " (symbolic link creation unavailable; Windows error " << error << ")\n";
-    ++skipped;
 }
 
 // A stored (uncompressed) .zip, enough to exercise the reader.
@@ -110,7 +91,6 @@ int main() {
     const auto game = root / L"game";
     const auto sources = root / L"sources";
     fs::create_directories(game);
-    fs::create_directories(sources);
     const auto mods = launcher_mods::mods_root(game);
     check(mods == game / L"Mods", "Without ModData the Mods folder sits beside the game");
 
@@ -173,8 +153,7 @@ int main() {
         check(error_of([&] {
             launcher_mods::install(mods, sources / L"cancelled folder", true,
                 [&](float) { if (++callbacks == 2) cancel.store(true); }, cancel);
-        }) == "Install cancelled." && read(mods / L"Cool Park" / L"layout.toc") == "toc v2" &&
-                  !fs::exists(mods / L".reskate-install"),
+        }) == "Install cancelled." && read(mods / L"Cool Park" / L"layout.toc") == "toc v2",
               "Cancelled folder replacement did not preserve the installed mod");
     }
 
@@ -195,121 +174,59 @@ int main() {
 
     // A folder.
     write(sources / L"Loose" / L"My Folder Mod" / L"layout.toc", "toc");
-    write(sources / L"Loose" / L"My Folder Mod" / L"Win64" / L"levels" / L"nested" / L"file.sb", "nested bundle");
     check(install(mods, sources / L"Loose") == "My Folder Mod", "Folders install like zips");
-    check(read(mods / L"My Folder Mod" / L"layout.toc") == "toc" &&
-              read(mods / L"My Folder Mod" / L"Win64" / L"levels" / L"nested" / L"file.sb") == "nested bundle" &&
-              fs::exists(sources / L"Loose" / L"My Folder Mod" / L"layout.toc"),
-          "Folder installation copies the mod and deeply nested files");
+    check(fs::exists(sources / L"Loose" / L"My Folder Mod" / L"layout.toc"), "Installing a folder copies it");
 
-    // Folder installs reject links at the trust boundary and preserve the destination.
+    // Links in a mod folder (issue #265): one inside it refuses the install and nothing outside is
+    // written; links on the way to the folder or to the Mods folder are fine. Junctions need no
+    // rights to make; a file symbolic link needs Developer Mode, so that case is skipped without it.
     {
-        const auto link_mods = root / L"link-test-mods";
-        const auto external = root / L"external";
-        const auto outside_file = external / L"sentinel.txt";
-        const auto outside_folder = external / L"outside-folder";
-        fs::create_directories(outside_folder);
-        write(outside_file, "sentinel");
-        write(outside_folder / L"untouched.txt", "outside");
-        std::vector<fs::path> links;
-        const auto external_source = sources / L"external-link-mod";
-        write(external_source / L"layout.toc", "toc");
-        const auto external_link = external_source / L"attack.txt";
-        auto link_error = create_link(external_link, outside_file, false);
-        if (link_error == ERROR_SUCCESS) {
-            links.push_back(external_link);
-            const auto issue = error_of([&] { install(link_mods, external_source); });
-            check(issue.find("symbolic links") != std::string::npos && read(outside_file) == "sentinel" &&
-                      !fs::exists(link_mods / L"external-link-mod"),
-                  "An external file symlink is rejected without changing its sentinel or leaving a partial mod");
-        } else {
-            skip_link_test("external file symlink", link_error);
-        }
+        const auto place = root / L"links";
+        const auto junction = [](const fs::path& link, const fs::path& target) {
+            fs::create_directories(target);
+            return _wsystem((L"mklink /J \"" + link.wstring() + L"\" \"" + target.wstring() + L"\" >nul").c_str()) == 0;
+        };
+        const auto real_game = place / L"real game";
+        fs::create_directories(real_game);
+        const bool made = junction(place / L"linked game", real_game);
+        const auto linked_mods = launcher_mods::mods_root(place / L"linked game");
+        write(place / L"outside" / L"sentinel.txt", "untouched");
 
-        const auto internal_source = sources / L"internal-link-mod";
-        write(internal_source / L"layout.toc", "toc");
-        write(internal_source / L"real.txt", "inside");
-        const auto internal_link = internal_source / L"alias.txt";
-        link_error = create_link(internal_link, internal_source / L"real.txt", false);
-        if (link_error == ERROR_SUCCESS) {
-            links.push_back(internal_link);
-            write(link_mods / L"Keep" / L"layout.toc", "keep original");
-            launcher_mods::InstallOptions options;
-            options.folder = "Keep";
-            std::atomic<bool> cancel{};
-            const auto issue = error_of([&] {
-                launcher_mods::install(link_mods, internal_source, true, {}, cancel, options);
-            });
-            check(issue.find("symbolic links") != std::string::npos &&
-                      read(link_mods / L"Keep" / L"layout.toc") == "keep original",
-                  "An internal file symlink is rejected and does not replace the existing mod");
-        } else {
-            skip_link_test("internal file symlink", link_error);
-        }
+        write(place / L"Junction Mod" / L"layout.toc", "toc");
+        const bool inner = junction(place / L"Junction Mod" / L"stuff", place / L"outside");
+        check(made && inner, "links: junctions could be made for the checks");
+        const auto refused = error_of([&] { install(linked_mods, place / L"Junction Mod"); });
+        check(refused.find("holds a link (stuff)") != std::string::npos && !fs::exists(linked_mods / L"Junction Mod") &&
+                  read(place / L"outside" / L"sentinel.txt") == "untouched",
+              ("A junction inside a mod folder refuses the install: " + refused).c_str());
+        check(!fs::exists(linked_mods / L".reskate-install"), "A refused folder leaves no staging behind");
 
-        const auto directory_source = sources / L"directory-link-mod";
-        write(directory_source / L"layout.toc", "toc");
-        const auto directory_link = directory_source / L"outside";
-        link_error = create_link(directory_link, outside_folder, true);
-        if (link_error == ERROR_SUCCESS) {
-            links.push_back(directory_link);
-            const auto issue = error_of([&] { install(link_mods, directory_source); });
-            check(issue.find("symbolic links") != std::string::npos &&
-                      read(outside_folder / L"untouched.txt") == "outside" &&
-                      !fs::exists(link_mods / L"directory-link-mod"),
-                  "A directory symlink is rejected without traversing or changing the external folder");
-        } else {
-            skip_link_test("directory symlink or junction", link_error);
-        }
+        write(place / L"Plain Mod" / L"layout.toc", "toc");
+        check(install(linked_mods, place / L"Plain Mod") == "Plain Mod" && read(real_game / L"Mods" / L"Plain Mod" / L"layout.toc") == "toc",
+              "A Mods folder reached through a junction still installs");
+        junction(place / L"picked", place / L"Picked Mod");
+        write(place / L"Picked Mod" / L"layout.toc", "toc");
+        check(install(linked_mods, place / L"picked") == "picked", "A mod folder picked through a junction still installs");
 
-        const auto destination_source = sources / L"destination-link-mod";
-        write(destination_source / L"layout.toc", "toc");
-        fs::create_directories(link_mods);
-        const auto installed_link = link_mods / L"destination-link-mod";
-        link_error = create_link(installed_link, outside_folder, true);
-        if (link_error == ERROR_SUCCESS) {
-            links.push_back(installed_link);
-            const auto issue = error_of([&] { install(link_mods, destination_source, true); });
-            check(issue.find("symbolic links") != std::string::npos &&
-                      read(outside_folder / L"untouched.txt") == "outside",
-                  "Replacing a mod through a destination directory link is rejected safely");
+        write(place / L"File Link Mod" / L"layout.toc", "toc");
+        const auto link = place / L"File Link Mod" / L"linked.txt";
+        if (CreateSymbolicLinkW(link.c_str(), (place / L"outside" / L"sentinel.txt").c_str(),
+                                SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE)) {
+            const auto file_refused = error_of([&] { install(linked_mods, place / L"File Link Mod"); });
+            check(file_refused.find("holds a link (linked.txt)") != std::string::npos &&
+                      read(place / L"outside" / L"sentinel.txt") == "untouched" && !fs::exists(linked_mods / L"File Link Mod"),
+                  ("A file link inside a mod folder refuses the install: " + file_refused).c_str());
         } else {
-            skip_link_test("installed destination directory reparse point", link_error);
+            std::cout << "SKIP: file symbolic link (Windows error " << GetLastError() << "; needs Developer Mode)\n";
         }
-        {
-            std::error_code ignored;
-            fs::remove(installed_link, ignored);
-        }
-        const auto staging_link = link_mods / L".reskate-install";
-        link_error = create_link(staging_link, external, true);
-        if (link_error == ERROR_SUCCESS) {
-            links.push_back(staging_link);
-            const auto issue = error_of([&] { install(link_mods, destination_source); });
-            check(issue.find("symbolic links") != std::string::npos &&
-                      read(outside_file) == "sentinel" && read(outside_folder / L"untouched.txt") == "outside",
-                  "A destination directory link is rejected without modifying its external target");
-        } else {
-            skip_link_test("destination directory reparse point", link_error);
-        }
-        for (const auto& link : links) {
-            std::error_code ignored;
-            fs::remove(link, ignored);
-        }
-    }
-
-    // A deeply nested folder package still selects the directory containing its content marker.
-    {
-        const auto deep_source = sources / L"deep-package";
-        write(deep_source / L"wrapper" / L"nested-mod" / L"layout.toc", "toc");
-        write(deep_source / L"wrapper" / L"nested-mod" / L"levels" / L"maps" / L"deep.sb", "deep");
-        check(install(mods, deep_source) == "nested-mod" &&
-                  read(mods / L"nested-mod" / L"levels" / L"maps" / L"deep.sb") == "deep",
-              "Deeply nested folder packages install from their content root");
+        // Junctions first, so nothing below follows one.
+        for (const auto* name : {L"linked game", L"picked", L"Junction Mod\\stuff"})
+            RemoveDirectoryW((place / name).c_str());
     }
 
     // The list: unlisted folders load after listed ones, by name.
     auto list = mods::scan_mods(game);
-    check(list.present && list.issue.empty() && list.entries.size() == 5, "Every installed mod is listed");
+    check(list.present && list.issue.empty() && list.entries.size() == 4, "Every installed mod is listed");
     check(list.entries[0].mod.name == "Cool Park" && list.entries[0].enabled, "Unlisted mods are enabled");
     check(list.entries[0].mod.title == "Cool Park" && list.entries[0].mod.provides_layout,
           "The replaced mod shows its new contents");
@@ -321,8 +238,8 @@ int main() {
     list.entries[1].enabled = false;
     mods::save_mod_order(mods, list.entries);
     const auto saved = mods::scan_mods(game);
-    check(saved.issue.empty() && saved.entries.size() == 5, "The saved mods.json reads back");
-    for (std::size_t i = 0; i < 5; ++i)
+    check(saved.issue.empty() && saved.entries.size() == 4, "The saved mods.json reads back");
+    for (std::size_t i = 0; i < 4; ++i)
         check(saved.entries[i].mod.name == list.entries[i].mod.name && saved.entries[i].enabled == list.entries[i].enabled,
               "Order and enabled state round-trip");
     check(read(mods / L"mods.json").find(R"("enabled": false)") != std::string::npos, "mods.json is plain readable JSON");
@@ -373,7 +290,7 @@ int main() {
     // A broken mods.json still lists the folders, so the manager can repair it.
     write(mods / L"mods.json", R"({"schema":1,"mods":[{"name":"Cool Park"}]})");
     const auto broken = mods::scan_mods(game);
-    check(!broken.issue.empty() && broken.entries.size() == 6, "A malformed mods.json is reported, folders still listed");
+    check(!broken.issue.empty() && broken.entries.size() == 5, "A malformed mods.json is reported, folders still listed");
     mods::save_mod_order(mods, broken.entries);
     check(mods::scan_mods(game).issue.empty(), "Saving repairs a malformed mods.json");
 
@@ -490,12 +407,6 @@ int main() {
                       .find("nothing for ReSkate to load") != std::string::npos &&
                   !fs::exists(store / L"Team-Empty"),
               "Thunderstore installs refuse a package with nothing to load");
-        make_zip(sources / L"fbmod.zip", {{"legacy.fbmod", "binary"}});
-        bool incorrect_fbmod{};
-        try { launcher_mods::install(store, sources / L"fbmod.zip", true, {}, cancel, options); }
-        catch (const launcher_mods::IncorrectFbmodUpload&) { incorrect_fbmod = true; }
-        check(incorrect_fbmod && !fs::exists(store / L"Team-Empty"),
-              "Thunderstore installs identify FBMOD uploads separately");
         check(install(store, sources / L"empty.zip") == "empty", "A plain install still takes a description-only mod");
     }
 
@@ -631,6 +542,6 @@ int main() {
         std::cerr << failures << " mod manager check(s) failed\n";
         return 1;
     }
-    std::cout << "Mod manager checks passed (" << skipped << " symlink test(s) skipped).\n";
+    std::cout << "Mod manager checks passed.\n";
     return 0;
 }

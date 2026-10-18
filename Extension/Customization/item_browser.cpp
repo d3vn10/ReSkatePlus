@@ -120,7 +120,7 @@ struct Favorites {
     }
 };
 
-// The player's collections and the items worn on top: ReSkate.collections.json beside Skate.exe, as
+// The player's collections and the items worn on top: ReSkate+.collections.json beside Skate.exe, as
 // the favorites are (RESKATE_COLLECTIONS_FILE overrides). The console thread uses them too: own lock.
 struct Collections {
     std::mutex mutex;

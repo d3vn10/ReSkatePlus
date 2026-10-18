@@ -574,7 +574,7 @@ void update_challenge_requests() {
             catch (...) { dingosdk::logging::event(dingosdk::logging::Channel::progression, "{\"event\":\"local_challenge_progress_refresh_failed\"}"); }
         }
         alignas(8) std::array<std::byte, 40> error{};
-        if (request.failed) r.f.error(error.data(), 0xc5365a61, "ReSkate could not save challenge progress");
+        if (request.failed) r.f.error(error.data(), 0xc5365a61, "ReSkate+ could not save challenge progress");
         else s.success(error.data());
         struct Release { void* error; ~Release() { local_runtime().destroy_string(error); } } release{error.data()};
         ChallengeCompletionDelivery delivery;

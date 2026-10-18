@@ -202,12 +202,12 @@ std::string symbol_name(const Module& module, std::uintptr_t address) {
     info->MaxNameLen = 511;
     DWORD64 displacement{};
     if (symbols_ready && SymFromAddr(symbol_session, address, &displacement, info) && info->Name[0]) {
-        // A release ReSkate.dll ships without its symbols (and a ReSkate.pdb left beside it from
+        // A release ReSkatePlus.dll ships without its symbols (and a ReSkate.pdb left beside it from
         // another build is not taken), so all this finds in it is the nearest export, megabytes
         // away: every function of ours then reads as one of three exports and a report cannot
         // say which was slow. An export is given a size too, up to the next one, so the size
         // tells nothing: ask what the names came from. Without the module's own symbols, give
-        // its address instead: the release's symbols (build/release/ReSkate-<version>-symbols)
+        // its address instead: the release's symbols (build/release/ReSkatePlus-<version>-symbols)
         // name it afterwards.
         const auto here = reinterpret_cast<std::uintptr_t>(&waiting_marker);
         const bool own = module.base <= here && here < module.end;
@@ -257,7 +257,7 @@ struct Record { std::uint32_t offset{}; std::uint16_t thread{}; std::uint8_t dep
 constexpr std::size_t pool_limit = 8u << 20;
 
 void run(SampleRequest request, std::vector<Sampled> threads) {
-    SetThreadDescription(GetCurrentThread(), L"ReSkate sampler");
+    SetThreadDescription(GetCurrentThread(), L"ReSkate+ Sampler");
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
     const bool all = request.target == Target::all;
     SampleReport report;
@@ -286,6 +286,12 @@ void run(SampleRequest request, std::vector<Sampled> threads) {
 
     const HANDLE timer = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
     const auto period = std::chrono::nanoseconds(1'000'000'000 / request.rate);
+    // Sampling the present thread: when each frame is presented, for its slowest frames.
+    const bool presents = request.target == Target::present;
+    if (presents) {
+        detail::present_mark_count.store(0, std::memory_order_relaxed);
+        detail::marking_presents.store(true, std::memory_order_release);
+    }
     const auto start = std::chrono::steady_clock::now();
     const auto finish = start + std::chrono::duration_cast<std::chrono::steady_clock::duration>(std::chrono::duration<double>(request.seconds));
     auto next = start;
@@ -337,6 +343,18 @@ void run(SampleRequest request, std::vector<Sampled> threads) {
     }
     if (timer) CloseHandle(timer);
     close();
+    // Each present, in microseconds into the sample as the samples are.
+    std::vector<std::uint32_t> present_at;
+    if (presents) {
+        detail::marking_presents.store(false, std::memory_order_release);
+        const auto start_ns = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(start.time_since_epoch()).count());
+        const auto marked = std::min<std::size_t>(detail::present_mark_count.load(std::memory_order_acquire), detail::present_mark_capacity);
+        for (std::size_t i = 0; i < marked; ++i) {
+            const auto at = detail::present_marks[i].load(std::memory_order_relaxed);
+            if (at > start_ns) present_at.push_back(static_cast<std::uint32_t>((at - start_ns) / 1000));
+        }
+        std::ranges::sort(present_at);
+    }
     report.seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
     report.progress = 1;
 
@@ -487,6 +505,67 @@ void run(SampleRequest request, std::vector<Sampled> threads) {
             }
         }
 
+        // ---- the slowest presented frames: from one present to the next ----
+        // A hitch shows here as one long gap between presents. What the present thread did in it:
+        // the shares of its samples in that gap, and how many of them were waiting (on the GPU, the
+        // driver or another thread) rather than working.
+        if (presents && present_at.size() >= 9 && !records.empty()) {
+            struct Gap { std::uint32_t from{}, to{}; };
+            std::vector<Gap> gaps;
+            for (std::size_t i = 1; i < present_at.size(); ++i) gaps.push_back({present_at[i - 1], present_at[i]});
+            std::vector<std::uint32_t> lengths;
+            for (const auto& gap : gaps) lengths.push_back(gap.to - gap.from);
+            std::ranges::sort(lengths);
+            const auto median = std::max<std::uint32_t>(1, lengths[lengths.size() / 2]);
+            std::ranges::sort(gaps, [](const Gap& a, const Gap& b) { return a.to - a.from > b.to - b.from; });
+            hitches += std::format("Slowest presented frames, of {} (the usual one takes {:.1f} ms from one present to the next).\n"
+                                   "Under each: what the present thread spent that time in, as shares of its samples then.\n",
+                                   gaps.size(), median / 1000.0);
+            std::vector<std::uintptr_t> walked;
+            for (std::size_t n = 0; n < gaps.size() && n < 6; ++n) {
+                const auto& gap = gaps[n];
+                const auto length = gap.to - gap.from;
+                if (length < median * 2 && n) break;
+                std::unordered_map<std::uintptr_t, Counts> inner;
+                std::uint32_t samples{}, waited{};
+                // (The samples are in time order.)
+                const auto first = std::ranges::lower_bound(records, gap.from, {}, &Record::at_us);
+                for (auto it = first; it != records.end() && it->at_us < gap.to; ++it) {
+                    walked.clear();
+                    const auto* sample = pool.data() + it->offset;
+                    for (std::uint32_t f = 0; f < it->depth; ++f) {
+                        const Module* module{};
+                        walked.push_back(function_start(modules, f ? sample[f] - 1 : sample[f], &module));
+                        owners[walked.back()] = module;
+                    }
+                    if (walked.empty()) continue;
+                    ++samples;
+                    waited += waiting(name_of(walked.front(), owners[walked.front()])) ? 1u : 0u;
+                    for (std::size_t f = 0; f < walked.size(); ++f) {
+                        auto& counts = inner[walked[f]];
+                        counts.module = owners[walked[f]];
+                        if (!f) ++counts.self;
+                        const auto here = walked.begin() + static_cast<std::ptrdiff_t>(f);
+                        if (std::find(walked.begin(), here, walked[f]) == here) ++counts.total;
+                    }
+                }
+                hitches += std::format("\n  {:.1f} ms, {:.2f} s into the sample ({} samples, {:.0f}% of them waiting)\n", length / 1000.0,
+                    gap.from / 1e6, samples, samples ? 100.0 * waited / samples : 0.0);
+                if (!samples) continue;
+                std::vector<std::pair<std::uintptr_t, Counts>> order(inner.begin(), inner.end());
+                // The work, not the way down to it: what nearly every sample passes through is left out.
+                std::erase_if(order, [&](const auto& entry) { return entry.second.total * 100 >= samples * 97; });
+                std::ranges::sort(order, [](const auto& a, const auto& b) { return a.second.total > b.second.total; });
+                for (std::size_t i = 0; i < order.size() && i < 16; ++i)
+                    hitches += std::format("    {:5.1f}%  (self {:4.1f}%)  {}\n", 100.0 * order[i].second.total / samples,
+                        100.0 * order[i].second.self / samples, name_of(order[i].first, order[i].second.module));
+            }
+            hitches += "\n";
+        } else if (presents) {
+            hitches += std::format("No frame times: {} present(s) were seen while sampling (ReSkate+'s present hook notes them).\n\n",
+                                   present_at.size());
+        }
+
         // ---- files next to ReSkate.log ----
         const auto directory = logging::status().directory;
         SYSTEMTIME now{};
@@ -500,7 +579,7 @@ void run(SampleRequest request, std::vector<Sampled> threads) {
         {
             std::ofstream out(report.report);
             if (all) {
-                out << std::format("ReSkate profile: all busy threads ({}), {:.1f} s, {} samples at {} Hz per thread\n",
+                out << std::format("ReSkate+ Profile: all busy threads ({}), {:.1f} s, {} samples at {} Hz per thread\n",
                     threads.size(), report.seconds, total, request.rate);
                 out << std::format("Busy {:.1f}% of samples; the {} busy ones are profiled below (waiting left out).\n",
                     report.busy_percent, counted);
@@ -508,7 +587,7 @@ void run(SampleRequest request, std::vector<Sampled> threads) {
                 for (const auto& t : report.threads) out << std::format("{:5.1f}%  {} {}\n", t.cpu_percent, t.id, t.label);
                 out << "\n";
             } else {
-                out << std::format("ReSkate profile: {} (thread {}), {:.1f} s, {} samples at {} Hz\n", report.target,
+                out << std::format("ReSkate+ Profile: {} (thread {}), {:.1f} s, {} samples at {} Hz\n", report.target,
                     threads.front().id, report.seconds, total, request.rate);
                 out << std::format("Busy {:.1f}% (the rest waiting in the kernel)\n", report.busy_percent);
             }
@@ -545,7 +624,7 @@ std::uint64_t cpu_time(HANDLE thread) {
 }
 
 // The process's threads that used 3% of a core or more over a quarter second (at most 48),
-// other than ReSkate's own profiler threads.
+// other than ReSkate+'s own profiler threads.
 std::vector<Sampled> busy_threads() {
     std::vector<Sampled> candidates;
     const HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
@@ -571,7 +650,7 @@ std::vector<Sampled> busy_threads() {
         PWSTR description{};
         bool ours = false;
         if (SUCCEEDED(GetThreadDescription(c.handle, &description)) && description) {
-            ours = std::wstring_view(description).starts_with(L"ReSkate ");
+            ours = std::wstring_view(description).starts_with(L"ReSkate+ ");
             LocalFree(description);
         }
         // 3% of a core over 250 ms, in 100 ns units.

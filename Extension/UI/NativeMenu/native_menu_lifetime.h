@@ -9,7 +9,7 @@
 #include <vector>
 
 namespace dingosdk::multiplayer::menu_data {
-// Native transitions also unload assets when no ReSkate load request exists.
+// Native transitions also unload assets when no ReSkate+ load request exists.
 // Suspend publication and queued actions before cleanup can dispatch callbacks.
 // Only a new active world may resume them; shutdown remains permanent.
 class MenuLifetime {

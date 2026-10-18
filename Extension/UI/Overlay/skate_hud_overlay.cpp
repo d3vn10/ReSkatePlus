@@ -3,12 +3,12 @@
 #include <cmath>
 #include <map>
 
-// ReSkate's S.K.A.T.E. throwdown HUD, in place of the game's debug text. The game side reads
+// ReSkate+'s S.K.A.T.E. throwdown HUD, in place of the game's debug text. The game side reads
 // what that debug HUD lays out each frame (its messages and every player's letters) and
 // hands it over here, where it is drawn in skate.'s menu style: the messages on a plate at
 // the top of the screen, and a scoreboard with each player's S K A T E tiles on the left,
 // the tricks already set this game under it.
-// Background draw list, under ReSkate's own menus and chat; it takes no input.
+// Background draw list, under ReSkate+'s own menus and chat; it takes no input.
 
 namespace dingosdk::overlay {
 namespace {

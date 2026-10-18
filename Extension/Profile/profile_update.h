@@ -43,37 +43,12 @@ namespace dingosdk::profile {
             }
         };
 
-        // Transactional inventory deletion:
-        // Extracts the original map node instead of destroying it immediately.
-        // If the database update fails, rollback() can reinsert the original node
-        // without allocating memory. After a successful commit, the old node is
-        // discarded when the transaction is destroyed.
-        template<class Map> struct MapEraseUndo final : Undo {
-            Map& map;
-            typename Map::node_type old;
-            bool applied{};
-            MapEraseUndo(Map& target, const std::string& key_value)
-                : Undo(&target, key_value), map(target) {}
-            void apply() override {
-                old = map.extract(this->key);
-                applied = true;
-            }
-            bool changed() const override {
-                return !old.empty();
-            }
-            void rollback() noexcept override {
-                if (applied && !old.empty())
-                    map.insert(std::move(old));
-            }
-        };
-
         Store& store_;
         std::vector<std::unique_ptr<Undo>> undo_;
         std::map<std::string, std::set<std::string>, std::less<>> records_;
         struct JsonEdit {
             Json* root; 
             std::vector<std::string> path;
-            bool erased{}; // Lets the transaction distinguish between changing an inventory entry and deleting one
         };
         std::vector<JsonEdit> json_edits_;
         bool committed_{};
@@ -117,52 +92,6 @@ namespace dingosdk::profile {
             if (container) detail::require(node->is_object(), "Invalid profile collection");
             return *node;
         }
-
-        // Resolves the JSON path, such as{"inventory", "old_item_id"}.
-        // Leaves the profile unchanged if the target doesn't exist.
-        // Records the deletion in json_edits_, using the erased flag we added earlier.
-        // Extracts the entry into MapEraseUndo, preserving it for rollback.
-        // Rejects conflicting edits to the same map entry within one transaction.
-        void erase_json(Json& root, std::initializer_list<std::string_view> path) {
-            detail::require(path.size() != 0, "Empty JSON edit path");
-            // Resolve the parent object; the final path component is the key to erase.
-            auto* node = &root;
-            auto it = path.begin();
-            auto last = it;
-            for (; it != path.end(); ++it)
-                last = it;
-            for (auto current = path.begin(); current != last; ++current) {
-                detail::require(node->is_object(), "Invalid JSON erase path");
-                // Nothing to delete if an intermediate object doesn't exist.
-                if (!node->contains(*current))
-                    return;
-                node = &node->at(*current);
-            }
-            detail::require(node->is_object(), "Invalid JSON erase parent");
-            const std::string key(*last);
-            auto& map = node->items();
-            // Deleting a missing key is a no-op.
-            if (map.find(key) == map.end())
-                return;
-            // Don't let two operations in one transaction edit the same map entry.
-            for (const auto& entry : undo_) {
-                detail::require(
-                    entry->owner != &map || entry->key != key,
-                    "Conflicting profile update edits"
-                );
-            }
-            // Record the deleted path so encode() can emit a database tombstone.
-            JsonEdit tagged{ &root, {}, true };
-            for (auto part : path)
-                tagged.path.emplace_back(part);
-            json_edits_.push_back(std::move(tagged));
-            // Extract the node so rollback can restore it without recreating it.
-            auto entry = std::make_unique<MapEraseUndo<std::remove_reference_t<decltype(map)>>>(map, key);
-            auto* operation = entry.get();
-            undo_.push_back(std::move(entry));
-            operation->apply();
-        }
-
         void commit() {
             if (std::none_of(undo_.begin(), undo_.end(), [](const auto& item) { return item->changed(); })) {
                 committed_ = true; return;

@@ -99,7 +99,7 @@ void store_game_settings(Ui& ui) {
     }
     if (changes.empty()) return;
     try {
-        // (...\ReSkate\Game\Skate\data -> ...\ReSkate\game-settings-backup)
+        // (...\ReSkatePlus\Game\Skate\data -> ...\ReSkate\game-settings-backup)
         game::save(pages.saved, changes, game::save_root().parent_path().parent_path().parent_path() / L"game-settings-backup");
         pages.saved.values = pages.values;
         pages.error.clear();
@@ -257,7 +257,7 @@ void graphics_options(const Fonts& fonts, Ui& ui, bool running) {
     } catch (const std::exception&) {}
 }
 
-// Settings > KEYS: the keys that open ReSkate's menu and console in game.
+// Settings > KEYS: the keys that open ReSkate+'s menu and console in game.
 // Returns true when a key changed, so the caller can save straight away.
 bool key_bindings(const Fonts& fonts, Settings& settings, Ui& ui) {
     bool changed = false;
@@ -435,15 +435,25 @@ void settings_window(Launcher& launcher, const Fonts& fonts, ImVec2 size, Ui& ui
         setting_check("Keep the launcher open after launch",
                       "Hide while you play and return when Skate closes. Turn off to close after a successful launch.",
                       settings.keep_open_after_launch);
-        setting_check("Install ReSkate updates",
-                      "Turn off to keep the ReSkatePlus.dll and launcher you have, such as a test build someone gave you. "
-                      "Skate's own Steam updates are not affected.",
-                      settings.updates);
-        setting_check("Test pre-releases",
-                      "Update to the newest pre-release on GitHub when there is one, to try what is coming before it "
-                      "is released. Pre-releases are less tested. Turn off to go back to the latest release. "
-                      "The launcher checks again as soon as these settings are closed.",
-                      settings.prereleases);
+        {
+            const bool updates_were = settings.updates, prereleases_were = settings.prereleases;
+            setting_check("Install ReSkate+ updates",
+                          "Turn off to keep the ReSkatePlus.dll and launcher you have, such as a test build someone gave you. "
+                          "Skate's own Steam updates are not affected.",
+                          settings.updates);
+            // Only while there is a pre-release to test (one newer than the latest release), or while
+            // it is on, so it can always be turned off.
+            if (settings.prereleases || launcher.prerelease_available())
+                setting_check("Test pre-releases",
+                              "Update to the newest pre-release on GitHub, to try what is coming before it is released. "
+                              "Pre-releases are less tested. Turn off to go back to the latest release.",
+                              settings.prereleases);
+            // Either flipped: checked again now, so PLAY or the update button changes to match.
+            if (settings.updates != updates_were || settings.prereleases != prereleases_were) {
+                launcher.save();
+                launcher.check_again_if_update_choices_changed();
+            }
+        }
         ImGui::Spacing();
         section_caption(fonts, "TROUBLESHOOTING");
         ImGui::AlignTextToFramePadding();
@@ -458,7 +468,7 @@ void settings_window(Launcher& launcher, const Fonts& fonts, ImVec2 size, Ui& ui
         setting_check("GPU crash diagnostics (DRED)", "Records extra detail when the graphics driver crashes. Slightly slower.",
                       settings.gpu_diagnostics);
         setting_check("Send crash reports",
-                      "When the launcher or Skate crashes, upload a crash dump and that session's log so the ReSkate "
+                      "When the launcher or Skate crashes, upload a crash dump and that session's log so the ReSkate+ "
                       "developers can fix it. The launcher picks a change up when it next starts.",
                       settings.crash_reports);
         setting_check("Send performance timings",

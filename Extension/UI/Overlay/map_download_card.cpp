@@ -10,7 +10,7 @@
 // in the middle of the screen with the controls under it as the game's own menus have them.
 // Once the player has said yes it becomes a small card at the right edge, with the download,
 // the install and the apply, so they can skate on while they wait; it goes when the map is in
-// the game and starts loading. Both in the look of ReSkate's pages in the pause menu (hub_page.cpp).
+// the game and starts loading. Both in the look of ReSkate+'s pages in the pause menu (hub_page.cpp).
 //
 // Answered by a controller (D-pad to pick, A to take the pick, B for no), the keyboard (arrow
 // keys, Enter, Esc), the vote binds, or a click: the overlay has the pointer while
@@ -92,6 +92,7 @@ void set_map_download_icon(const std::string& png) noexcept {
 } // namespace dingosdk::overlay
 
 namespace dingosdk::overlay::detail {
+bool decode_picture(const std::string& png, CardPixels& out, UINT side) { return decode(png, out, side); }
 bool take_card_pixels(CardPixels& out) {
     std::lock_guard lock(image_mutex);
     if (!waiting) return false;

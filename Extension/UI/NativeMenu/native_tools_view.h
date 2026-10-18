@@ -10,7 +10,7 @@ namespace dingosdk::native_tools {
 inline constexpr std::string_view root_asset = "Levels/Game/DingoLevel_Root/DingoLevel_Root";
 inline constexpr std::array<const char*, 5> sections{"World", "Custom Maps", "Parks", "Player", "Visuals"};
 enum Section : unsigned { world_section, custom_section, parks_section, player_section, visuals_section };
-// The ReSkate splash level only hosts the startup screen; it is never a destination.
+// The ReSkate+ splash level only hosts the startup screen; it is never a destination.
 inline constexpr std::string_view splash_asset = "DingoLevel_Splash";
 struct State {
     std::string destination, feedback;
@@ -224,7 +224,7 @@ inline void activate(State& s, const overlay::Model& m, const overlay::Callbacks
         // Not set or regular -> goofy -> regular.
         console(m.grind_exit.stance == 2 ? "grindexit stance regular" : "grindexit stance goofy", m.grind_exit.available);
     } else if (command == "grind-exit-strength") {
-        // 100 -> 75 -> 50 -> 25 -> 100 (the ReSkate menu's slider sets any value from 10 to 100).
+        // 100 -> 75 -> 50 -> 25 -> 100 (the ReSkate+ menu's slider sets any value from 10 to 100).
         const int strength = m.grind_exit.strength;
         const int next = strength > 75 ? 75 : strength > 50 ? 50 : strength > 25 ? 25 : 100;
         console("grindexit strength " + std::to_string(next), m.grind_exit.available);

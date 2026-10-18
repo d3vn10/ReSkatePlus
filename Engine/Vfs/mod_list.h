@@ -27,7 +27,7 @@ inline constexpr char manifest_file[] = "manifest.json";
 // The older name for the same information ("version" instead of
 // "version_number"), still read when a mod has no manifest.json.
 inline constexpr char info_file[] = "reskate-mod.json";
-// ReSkate Studio's stamp in every mod it builds: "ReSkate Studio native Patch v1", then
+// ReSkate+ Studio's stamp in every mod it builds: "ReSkate+ Studio native Patch v1", then
 // key=value lines, of which skate_sha256=<the Skate.exe it was built for> decides whether the
 // mod loads: game data built for another Skate.exe points into that build's archives.
 inline constexpr char studio_marker_file[] = ".reskate-studio-patch";

@@ -59,7 +59,7 @@ bool refuse(const Char* name) noexcept {
         }
         if (first)
             logging::write(logging::Level::info, logging::Channel::runtime,
-                L"Blocked the game's lookup of " + wide + L": ReSkate keeps it off EA's online services");
+                L"Blocked the game's lookup of " + wide + L": ReSkate+ keeps it off EA's online services");
         else if (logging::enabled(logging::Level::debug))
             logging::write(logging::Level::debug, logging::Channel::runtime, L"Blocked the game's lookup of " + wide + L" again");
     } catch (...) {}

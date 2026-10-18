@@ -263,6 +263,8 @@ namespace dingosdk::launcher_gui::detail {
         void save();
         // After settings are closed: the update check again, when an update choice changed.
         void check_again_if_update_choices_changed();
+	    // Whether the last update check found a pre-release newer than the latest release.
+	    bool prerelease_available() const { return prerelease_available_; }
 
         void check();
         // The merge the game would do at startup, run here so its failures can be
@@ -292,6 +294,7 @@ namespace dingosdk::launcher_gui::detail {
         // The update choices the last check was made with: one changed in settings is checked
         // again straight away (save()).
         std::atomic<bool> checked_updates_{ true }, checked_prereleases_{};
+    	std::atomic<bool> prerelease_available_{};
         bool binaries_{ true };
         std::mutex mutex_;
         std::condition_variable answered_;
@@ -512,7 +515,6 @@ namespace dingosdk::launcher_gui::detail {
         std::string activity;                // what the worker is doing, under mutex
         bool finished{};
         std::string finished_name, finished_error, finished_conflict, finished_note;
-        std::string finished_fbmod_url, fbmod_url;
         fs::path finished_source;
 
         std::thread dump_worker;

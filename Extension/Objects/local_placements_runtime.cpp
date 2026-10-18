@@ -301,7 +301,7 @@ void placement_finish_batch(std::uintptr_t manager, const PlacementBatch& incomi
 }
 
 // Native create (705a6a69) and copy (2f51fbd9) requests from the game's own
-// object tools. ReSkate's restores and network spawns call the server create
+// object tools. ReSkate+'s restores and network spawns call the server create
 // directly and never pass through this handler.
 constexpr bool placement_adds_objects(std::uint32_t type) {
     return type == 0x705a6a69 || type == 0x2f51fbd9;
@@ -397,7 +397,7 @@ void update_placement_creates() {
         !read(manager, vtable) || vtable != base + addr::engine::server_player_manager_vtable ||
         !read(manager + 0xc8, begin) || !read(manager + 0xd0, end) ||
         !begin || end < begin || (end - begin) % 8 || end - begin > 64 * 8) return;
-    // ReSkate peers are client replicas. The hosted native server has one human
+    // ReSkate+ peers are client replicas. The hosted native server has one human
     // player; never accidentally dispatch for a bot or an ambiguous connection.
     for (auto entry = begin; entry < end; entry += 8) {
         std::uintptr_t candidate{};
@@ -417,7 +417,7 @@ void update_placement_creates() {
     component = delta < 0 ? player - static_cast<std::uintptr_t>(-delta) : player + delta;
     std::uint64_t native_owner{};
     // The native render/collision activators run only for the native
-    // simulation owner. ReSkate peers have no native ServerPlayer, so every
+    // simulation owner. ReSkate+ peers have no native ServerPlayer, so every
     // local replica must use this instance's player ID (legitimately zero).
     // Steam ownership remains in the network key; it still controls saves,
     // authoritative updates and removal when a peer leaves.

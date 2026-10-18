@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <span>
 #include <memory>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -95,14 +96,22 @@ namespace dingosdk::frostbite::ebx
         std::uint16_t classRef{};
     };
 
-    struct BoxedValueRecord {
-        std::uint32_t offset{};
-        std::uint32_t count{};
-        std::uint32_t hash{};
-        std::uint16_t encodedType{};
-        std::uint16_t classRef{};
-        std::vector<std::byte> rawBytes;
-    };
+	// A 12-byte record of the RFL2 group table: one per array type the document uses, sorted by
+	// hash (first[i + 1] = first[i] + count[i]). Every array record's hash is one of these keys.
+	struct ReflectionGroup {
+	    std::uint32_t hash{};
+	    std::uint32_t count{};
+	    std::uint32_t first{};
+	};
+
+	struct BoxedValueRecord {
+	    std::uint32_t offset{};
+	    std::uint32_t count{};
+	    std::uint32_t hash{};
+	    std::uint16_t encodedType{};
+	    std::uint16_t classRef{};
+	    std::vector<std::byte> rawBytes;
+	};
 
     struct InstanceRecord {
         std::uint16_t fixupType{};
@@ -142,14 +151,17 @@ namespace dingosdk::frostbite::ebx
         std::int64_t relativeOffset{};
     };
 
-    struct Value {
-        using Array = std::vector<Value>;
-        using Storage = std::variant<std::monostate, bool, std::int64_t, std::uint64_t, double,
-            std::string, Guid, Sha1, ResourceReference,
-            PointerReference, TypeReference, BoxedReference,
-            std::shared_ptr<struct Object>, Array>;
-        Storage data;
-    };
+	struct Value {
+	    using Array = std::vector<Value>;
+	    using Storage = std::variant<std::monostate, bool, std::int64_t, std::uint64_t, double,
+	                                 std::string, Guid, Sha1, ResourceReference,
+	                                 PointerReference, TypeReference, BoxedReference,
+	                                 std::shared_ptr<struct Object>, Array>;
+	    Storage data;
+	    // An array's own record hash, kept when the document is written again; a new array has none
+	    // and borrows one (ebx_writer.cpp, array_hash).
+	    std::optional<std::uint32_t> arrayHash;
+	};
 
     struct FieldValue {
         std::size_t descriptor{};
@@ -164,31 +176,35 @@ namespace dingosdk::frostbite::ebx
         [[nodiscard]] const FieldValue* find(std::string_view name) const;
     };
 
-    struct Document {
-        Guid fileGuid;
-        std::string rootType;
-        std::size_t dataStart{};
-        std::size_t dataEnd{};
-        std::uint32_t arraysOffset{};
-        std::uint32_t boxedValuesOffset{};
-        std::uint32_t stringsOffset{};
-        bool serializedLayout{};
-        bool hashedReflectionNames{};
-        std::vector<std::byte> reflectionData;
-        std::vector<Guid> fixupTypeGuids;
-        std::vector<std::uint32_t> fixupTypeSignatures;
-        std::vector<std::uint32_t> boxedReferenceOffsets;
-        std::vector<TypeDescriptor> types;
-        std::vector<FieldDescriptor> fields;
-        std::vector<InstanceRecord> instances;
-        std::vector<ImportReference> imports;
-        std::vector<ArrayRecord> arrays;
-        std::vector<BoxedValueRecord> boxedValues;
-        std::vector<std::uint32_t> pointerOffsets;
-        std::vector<std::uint32_t> resourceRefOffsets;
-        std::vector<std::uint32_t> importOffsets;
-        std::vector<std::uint32_t> typeInfoOffsets;
-        std::vector<std::uint32_t> boxedValueSlots;
+	struct Document {
+	    Guid fileGuid;
+	    std::string rootType;
+	    std::size_t dataStart{};
+	    std::size_t dataEnd{};
+	    std::uint32_t arraysOffset{};
+	    std::uint32_t boxedValuesOffset{};
+	    std::uint32_t stringsOffset{};
+	    bool serializedLayout{};
+	    bool hashedReflectionNames{};
+	    std::vector<std::byte> reflectionData;
+	    std::vector<Guid> fixupTypeGuids;
+	    std::vector<std::uint32_t> fixupTypeSignatures;
+	    std::vector<std::uint32_t> boxedReferenceOffsets;
+	    std::vector<TypeDescriptor> types;
+	    std::vector<FieldDescriptor> fields;
+	    std::vector<InstanceRecord> instances;
+	    std::vector<ImportReference> imports;
+	    std::vector<ArrayRecord> arrays;
+	    std::vector<BoxedValueRecord> boxedValues;
+	    std::vector<std::uint32_t> pointerOffsets;
+	    std::vector<std::uint32_t> resourceRefOffsets;
+	    std::vector<std::uint32_t> importOffsets;
+	    std::vector<std::uint32_t> typeInfoOffsets;
+	    std::vector<std::uint32_t> boxedValueSlots;
+	    // The EBXD bytes the document was read from (offsets as in the fixup tables): what boxed
+	    // values point at (arrays, strings) is carried from here when the document is written.
+	    std::vector<std::byte> payload;
+	    std::vector<ReflectionGroup> reflectionGroups;
 
         [[nodiscard]] const InstanceRecord* root() const noexcept;
     };

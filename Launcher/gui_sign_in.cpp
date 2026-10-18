@@ -169,7 +169,7 @@ void steam_offline_window(const Fonts& fonts, ImVec2 size, Ui& ui) {
     ImGui::TextDisabled("Steam is not running, or no account is signed in. PLAY still works, but Skate starts in "
                         "offline mode: you play as Unknown Player and multiplayer is hidden.");
     ImGui::Spacing();
-    ImGui::TextDisabled("To play as your own account, start Steam, sign in, and open ReSkate again.");
+    ImGui::TextDisabled("To play as your own account, start Steam, sign in, and open ReSkate+ again.");
     ImGui::PopTextWrapPos();
     ImGui::SetCursorPosY(panel.y - S(24) - ImGui::GetFrameHeight());
     ImGui::SetCursorPosX(panel.x - S(28) - S(110));

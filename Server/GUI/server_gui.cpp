@@ -1,5 +1,5 @@
-// ReSkate Dedicated Server GUI
-// Built for DingoSDK ReSkate Dedicated Server — Made with love by wxndr
+// ReSkate+ Dedicated Server GUI
+// Built for DingoSDK ReSkate+ Dedicated Server — Made with love by wxndr
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -16,6 +16,7 @@
 #include "Extension/Multiplayer/Net/protocol.h"
 #include "Extension/Multiplayer/developer_identity.h"
 #include "Extension/UI/Overlay/role_badge.h"
+#include <reskate_version.h>
 
 #include <dwmapi.h>
 #include <uxtheme.h>
@@ -67,7 +68,7 @@ inline std::pair<std::uint32_t, std::string> player_role(std::uint64_t id, bool 
     if (!id) return {nametag_white, ""};
     if (const auto mark = multiplayer::identity_mark(id)) {
         switch (*mark) {
-        case multiplayer::IdentityList::developer: return {nametag_developer, "Dev"};
+        case multiplayer::IdentityList::developer: return {nametag_developer, "Developer"};
         case multiplayer::IdentityList::content_creator: return {nametag_creator, "Content Creator"};
         case multiplayer::IdentityList::centrix: return {nametag_centrix, "Centrix"};
         case multiplayer::IdentityList::staff: return {nametag_staff, "ReSkate Admin"};
@@ -90,7 +91,7 @@ void show_notification(const std::string& message, double duration = 3.5, ImU32 
     }
 }
 
-// --- Section Header with Blue Accent Bar (1-1 with ReSkate in-game menu) ---
+// --- Section Header with Blue Accent Bar (1-1 with ReSkate+ in-game menu) ---
 void section(const char* text) {
     ImGui::Spacing();
     ImGui::PushFont(g_fonts.heading);
@@ -104,7 +105,7 @@ void section(const char* text) {
     ImGui::Dummy(ImVec2(0, S(8)));
 }
 
-// --- Card Container with 4px Blue Left Accent (1-1 with ReSkate in-game menu) ---
+// --- Card Container with 4px Blue Left Accent (1-1 with ReSkate+ in-game menu) ---
 void begin_card(const char* id, const char* title, const char* subtitle = nullptr) {
     ImGui::PushStyleColor(ImGuiCol_ChildBg, tile);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(S(16), S(14)));
@@ -2557,6 +2558,7 @@ struct SettingsForm {
     bool auto_update{true};
     bool activity_log{true};
 
+	int protocol_idx{2}; // 50,51,52
     int port{27015};
     int query_port{27016};
     char steam_token[128]{};
@@ -2596,6 +2598,7 @@ static void sync_form_from_config(SettingsForm& form, const ServerConfig& cfg) {
     form.auto_update = cfg.auto_update;
     form.activity_log = cfg.activity_log;
 
+    form.protocol_idx = static_cast<int>(cfg.protocol_idx);
     form.port = static_cast<int>(cfg.port);
     form.query_port = static_cast<int>(cfg.query_port);
     strncpy_s(form.steam_token, cfg.steam_token.c_str(), sizeof(form.steam_token) - 1);
@@ -2644,6 +2647,7 @@ void draw_settings_tab(ServerStatusSnapshot& stats) {
         cfg.auto_update = s_form.auto_update;
         cfg.activity_log = s_form.activity_log;
 
+        cfg.protocol_idx = static_cast<uint16_t>(std::clamp(s_form.protocol_idx, 0, 3));
         cfg.port = static_cast<uint16_t>(std::clamp(s_form.port, 1024, 65535));
         cfg.query_port = static_cast<uint16_t>(std::clamp(s_form.query_port, 1024, 65535));
         cfg.steam_token = s_form.steam_token;
@@ -2743,7 +2747,7 @@ void draw_settings_tab(ServerStatusSnapshot& stats) {
     end_card();
 
     // Column 1: Chat words
-    begin_card("card_cfg_words", "CHAT WORD FILTER", "The ReSkate team's lists and this server's own");
+    begin_card("card_cfg_words", "CHAT WORD FILTER", "The ReSkate+ team's lists and this server's own");
     ImGui::Checkbox("Use Global Word Filter", &s_form.global_words);
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Off: only this server's own words are filtered and blocked.\nPlayers' games still star the team's filtered words for players with their chat filter on.");
@@ -2775,6 +2779,8 @@ void draw_settings_tab(ServerStatusSnapshot& stats) {
     // Column 2: Network & Ports
     begin_card("card_cfg_network", "NETWORK & PORT BINDINGS", "Steam SDR UDP ports and token");
     ImGui::PushItemWidth(S(360));
+	const char* available_protocols[] = { "50 (2.0.7)", "51 (2.0.8)", "52 (2.1.0)" };
+    ImGui::Combo("Packet Protocol", &s_form.protocol_idx, available_protocols, IM_ARRAYSIZE(available_protocols));
     ImGui::InputInt("Game Port (UDP)", &s_form.port);
     ImGui::InputInt("Query Port (UDP)", &s_form.query_port);
     ImGui::InputText("Steam GSLT Token", s_form.steam_token, sizeof(s_form.steam_token));
@@ -2789,7 +2795,7 @@ void draw_settings_tab(ServerStatusSnapshot& stats) {
     ImGui::PopStyleColor();
     badge("20 TPS (Dedicated Standard)", good, black);
     ImGui::PushStyleColor(ImGuiCol_Text, muted);
-    ImGui::TextWrapped("Fixed at 20 TPS by ReSkate dedicated server protocol specification for network bandwidth and crowd pose stability.");
+    ImGui::TextWrapped("Fixed at 20 TPS by ReSkate+ dedicated server protocol specification for network bandwidth and crowd pose stability.");
     ImGui::PopStyleColor();
 
     ImGui::PopItemWidth();
@@ -2817,7 +2823,7 @@ void draw_settings_tab(ServerStatusSnapshot& stats) {
 
     // Updates & Releases Card
     begin_card("card_cfg_updates", "UPDATES & RELEASES", "Check and install official releases");
-    stat_row("Installed Server Build", "ReSkate v2.0.3 (Protocol " + std::to_string(multiplayer::protocol_version) + ")", good);
+    stat_row("Installed Server Build", "ReSkate+ v" + dingosdk::reskate_version, good);
     const auto update = ServerEngine::instance().update_info();
     stat_row("Release Status", update.message,
              update.status == ServerEngine::UpdateInfo::Status::Available ? warning : (update.status == ServerEngine::UpdateInfo::Status::Error ? danger : good));
@@ -2880,13 +2886,13 @@ void render_frame() {
     // Sidebar Background (Ultra-dark slate)
     draw->AddRectFilled(ImVec2(0, 0), ImVec2(sidebar_width, size.y), IM_COL32(10, 10, 12, 255));
 
-    // Brushed Wordmark "RESKATE" rotated -4.0 deg with shadow
+    // Brushed Wordmark "RESKATE+" rotated -4.0 deg with shadow
     {
         const int start = draw->VtxBuffer.Size;
         const ImVec2 at(S(20), S(16));
-        draw->AddText(g_fonts.title, S(38), ImVec2(at.x + S(2), at.y + S(2)), IM_COL32(0, 0, 0, 160), "RESKATE");
-        draw->AddText(g_fonts.title, S(38), at, white, "RESKATE");
-        const auto extent = g_fonts.title->CalcTextSizeA(S(38), FLT_MAX, 0, "RESKATE");
+        draw->AddText(g_fonts.title, S(38), ImVec2(at.x + S(2), at.y + S(2)), IM_COL32(0, 0, 0, 160), "RESKATE+");
+        draw->AddText(g_fonts.title, S(38), at, white, "RESKATE+");
+        const auto extent = g_fonts.title->CalcTextSizeA(S(38), FLT_MAX, 0, "RESKATE+");
         rotate_since(draw, start, -4.0f, ImVec2(at.x + extent.x * 0.5f, at.y + extent.y * 0.5f));
     }
 
@@ -3218,7 +3224,7 @@ int run_gui(HINSTANCE instance, int cmd_show) {
     RegisterClassExW(&wc);
 
     const HWND window = CreateWindowExW(
-        WS_EX_APPWINDOW, wc.lpszClassName, L"ReSkate Dedicated Server",
+        WS_EX_APPWINDOW, wc.lpszClassName, L"ReSkate+ Dedicated Server",
         WS_POPUP | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU,
         work.left + (work.right - work.left - width) / 2,
         work.top + (work.bottom - work.top - height) / 2,

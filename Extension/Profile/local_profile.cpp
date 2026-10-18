@@ -82,13 +82,13 @@ namespace dingosdk::profile {
             }
             if (section.contains("inventory")) {
                 const auto& inventory = object_field(section, "inventory");
-                require(inventory.size() <= dingosdk::profile_runtime::MAX_CATALOG_SIZE, "Object inventory exceeds limit");
+                require(inventory.size() <= saved_item_limit, "Object inventory exceeds limit");
                 for (const auto& [key, owned] : inventory.items())
                     require(valid_text(key) && owned.is_boolean(), "Invalid object ownership record");
             }
             if (section.contains("catalog")) {
                 const auto& catalog = object_field(section, "catalog");
-                require(catalog.size() <= dingosdk::profile_runtime::MAX_CATALOG_SIZE, "Object metadata catalog exceeds limit");
+                require(catalog.size() <= saved_item_limit, "Object metadata catalog exceeds limit");
                 for (const auto& [key, metadata] : catalog.items()) {
                     require(valid_text(key) && metadata.is_object(), "Invalid object metadata record");
                     for (const auto* field : { "title", "description", "rarity_id" })
@@ -253,7 +253,7 @@ namespace dingosdk::profile {
     std::filesystem::path defaults_path() {
         std::array<wchar_t, 32768> buffer{};
         const auto count = GetModuleFileNameW(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
-        require(count && count < buffer.size(), "Cannot resolve ReSkate defaults path");
+        require(count && count < buffer.size(), "Cannot resolve ReSkate+ defaults path");
         return std::filesystem::path(buffer.data()).parent_path() / L"reskate.defaults.json";
     }
     // Entitlement ids are game data: every one in the installed content cache is
@@ -304,14 +304,6 @@ namespace dingosdk::profile {
         if (!database_->exists() || next != value_) commit(std::move(next));
         note_change();
     
-    }
-    void Store::clear_cosmetic_inventory() {
-        std::lock_guard lock(mutex_);
-
-        auto next = value_;
-        next.customization["inventory"] = Json::object();
-
-        commit(std::move(next));
     }
     Store::~Store() = default;
     std::uint64_t Store::changes() noexcept {

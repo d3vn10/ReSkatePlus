@@ -10,8 +10,8 @@
 #include <format>
 
 // The game's own party buttons (Social menu, player cards, invites) end in a handful of request
-// natives that need a native Blaze game group, which ReSkate never has. While the SDK owns the
-// party, these hooks turn each request into a ReSkate party request (the session's "party"
+// natives that need a native Blaze game group, which ReSkate+ never has. While the SDK owns the
+// party, these hooks turn each request into a ReSkate+ party request (the session's "party"
 // command, which whoever hosts answers) and complete the button's callback themselves.
 // Party queries are answered from the published roster (analysis/party-re/native-core.md).
 namespace dingosdk::multiplayer {
@@ -178,7 +178,7 @@ Address accept_invite_hook(Address out, const Address *invite, const Address *ga
     } catch (...) {}
     return requests().accept_invite(out, invite, game, callback);
 }
-// Party voice options show while the local player is in a ReSkate party.
+// Party voice options show while the local player is in a ReSkate+ party.
 bool voice_unavailable_hook() {
     const bool native = requests().voice_unavailable();
     try {

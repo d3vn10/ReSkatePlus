@@ -4,7 +4,7 @@
 namespace dingosdk::first_person {
 // "First person in the camera cycle". With the game's Camera height control on, its camera
 // height button (R3) writes the profile option UseHighCam as the opposite of the height it reads
-// (true is the high camera). With the option on, ReSkate turns that into high -> low -> first
+// (true is the high camera). With the option on, ReSkate+ turns that into high -> low -> first
 // person -> high by changing the value written: the step into first person keeps the low camera
 // behind it, and the step out of first person always lands on the high camera.
 enum class CycleStep : std::uint8_t { none, enter, leave };

@@ -8,7 +8,7 @@
 #include <map>
 
 // The pause map keeps every point of interest in one registry (the map POI manager, the same
-// one ReSkate's party markers register into: native_party_hooks.cpp update_map_markers). A
+// one ReSkate+'s party markers register into: native_party_hooks.cpp update_map_markers). A
 // waypoint the player places with the map cursor is a POI whose kind (MapObjectData @404) is
 // DingoMapPOIType_Waypoint (3); its world transform is the matrix at @0.
 namespace dingosdk::trainer {

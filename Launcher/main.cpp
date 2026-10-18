@@ -90,7 +90,7 @@ void run_headless(const app::Session& session, std::vector<std::wstring> argumen
 }
 
 // Whether the launcher was put in a game's folder of a Steam library (...\steamapps\common\<game>),
-// which is where Steam keeps skate. and updates it: ReSkate has a folder of its own, with its
+// which is where Steam keeps skate. and updates it: ReSkate+ has a folder of its own, with its
 // own copy of the game. The same under Wine: on Proton, Steam is given the launcher's place in
 // that folder of its own (README, "Linux (Proton)").
 bool in_steam_library() {
@@ -123,11 +123,11 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     // (Before anything is read or written there: the only thing to do is to close.)
     if (in_steam_library()) {
         MessageBoxW(nullptr,
-            L"ReSkate cannot run from Steam's skate. folder.\n\n"
-            L"Move ReSkateLauncher.exe and ReSkate.dll to a new, empty folder of their own (for example C:\\Games\\ReSkate) "
+            L"ReSkate+ cannot run from Steam's skate. folder.\n\n"
+            L"Move ReSkateLauncher.exe and ReSkatePlus.dll to a new, empty folder of their own (for example C:\\Games\\ReSkatePlus) "
             L"and run the launcher from there. It installs its own copy of the game into that folder, so a Steam update "
             L"cannot break it.\n\nThe launcher will now close.",
-            L"ReSkate Launcher", MB_OK | MB_ICONERROR | MB_SETFOREGROUND);
+            L"ReSkate+ Launcher", MB_OK | MB_ICONERROR | MB_SETFOREGROUND);
         return 1;
     }
     auto arguments = original;
@@ -151,7 +151,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
         dingosdk::logging::flush();
         std::wstring dialog = L"Could not start Skate.\n\n" + message;
         if (!logs.empty()) dialog += L"\n\nDetails: " + (logs / L"ReSkate.log").wstring();
-        MessageBoxW(nullptr, dialog.c_str(), L"ReSkate Launcher", MB_OK | MB_ICONERROR | MB_SETFOREGROUND);
+        MessageBoxW(nullptr, dialog.c_str(), L"ReSkate+ Launcher", MB_OK | MB_ICONERROR | MB_SETFOREGROUND);
         result = 1;
     }
     dingosdk::trace::flush(std::chrono::seconds(3));

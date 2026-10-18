@@ -89,7 +89,7 @@ inline constexpr unsigned max_spawned_parks = 16;
 inline constexpr unsigned dedicated_tps = 20;
 struct ServerConfig {
     std::filesystem::path file;
-    std::string name = "ReSkate server";
+    std::string name = "ReSkate+ Server";
     // The map everyone skates, named like the game's `load` command: "San Vansterdam",
     // "Isle of Grom", or a custom map in Mods\ such as "bbcity".
     std::string map = "San Vansterdam";
@@ -145,13 +145,13 @@ struct ServerConfig {
     bool listed = true;        // shown in the in-game server browser
     // A Steam game server login token (steamcommunity.com/dev/managegameservers, app 3354750).
     // With one the server signs in to its own account and keeps the same Steam ID every start,
-    // which is how the ReSkate team's list of official servers knows it. Empty: anonymous.
+    // which is how the ReSkate+ team's list of official servers knows it. Empty: anonymous.
     std::string steam_token;
     bool auto_update = true;   // install new releases when nobody is on
     // The server window (Server/GUI) starts the server as soon as it opens, without waiting
     // for Start to be pressed. The console server always starts at once and does not read it.
     bool autostart{};
-    bool global_bans = true;   // turn away players the ReSkate team has banned (global_bans.h)
+    bool global_bans = true;   // turn away players the ReSkate+ team has banned (global_bans.h)
     bool activity_log = true;  // console lines for throwdowns, objects and loading
     bool announce_throwdowns = true; // tell everyone in chat when a throwdown drop is placed
     // Players form parties (/party, the game's Social menu): 2-8 players each (the game's Party
@@ -164,11 +164,11 @@ struct ServerConfig {
     // Minutes a kicked player (by an admin or by a vote) is kept out, 1 to 1440; 0: until the
     // server restarts. A kick keeps the time it was given: changing this is for later kicks.
     unsigned kick_minutes = 0;
-    // A chat message with a word the ReSkate team does not allow at all (word_lists.h) is never
+    // A chat message with a word the ReSkate+ team does not allow at all (word_lists.h) is never
     // passed on. Its player is warned; after this many warnings, 1 to 10, the next gets them
     // kicked. 0: nobody is warned or kicked, and the message is still not passed on.
     unsigned word_warnings = 3;
-    // The ReSkate team's chat word lists hold here. Off: only this server's own words
+    // The ReSkate+ team's chat word lists hold here. Off: only this server's own words
     // (server_words.h) are filtered and refused.
     bool global_words = true;
     // Players whose game runs fast (a speedhack; Server/speed_check.h): "warn" takes them out of
@@ -185,6 +185,8 @@ struct ServerConfig {
     // Scoring fingerprints accepted besides the game's own (a server that runs on a scoring mod
     // everyone installs). Each player's fingerprint is in the console when they are flagged.
     std::vector<std::uint64_t> score_allow;
+	// The protocol the server uses to talk to the game.
+    std::int16_t protocol_idx = 2;
     std::uint16_t port = 27015, query_port = 27016;
     // Fixed for dedicated servers for now (dedicated_tps): a busy one's traffic, in and out,
     // is its players' poses, and at 20 a second that is a third less than at 30. Whatever

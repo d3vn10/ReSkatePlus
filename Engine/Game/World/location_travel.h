@@ -28,7 +28,7 @@ inline std::string_view travel_level_asset(std::string_view map) {
     if (map == "stadium_1") return "Levels/Game/DingoLevel_SDM/DingoLevel_SDM_Int_001/DingoLevel_SDM_Int_001";
     return {};
 }
-// The map a cached location's level tag names; empty for levels ReSkate cannot travel to.
+// The map a cached location's level tag names; empty for levels ReSkate+ cannot travel to.
 inline std::string_view travel_map(std::string_view level) {
     if (level == "defaultDsub") return "bam";
     if (level == "grom" || level == "mpr") return level;

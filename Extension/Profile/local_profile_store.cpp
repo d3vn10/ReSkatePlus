@@ -41,72 +41,40 @@ namespace dingosdk::profile {
         else for (const auto& [key, field] : encoded.items()) card[key] = field;
         update.commit();
 
-    }
-    void Store::seed_cosmetic_inventory(const std::vector<std::string>& keys) {
-        std::lock_guard lock(mutex_);
-        const auto enabled = value_.bool_options.find(unlock_cosmetics_option);
-        if (enabled == value_.bool_options.end() || !enabled->second) return;
-        Update update(*this);
-        update.json(value_.customization, { "catalog" }, true);
-        const auto& inventory = update.json(value_.customization, { "inventory" }, true);
-        for (const auto& key : keys) {
-            require(valid_text(key), "Invalid installed cosmetic key");
-            const auto found = inventory.find(key);
-            if (found == inventory.end() || !found->is_boolean() || !found->get<bool>())
-                update.json(value_.customization, { "inventory", key }) = true;
-        }
-        update.commit();
-
-    }
-    void Store::seed_object_inventory(const std::vector<std::string>& keys) {
-        std::lock_guard lock(mutex_);
-        const auto enabled = value_.bool_options.find(unlock_objects_option);
-        if (enabled == value_.bool_options.end() || !enabled->second) return;
-        Update update(*this);
-        update.json(value_.extensions, { "object_dropper", "catalog" }, true);
-        const auto& inventory = update.json(value_.extensions, { "object_dropper", "inventory" }, true);
-        for (const auto& key : keys) {
-            require(valid_text(key), "Invalid installed object key");
-            const auto found = inventory.find(key);
-            if (found == inventory.end() || !found->is_boolean() || !found->get<bool>())
-                update.json(value_.extensions, { "object_dropper", "inventory", key }) = true;
-        }
-        update.commit();
-
-    }
-    void Store::reconcile_inventory(const std::vector<std::string>& cosmetics, const std::vector<std::string>& objects) {
-        std::lock_guard lock(mutex_);
-        const auto cosmetic_inventory = value_.customization.value("inventory", dingosdk::Json::object());
-        const auto object_inventory =
-            value_.extensions.value("object_dropper", dingosdk::Json::object()).value("inventory", dingosdk::Json::object());
-        const auto owned = [](const dingosdk::Json& inventory, const std::string& key) {
-            const auto found = inventory.find(key);
-            return found != inventory.end() && found->is_boolean() && found->get<bool>();
-        };
-        Update update(*this);
-        bool changed{};
-        for (const auto& key : cosmetics)
-            if (owned(cosmetic_inventory, key)) {
-                update.json(value_.customization, { "inventory", key }) = false;
-                changed = true;
-            }
-        for (const auto& key : objects)
-            if (owned(object_inventory, key)) {
-                update.json(value_.extensions, { "object_dropper", "inventory", key }) = false;
-                changed = true;
-            }
-        if (changed) update.commit();
-    }
-    std::uint32_t Store::selected_cosmetic_preset() const {
-        std::lock_guard lock(mutex_);
-        return value_.customization.value("selected_preset_index", std::uint32_t{ 0 });
-    }
-    void Store::set_selected_cosmetic_preset(std::uint32_t index) {
-        std::lock_guard lock(mutex_);
-        require(index < 10, "Invalid cosmetic preset index");
-        Update update(*this);
-        update.json(value_.customization, { "selected_preset_index" }) = index;
-        update.commit();
+	}
+	void Store::forget_unlocked_inventory() {
+	    std::lock_guard lock(mutex_);
+	    const auto unlocked = [&](std::string_view option) {
+	        const auto found = value_.bool_options.find(option);
+	        return found != value_.bool_options.end() && found->second;
+	    };
+	    const auto saved = [](const dingosdk::Json& section) {
+	        const auto found = section.find("inventory");
+	        return found != section.end() && found->is_object() && !found->empty();
+	    };
+	    Update update(*this);
+	    bool changed{};
+	    if (unlocked(unlock_cosmetics_option) && saved(value_.customization)) {
+	        update.json(value_.customization, {"inventory"}) = dingosdk::Json::object();
+	        changed = true;
+	    }
+	    const auto objects = value_.extensions.find("object_dropper");
+	    if (unlocked(unlock_objects_option) && objects != value_.extensions.end() && objects->is_object() && saved(*objects)) {
+	        update.json(value_.extensions, {"object_dropper", "inventory"}) = dingosdk::Json::object();
+	        changed = true;
+	    }
+	    if (changed) update.commit();
+	}
+	std::uint32_t Store::selected_cosmetic_preset() const {
+	    std::lock_guard lock(mutex_);
+	    return value_.customization.value("selected_preset_index", std::uint32_t{0});
+	}
+	void Store::set_selected_cosmetic_preset(std::uint32_t index) {
+	    std::lock_guard lock(mutex_);
+	    require(index < 10, "Invalid cosmetic preset index");
+	    Update update(*this);
+	    update.json(value_.customization, {"selected_preset_index"}) = index;
+	    update.commit();
 
     }
     void Store::set_bus_stop_state(unsigned number, unsigned state) {
@@ -290,7 +258,8 @@ namespace dingosdk::profile {
         for (const auto& control : atmosphere_controls) {
             const auto choice = c.atmosphere.find(control.key);
             if (choice == c.atmosphere.end()) {
-                detail.erase(control.key); continue;
+                detail.erase(control.key);
+				continue;
             }
             const auto& v = choice->second;
             if (control.type == AtmosphereType::texture) detail[control.key] = v.texture;

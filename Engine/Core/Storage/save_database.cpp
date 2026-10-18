@@ -31,7 +31,7 @@ public:
         sqlite3_limit(db, SQLITE_LIMIT_SQL_LENGTH, 16384);
         sqlite3_db_config(db, SQLITE_DBCONFIG_DEFENSIVE, 1, nullptr);
         sqlite3_db_config(db, SQLITE_DBCONFIG_TRUSTED_SCHEMA, 0, nullptr);
-        // ReSkate owns its writers. External contention fails promptly without
+        // ReSkate+ owns its writers. External contention fails promptly without
         // pausing a native callback for a long database busy timeout.
         sqlite3_busy_timeout(db, 0);
     }
@@ -108,9 +108,9 @@ int integer(sqlite3* db, const char* query) {
 }
 void verify(sqlite3* db, std::string_view kind) {
     check(integer(db, "PRAGMA application_id") == application_id && integer(db, "PRAGMA user_version") == 1,
-        "Unsupported ReSkate save database; original file retained");
+        "Unsupported ReSkate+ save database; original file retained");
     Statement type(db, "SELECT value FROM metadata WHERE key='kind'");
-    check(type.row() && type.text(0) == kind && !type.row(), "Wrong ReSkate save database kind");
+    check(type.row() && type.text(0) == kind && !type.row(), "Wrong ReSkate+ save database kind");
     Statement integrity(db, "PRAGMA quick_check(1)");
     check(integrity.row() && integrity.text(0) == "ok" && !integrity.row(), "Save database integrity check failed");
 }

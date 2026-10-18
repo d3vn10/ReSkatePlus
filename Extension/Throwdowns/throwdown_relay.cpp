@@ -1166,7 +1166,7 @@ void follow_turn(Relay &r) {
 }
 
 // Settings the party features need (analysis/party-re): the coop party sync (the Coop button's
-// 5 s "waiting for party") knows only server players, which ReSkate parties are not, and ends
+// 5 s "waiting for party") knows only server players, which ReSkate+ parties are not, and ends
 // with nobody; with it off the button starts at once and the relay invites the party. Party
 // beacons are player-spawned entities, whose manager removes itself when they are off. Parties
 // themselves (DelMarUI.EnableParties, IsPartiesEnabled 023023d7) gate every party button of the

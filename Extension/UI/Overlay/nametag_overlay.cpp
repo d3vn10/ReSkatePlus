@@ -10,9 +10,9 @@
 #include <tuple>
 #include <vector>
 
-// ReSkate's nametags. The game side hands over each other player's head position,
+// ReSkate+'s nametags. The game side hands over each other player's head position,
 // name, colour and distance with the camera the client last used; they are placed here
-// on the background draw list, under ReSkate's own menus and chat, taking no input.
+// on the background draw list, under ReSkate+'s own menus and chat, taking no input.
 
 namespace dingosdk::overlay {
 namespace {

@@ -75,7 +75,7 @@ inline BrowserResults browse(const MultiplayerModel& model, const BrowserOptions
         result.lobbies.push_back(&lobby);
     }
     std::sort(result.lobbies.begin(), result.lobbies.end(), [&](const auto* a, const auto* b) {
-        // The ReSkate team's own servers lead the list, however the rest is sorted.
+        // The ReSkate+ team's own servers lead the list, however the rest is sorted.
         if (a->official != b->official) return a->official;
         // Then where friends are.
         if (a->friends.empty() != b->friends.empty()) return !a->friends.empty();

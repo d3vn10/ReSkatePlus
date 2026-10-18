@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-// ReSkate's own nametags (drawn by the overlay, Extension/UI/Overlay/nametag_overlay.cpp)
+// ReSkate+'s own nametags (drawn by the overlay, Extension/UI/Overlay/nametag_overlay.cpp)
 // in place of the game's nametag and compass arrows; the pause map's player icons stay.
 namespace dingosdk::multiplayer {
 // One line in a player's bubble stack: the text (masked when the chat filter is on), the line
@@ -24,7 +24,7 @@ struct NametagPlayer {
     std::uint32_t color{0xffffffffU}; // IM_COL32 layout
     std::string tag;                  // role badge before the name, as in chat ("" for none)
     bool talking{};
-    bool flying_drone{}; // flying ReSkate's FPV drone (Skater/drone_beacon.h)
+    bool flying_drone{}; // flying ReSkate+'s FPV drone (Skater/drone_beacon.h)
     // The player's recent chat lines to show as bubbles above the head, oldest first. Empty
     // draws no bubbles.
     std::vector<NametagBubble> bubbles;

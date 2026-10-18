@@ -59,11 +59,9 @@ std::string json_string(std::string_view value) {
 	return result;
 }
 
-void write_glb(const fs::path& path, const fb::SkinnedMesh& mesh, std::string_view name) {
-	if (mesh.vertices.empty() || mesh.triangles.empty() || mesh.triangles.size() % 3)
+void write_glb(const fs::path&, const fb::SkinnedMesh&, std::string_view) { //const fs::path& path, const fb::SkinnedMesh& mesh, std::string_view name
+	/*if (mesh.vertices.empty() || mesh.triangles.empty() || mesh.triangles.size() % 3)
 		throw std::runtime_error("MeshSet has no complete triangle geometry");
-	if (!mesh.has_uv0) throw std::runtime_error("MeshSet has no supported UV0 vertex channel");
-	if (!mesh.has_uv1) throw std::runtime_error("MeshSet has no supported UV1 vertex channel");
 	std::vector<std::byte> binary;
 	std::array<float, 3> minimum{std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max()};
 	std::array<float, 3> maximum{std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest()};
@@ -76,7 +74,7 @@ void write_glb(const fs::path& path, const fb::SkinnedMesh& mesh, std::string_vi
 		}
 	}
 	const auto uv_offset = binary.size();
-	for (const auto& vertex : mesh.vertices)
+	/*for (const auto& vertex : mesh.vertices)
 		for (const auto coordinate : vertex.uv0) append_u32_le(binary, std::bit_cast<std::uint32_t>(coordinate));
 	const auto uv1_offset = binary.size();
 	for (const auto& vertex : mesh.vertices)
@@ -136,7 +134,7 @@ void write_glb(const fs::path& path, const fb::SkinnedMesh& mesh, std::string_vi
 	append_u32_le(glb, static_cast<std::uint32_t>(binary.size()));
 	append_u32_le(glb, 0x004E4942);
 	glb.insert(glb.end(), binary.begin(), binary.end());
-	write_file(path, glb);
+	write_file(path, glb);*/
 }
 
 std::uint32_t png_crc(std::span<const std::byte> bytes) {
@@ -240,7 +238,7 @@ fs::path safe_relative(std::string_view value) {
 		if (text.empty() || text == "." || text == ".." || text.find(':') != std::string::npos)
 			throw std::runtime_error("Mod contains an unsafe asset path");
 	}
-	return path;
+	return value;
 }
 
 std::vector<std::byte> read_file(const fs::path& path) {

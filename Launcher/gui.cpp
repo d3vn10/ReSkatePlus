@@ -500,7 +500,7 @@ namespace dingosdk::launcher_gui {
             ImGui::DestroyContext();
             DestroyWindow(window);
             throw std::runtime_error("This PC's graphics driver cannot draw the launcher's window. Update your "
-                "graphics driver and try again. If that does not help, the graphics card is below what ReSkate and "
+                "graphics driver and try again. If that does not help, the graphics card is below what ReSkate+ and "
                 "skate. need. The log names the card it tried to use.");
         }
         g_renderer = &renderer;

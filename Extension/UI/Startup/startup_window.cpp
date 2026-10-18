@@ -242,7 +242,7 @@ struct Window {
         make_shadow();
     }
 
-    // The picture, or ReSkate's own card when there is none.
+    // The picture, or ReSkate+'s own card when there is none.
     void make_background() {
         if (background) DeleteObject(background);
         void* bits{};
@@ -507,7 +507,7 @@ void run() {
     // Never focused, so the game's window takes the focus when it comes; on the
     // taskbar, so it reads as the game starting rather than a stray popup.
     self.window = CreateWindowExW(WS_EX_TOPMOST | WS_EX_APPWINDOW | WS_EX_NOACTIVATE | WS_EX_LAYERED,
-                                  class_name, L"ReSkate", WS_POPUP, monitor.rcWork.left, monitor.rcWork.top, 1, 1,
+                                  class_name, L"ReSkatePlus", WS_POPUP, monitor.rcWork.left, monitor.rcWork.top, 1, 1,
                                   nullptr, nullptr, instance, &self);
     if (!self.window) {
         if (SUCCEEDED(com)) CoUninitialize();

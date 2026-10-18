@@ -227,7 +227,7 @@ bool set_object_ghost(std::uint32_t number, bool ghost) noexcept {
     }
     if (!record) return false;
     // As the game's own native sets them: a forced ghost, or none (and solid forced only on a
-    // record that was not a forced ghost, which ReSkate never asks for).
+    // record that was not a forced ghost, which ReSkate+ never asks for).
     auto *const bytes = reinterpret_cast<std::uint8_t *>(record);
     if ((bytes[0x3b] != 0) != ghost) {
         bytes[0x3c] = 0;
