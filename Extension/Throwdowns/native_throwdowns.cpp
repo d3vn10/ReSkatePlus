@@ -631,7 +631,7 @@ void initialize_native_throwdowns(Address base) noexcept {
             ++prepared;
         }
         for (const auto& hook : hooks) if (hook_enable(reinterpret_cast<void*>(base + hook.rva)) != HookOk)
-            throw std::runtime_error("Cannot enable throwdown adapters; restart ReSkate+");
+            throw std::runtime_error("Cannot enable throwdown adapters; restart ReSkate");
         {
             // A table row, not a function: the stub it points at is shared, so
             // rebind this one native instead of hooking the stub.

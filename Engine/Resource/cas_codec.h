@@ -31,6 +31,9 @@ namespace dingosdk::frostbite
         std::size_t blockSize{ 0x10000 };
     };
 
-    [[nodiscard]] std::vector<std::byte> decode_cas(std::span<const std::byte> encoded, const CasDecodeOptions& options = {});
-    [[nodiscard]] std::vector<std::byte> encode_cas(std::span<const std::byte> decoded, const CasEncodeOptions& options = {});
+[[nodiscard]] std::vector<std::byte> decode_cas(std::span<const std::byte> encoded,
+                                                const CasDecodeOptions& options = {});
+[[nodiscard]] std::vector<std::byte> encode_cas(std::span<const std::byte> decoded,
+                                                const CasEncodeOptions& options = {});
+
 } // namespace dingosdk::frostbite

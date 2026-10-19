@@ -9,7 +9,7 @@ The launcher, the runtime that loads into the game, the dedicated server, or eve
 
 ## Features
 
-- **Offline play.** No EA servers needed. Your skater, outfits, unlocks and progress are saved on your PC,
+- **Offline Play.** No EA servers needed. Your skater, outfits, unlocks and progress are saved on your PC,
   and the game runs even with Steam closed.
 - **Multiplayer.**
   - Host a Steam lobby for up to 32 players: public, or joined with a code, with an optional password.
@@ -17,44 +17,49 @@ The launcher, the runtime that loads into the game, the dedicated server, or eve
   - Proximity voice chat, and text chat with emotes and an optional bad-word filter.
   - Parties in lobbies and on dedicated servers: invite, join, leave, promote.
   - Throwdowns with other players (Jam, Spot Battle and S.K.A.T.E.), and co-op challenges.
-- **In-game menu and console.**
+- **In-Game Menu and Console.**
   - Map and fast travel.
   - World: time of day, population, district levels, rotating parks.
-  - The **Park Editor**: place, move and save objects with freecam, snapping and undo.
+  - **Park Editor**: place, move and save objects with freecam, snapping and undo. Save a selection as a
+    set and place it again anywhere, on any map.
   - Skater options: first person, movement, boosts, noclip.
   - **Hall of Meat** (off by default): bail and see the bones you hurt, with a skate. 3 style Meat card.
-  - **Grind exit triggers** (off by default): press LT or RT while grinding to pick the side you pop
+  - **Grind Exit Triggers** (off by default): press LT or RT while grinding to pick the side you pop
     out to (toe / heel, or left / right), whatever trick and spin you do
     ([how it works](Extension/Skater/GRIND_EXITS.md)).
   - Progression, controls, graphics and multiplayer settings.
-- **Mods.**
+- **Mods**
   - Drop a mod in `Mods/` and it is merged into the game at launch. Mods can add custom maps, loading
     screens, cosmetics and scripts.
   - Browse and install mods from the [Thunderstore community](https://thunderstore.io/c/reskate/) in the
     launcher. A mod that needs others (a mod pack) brings them with it.
   - Save sets of mods as profiles, switch between them, and share one as a code or a file.
   - Most mod changes apply in game without a restart.
-- **Launcher.**
+- **Launcher**
   - Checks that you have the supported game build, and can download exactly that build with your Steam
     account.
   - Keeps ReSkate+ itself up to date.
 
 ### Features+
 
-Compatible with servers running: **2.0.9**\
+Compatible with servers running: **2.1.0**\
 Older/newer versions _should_ work unless the packet structure or SteamAPI handshake validation has changed.
 
-- **No reserved cosmetics.**
-  - Full access to **all** content available inside the base game.
-  - This includes limited time reedemable items, skate.Pass, store offers/bundles and all cosmetics/items that cost SVB.
-- **Outfit shuffler**
+- **All Cosmetics & DIY Objects**
+  - Full access to *all* content available inside the games files.
+  - Includes all *limited time* reedemable items, *skate.Pass*, and *store offers/bundles* that cost SVB.
+- **Outfit Shuffler**
   - Show other players outfits and boards as random items (local only).
   - Turn it on and everyone in lobby is wearing something new.
-- **Deprecated/NSFW mods** Launcher toggles to enable showing every mod on the Thunderstore, wether they have been
+- **Deprecated/NSFW Mods**
+  - Launcher toggles to enable showing every mod on the Thunderstore, wether they have been
   abandoned or marked as being not safe for work.
-- **Special/Developer menu access.** View and utilize the special and developer menus that are normally locked to
-  "reserved" players.
-  - Tag customization is local only, each client checks independantly of others for their tag status.
+- **Special/Developer Menus** 
+  - Developer only *Network Activity* panel has been integrated into *Settings > Performance* tab.
+  - Tag customization is local only, each client checks independantly for a peers tag status.
+- **Multiple Protocols**
+  - Supports multiple protocols for online play allowing connections with older clients and servers.
+  - Only one protocol can be used at a time, server list can take a bit to refresh when changed.
 
 ## Getting Started
 
@@ -98,6 +103,11 @@ beside `Skate.exe`, as it was set up before, ReSkate 1.1.3 was tested with Proto
 CachyOS: the launcher, the server browser, joining a public server and hosting a lobby. Steam Deck should work the same way but is untested. If you load a
 custom map and then join a server on another map, the screen can stay black
 ([#31](https://github.com/Dingo-Shenanigans/ReSkate/issues/31)): load the server's map first.
+
+### macOS (NotProton / CrossOver)
+
+Steam for Mac with a Wine-based compatibility tool works much the same way; see
+[MACOS-SETUP.md](MACOS-SETUP.md) for its launch option.
 
 ### Multiplayer Map Downloads
 
@@ -270,7 +280,7 @@ Useful launcher flags:
 
 | Option | Default | Effect |
 |---|---|---|
-| `DINGOSDK_VERSION` | `0.0.0` | version stamped into the binaries |
+| `DINGOSDK_VERSION` | `0.0.0.0` | version stamped into the binaries |
 | `DINGOSDK_LAUNCHER_AUTO_UPDATE` | `OFF` | let the launcher replace itself and `ReSkate.dll`, and the server replace itself (release builds) |
 | `DINGOSDK_RELEASE_REPO` | `Dingo-Shenanigans/ReSkate` | public GitHub repository whose latest release carries `launcher.json` and the files it pins |
 | `DINGOSDK_CRASH_REPORT_URL` | the project's endpoint | Sentry minidump endpoint URL; empty turns crash uploads off |

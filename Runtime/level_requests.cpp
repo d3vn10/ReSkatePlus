@@ -58,7 +58,7 @@ dingosdk::multiplayer::MapLoadResult load_multiplayer_map(std::string_view desti
         return Result::failed;
     }
     if (r.observer_failed) {
-        detail = "The native map loader is unavailable. Restart ReSkate+ before joining.";
+        detail = "The native map loader is unavailable. Restart ReSkate before joining.";
         return Result::failed;
     }
     const auto split = destination.find('|');

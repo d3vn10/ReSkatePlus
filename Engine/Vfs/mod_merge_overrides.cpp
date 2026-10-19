@@ -97,7 +97,7 @@ namespace dingosdk::mods::detail {
         };
 
         ModRead read_mod(const Mod& mod, const RelativeFiles& files, const CasStore& store, const fs::path& baseRoot,
-                         const fs::path& gameRoot, Shared<GameToc>& gameTocs, Shared<GameBundle>& gameBundles) {
+            const fs::path& gameRoot, Shared<GameToc>& gameTocs, Shared<GameBundle>& gameBundles) {
             ModRead read;
             auto& [candidates, companions, unreadable, addedIn, newChunks, imported, changes, scripts, notes, failure] = read;
             const auto decoded = [&](std::span<const std::byte> encoded) {
@@ -147,27 +147,33 @@ namespace dingosdk::mods::detail {
                             const auto at = modListing->first + index;
                             if (at >= modListing->files.size()) continue;
                             const auto& file = modListing->files[at];
+                            // As the merge places it in the mod's own bundle: repaired when it would
+                            // crash the game's load (repair_ebx_payload).
+                            auto repairedAsset = asset;
                             const auto payload = [&] {
-                                return store.read(file.location.patch ? mod.directory : baseRoot,
-                                                  file.location, file.offset, file.size);
+                                auto encoded = store.read(file.location.patch ? mod.directory : baseRoot,
+                                    file.location, file.offset, file.size);
+                                if (file.location.patch) repair_ebx_payload(encoded, repairedAsset, gameRoot);
+                                return encoded;
                             };
                             if (game_copy == original.end()) {
-                                candidates.push_back({ bundleName, {mod.name, asset, payload(), tocKey} });
+                                auto encodedPayload = payload();
+                                candidates.push_back({ bundleName, {mod.name, repairedAsset, std::move(encodedPayload), tocKey} });
                                 continue;
                             }
                             auto encodedPayload = payload();
                             try {
                                 for (const auto& reference : decoded(encodedPayload).imports)
                                     imported.insert(reference.fileGuid);
-                            } 
-							catch (const std::exception&) {
+                            }
+                            catch (const std::exception&) {
                             }
                             std::optional<fb::BundleFileInfo> gameFile;
                             if (const auto gameAt = gameListing->first + game_copy->second.second;
                                 gameAt < gameListing->files.size())
                                 gameFile = gameListing->files[gameAt];
-                            changes.push_back({ bundleName, name, asset.name, game_copy->second.first, asset.sha1,
-                                               asset.originalSize, std::move(encodedPayload), gameFile });
+                            changes.push_back({ bundleName, name, asset.name, game_copy->second.first, repairedAsset.sha1,
+                                               repairedAsset.originalSize, std::move(encodedPayload), gameFile });
                         }
                         for (std::size_t index = 0; index < modListing->manifest.resources.size(); ++index) {
                             const auto& asset = modListing->manifest.resources[index];
@@ -188,7 +194,8 @@ namespace dingosdk::mods::detail {
                                     AssetOverride{mod.name, asset.sha1, asset.originalSize,
                                         store.read(file.location.patch ? mod.directory : baseRoot,
                                                    file.location, file.offset, file.size), asset} });
-                            } catch (const std::exception& failed) {
+                            }
+                            catch (const std::exception& failed) {
                                 // Read whether or not it will be wanted, so a failure is only this
                                 // script's: where a higher mod's version stands, it is nobody's and
                                 // the note goes (settled below). The rest of the TOC is read on.
@@ -208,7 +215,8 @@ namespace dingosdk::mods::detail {
                                 store.read(file.location.patch ? mod.directory : baseRoot, file.location, file.offset, file.size), tocKey} });
                         }
                     }
-                } catch (const std::exception& failed) {
+                }
+                catch (const std::exception& failed) {
                     notes.push_back(mod.name + ": " + relative +
                         ": its changes could not be read for other mods' copies (" + failed.what() + ")");
                 }
@@ -222,7 +230,8 @@ namespace dingosdk::mods::detail {
                     addition.file = document.fileGuid;
                     for (const auto& reference : document.imports) addition.names.push_back(reference.fileGuid);
                     addedIn[candidates[index].first].insert(addition.file);
-                } catch (const std::exception&) {
+                }
+                catch (const std::exception&) {
                     unreadable[index] = true;
                 }
             }
@@ -232,10 +241,10 @@ namespace dingosdk::mods::detail {
     } // namespace
 
     AssetOverrides collect_asset_overrides(const std::vector<const Mod*>& mods,
-                                           const std::map<const Mod*, RelativeFiles>& modFiles,
-                                           const CasStore& store, const fs::path& baseRoot,
-                                           const fs::path& gameRoot, MergeReport& report,
-                                           std::size_t threads, bool background) {
+        const std::map<const Mod*, RelativeFiles>& modFiles,
+        const CasStore& store, const fs::path& baseRoot,
+        const fs::path& gameRoot, MergeReport& report,
+        std::size_t threads, bool background) {
         AssetOverrides out;
         // Where in `out.added` each bundle's addition of a kind and (lower-case) name is: looked up
         // for every addition and companion, which a search of the list made quadratic.
@@ -260,7 +269,8 @@ namespace dingosdk::mods::detail {
                     if (mine >= asked.size()) return;
                     try {
                         reads[mine] = read_mod(*asked[mine].first, *asked[mine].second, store, baseRoot, gameRoot, gameTocs, gameBundles);
-                    } catch (...) {
+                    }
+                    catch (...) {
                         reads[mine].failure = std::current_exception();
                     }
                 }
@@ -273,10 +283,10 @@ namespace dingosdk::mods::detail {
                     if (background) SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
                     work();
                 });
-            } 
-			catch (const std::system_error&) {
-            	// fewer threads, or none: this one does the rest
-			}
+            }
+            catch (const std::system_error&) {
+                // fewer threads, or none: this one does the rest
+            }
             work();
         }
 
@@ -298,171 +308,171 @@ namespace dingosdk::mods::detail {
                         for (const auto& reference : decoded(existing->second.encoded).imports)
                             imported.insert(reference.fileGuid);
                     }
-					catch (const std::exception&) {
+            catch (const std::exception&) {
+            }
+            for (auto& script : scripts) {
+                auto& versions = out.scripts[script.name];
+                if (versions.contains(script.game)) {
+                    if (!script.value) notes[script.note].clear();   // not wanted: as if never read
+                    continue;
+                }
+                if (!script.value) continue;   // wanted, and noted
+                versions.emplace(script.game, std::move(*script.value));
+                ++changed;
+            }
+            for (auto& note : notes)
+                if (!note.empty()) report.notes.push_back(std::move(note));
+            // One addition per kind and name in a bundle, the highest-priority mod's. Two
+            // mods adding the same asset is no clash; two different assets under one name
+            // is, and only one of them can be what a copy gets: say whose, so a song or an
+            // item that goes missing on a map can be traced to the mod that took its name.
+            std::map<std::string, std::pair<std::size_t, std::string>, std::less<>> shadowed;   // by the mod kept
+            // This mod's added EBX that another mod's different document stands in for: what
+            // names one by its guid finds nothing in a copy that was given the other's.
+            std::set<fb::Guid> lost;
+            const auto keep = [&](const std::string& bundle, AssetAddition addition) {
+                auto& list = out.added[bundle];
+                auto& index = addedAt[bundle];
+                const auto [place, fresh] = index.try_emplace({ addition.asset.kind, lower(addition.asset.name) }, list.size());
+                if (!fresh) {
+                    const auto holder = list.begin() + static_cast<std::ptrdiff_t>(place->second);
+                    if (holder->mod != addition.mod && holder->asset.sha1 != addition.asset.sha1) {
+                        auto& [count, example] = shadowed[holder->mod];
+                        if (!count++) example = addition.asset.name;
+                        if (addition.asset.kind == fb::AssetKind::ebx && holder->file != addition.file)
+                            lost.insert(addition.file);
                     }
-                    for (auto& script : scripts) {
-                        auto& versions = out.scripts[script.name];
-                        if (versions.contains(script.game)) {
-                            if (!script.value) notes[script.note].clear();   // not wanted: as if never read
+                    return false;
+                }
+                list.push_back(std::move(addition));
+                return true;
+            };
+            // Transitively: an addition a following addition imports follows too (a new song
+            // imports its new wave, and only the song is named by the changed playlist).
+            std::vector<bool> followed = unreadable;   // (an unreadable one never follows)
+            for (bool grew = true; grew;) {
+                grew = false;
+                for (std::size_t index = 0; index < candidates.size(); ++index) {
+                    auto& [bundle, addition] = candidates[index];
+                    if (followed[index] || !imported.contains(addition.file)) continue;
+                    followed[index] = grew = true;
+                    imported.insert(addition.names.begin(), addition.names.end());
+                    keep(bundle, std::move(addition));
+                }
+            }
+            for (auto& [bundle, companion] : companions) {
+                // Looked up, not made: a bundle with nothing carried must stay out of `added`.
+                const auto found = out.added.find(bundle);
+                if (found == out.added.end()) continue;
+                // One addition per kind and name in a bundle (keep): this mod's, or not.
+                const auto& index = addedAt[bundle];
+                const auto held = index.find({ fb::AssetKind::ebx, lower(companion.asset.name) });
+                if (held != index.end() && found->second[held->second].mod == mod->name) keep(bundle, std::move(companion));
+            }
+            for (auto& change : changes) {
+                // What the change names of the assets the mod added beside it. The mod
+                // put them in one bundle with what names them, so they stay together.
+                std::set<fb::Guid> names;
+                const auto beside = addedIn.find(change.bundle);
+                try {
+                    auto document = decoded(change.encoded);
+                    const auto stays = [&](const fb::ebx::ImportReference& reference) {
+                        return !lost.contains(reference.fileGuid); };
+                    if (!std::ranges::all_of(document.imports, stays))
+                        if (const auto gone = fb::ebx::drop_root_references(document, stays)) {
+                            const auto rebuilt = fb::ebx::write_document(document);
+                            change.sha1 = sha1_of(rebuilt);
+                            change.originalSize = rebuilt.size();
+                            change.encoded = fb::encode_cas(rebuilt, { gameRoot });
+                            report.notes.push_back(mod->name + ": " + change.asset + ": " + std::to_string(gone) +
+                                " entry(ies) left out of the copies other mods carry, where another mod's asset of "
+                                "the same name stands in for what they name");
+                        }
+                    if (beside != addedIn.end())
+                        for (const auto& reference : document.imports)
+                            if (beside->second.contains(reference.fileGuid) && stays(reference))
+                                names.insert(reference.fileGuid);
+                }
+                catch (const std::exception&) {
+                }
+                auto& versions = out.changed[change.name];
+                const auto existing = versions.find(change.game);
+                if (existing == versions.end()) {
+                    versions.emplace(change.game, AssetOverride{ mod->name, change.sha1, change.originalSize,
+                                                                std::move(change.encoded), std::nullopt, std::move(names) });
+                    ++changed;
+                    continue;
+                }
+                // The same change again, from another of the mod's bundles or another mod.
+                if (existing->second.sha1 == change.sha1) {
+                    existing->second.names.insert(names.begin(), names.end());
+                    continue;
+                }
+                if (!change.gameFile) continue;
+                try {
+                    const auto baseDoc = decoded(store.read(baseRoot, change.gameFile->location,
+                        change.gameFile->offset, change.gameFile->size));
+                    const auto existingDoc = decoded(existing->second.encoded);
+                    const auto thisDoc = decoded(change.encoded);
+                    // Lowest priority first, the order a bundle's own copies are combined
+                    // in: where two mods changed one value, the higher mod's is kept.
+                    const std::array<const fb::ebx::Document*, 2> editDocs{ &thisDoc, &existingDoc };
+                    fb::ebx::MergeSummary summary;
+                    auto combined = fb::ebx::merge_documents(baseDoc, editDocs, &summary);
+                    // Changed values alone are only worth a copy that has all of them.
+                    if (!summary.instances && !summary.arrayEntries && !(summary.values && summary.exact())) continue;
+                    const auto rebuilt = fb::ebx::write_document(combined);
+                    existing->second.sha1 = sha1_of(rebuilt);
+                    existing->second.originalSize = rebuilt.size();
+                    existing->second.encoded = fb::encode_cas(rebuilt, { gameRoot });
+                    if (existing->second.mod != mod->name && !existing->second.mod.ends_with(" + " + mod->name))
+                        existing->second.mod += " + " + mod->name;
+                    existing->second.names.insert(names.begin(), names.end());
+                }
+                catch (const std::exception&) {
+                }
+            }
+            for (const auto& [other, clash] : shadowed)
+                report.notes.push_back(mod->name + ": " + std::to_string(clash.first) +
+                    " added asset(s) share a name with ones " + other + " adds, e.g. " + clash.second +
+                    "; other mods' copies of the bundle get " + other + "'s");
+            // The new TOC chunks this mod's carried EBX name (as raw GUID bytes, the way an
+            // EBX stores a ChunkId), so they can follow those assets into other superbundles.
+            if (!newChunks.empty()) {
+                std::vector<std::vector<std::byte>> carried;
+                for (const auto& [bundle, list] : out.added)
+                    for (const auto& addition : list)
+                        if (addition.mod == mod->name && addition.asset.kind == fb::AssetKind::ebx) try {
+                            carried.push_back(fb::decode_cas(addition.encoded, { gameRoot }));
+                        }
+                catch (const std::exception&) {
+                }
+                // Each carried asset is gone through once, for all the chunks together: looking for
+                // every chunk in every asset in turn took most of a merge with many of either.
+                std::set<fb::Guid> wanted, named, taken;
+                std::vector<bool> starts(0x10000); // the two bytes a wanted chunk's id starts with
+                for (const auto& chunk : newChunks) {
+                    wanted.insert(chunk.guid);
+                    starts[std::to_integer<std::size_t>(chunk.guid.bytes[0]) << 8 |
+                        std::to_integer<std::size_t>(chunk.guid.bytes[1])] = true;
+                }
+                for (const auto& bytes : carried)
+                    for (std::size_t at = 0; at + sizeof(fb::Guid) <= bytes.size(); ++at) {
+                        if (!starts[std::to_integer<std::size_t>(bytes[at]) << 8 | std::to_integer<std::size_t>(bytes[at + 1])])
                             continue;
-                        }
-                        if (!script.value) continue;   // wanted, and noted
-                        versions.emplace(script.game, std::move(*script.value));
-                        ++changed;
+                        fb::Guid id;
+                        std::memcpy(id.bytes.data(), bytes.data() + at, id.bytes.size());
+                        if (wanted.contains(id)) named.insert(id);
                     }
-                    for (auto& note : notes)
-                        if (!note.empty()) report.notes.push_back(std::move(note));
-                    // One addition per kind and name in a bundle, the highest-priority mod's. Two
-                    // mods adding the same asset is no clash; two different assets under one name
-                    // is, and only one of them can be what a copy gets: say whose, so a song or an
-                    // item that goes missing on a map can be traced to the mod that took its name.
-                    std::map<std::string, std::pair<std::size_t, std::string>, std::less<>> shadowed;   // by the mod kept
-                    // This mod's added EBX that another mod's different document stands in for: what
-                    // names one by its guid finds nothing in a copy that was given the other's.
-                    std::set<fb::Guid> lost;
-                    const auto keep = [&](const std::string& bundle, AssetAddition addition) {
-                        auto& list = out.added[bundle];
-                        auto& index = addedAt[bundle];
-                        const auto [place, fresh] = index.try_emplace({ addition.asset.kind, lower(addition.asset.name) }, list.size());
-                        if (!fresh) {
-                            const auto holder = list.begin() + static_cast<std::ptrdiff_t>(place->second);
-                            if (holder->mod != addition.mod && holder->asset.sha1 != addition.asset.sha1) {
-                                auto& [count, example] = shadowed[holder->mod];
-                                if (!count++) example = addition.asset.name;
-                                if (addition.asset.kind == fb::AssetKind::ebx && holder->file != addition.file)
-                                    lost.insert(addition.file);
-                            }
-                            return false;
-                        }
-                        list.push_back(std::move(addition));
-                        return true;
-                    };
-                    // Transitively: an addition a following addition imports follows too (a new song
-                    // imports its new wave, and only the song is named by the changed playlist).
-                    std::vector<bool> followed = unreadable;   // (an unreadable one never follows)
-                    for (bool grew = true; grew;) {
-                        grew = false;
-                        for (std::size_t index = 0; index < candidates.size(); ++index) {
-                            auto& [bundle, addition] = candidates[index];
-                            if (followed[index] || !imported.contains(addition.file)) continue;
-                            followed[index] = grew = true;
-                            imported.insert(addition.names.begin(), addition.names.end());
-                            keep(bundle, std::move(addition));
-                        }
-                    }
-                    for (auto& [bundle, companion] : companions) {
-                        // Looked up, not made: a bundle with nothing carried must stay out of `added`.
-                        const auto found = out.added.find(bundle);
-                        if (found == out.added.end()) continue;
-                        // One addition per kind and name in a bundle (keep): this mod's, or not.
-                        const auto& index = addedAt[bundle];
-                        const auto held = index.find({ fb::AssetKind::ebx, lower(companion.asset.name) });
-                        if (held != index.end() && found->second[held->second].mod == mod->name) keep(bundle, std::move(companion));
-                    }
-                    for (auto& change : changes) {
-                        // What the change names of the assets the mod added beside it. The mod
-                        // put them in one bundle with what names them, so they stay together.
-                        std::set<fb::Guid> names;
-                        const auto beside = addedIn.find(change.bundle);
-                        try {
-                            auto document = decoded(change.encoded);
-                            const auto stays = [&](const fb::ebx::ImportReference& reference) {
-                                return !lost.contains(reference.fileGuid); };
-                            if (!std::ranges::all_of(document.imports, stays))
-                                if (const auto gone = fb::ebx::drop_root_references(document, stays)) {
-                                    const auto rebuilt = fb::ebx::write_document(document);
-                                    change.sha1 = sha1_of(rebuilt);
-                                    change.originalSize = rebuilt.size();
-                                    change.encoded = fb::encode_cas(rebuilt, { gameRoot });
-                                    report.notes.push_back(mod->name + ": " + change.asset + ": " + std::to_string(gone) +
-                                        " entry(ies) left out of the copies other mods carry, where another mod's asset of "
-                                        "the same name stands in for what they name");
-                                }
-                            if (beside != addedIn.end())
-                                for (const auto& reference : document.imports)
-                                    if (beside->second.contains(reference.fileGuid) && stays(reference))
-                                        names.insert(reference.fileGuid);
-                        }
-						catch (const std::exception&) {
-                        }
-                        auto& versions = out.changed[change.name];
-                        const auto existing = versions.find(change.game);
-                        if (existing == versions.end()) {
-                            versions.emplace(change.game, AssetOverride{ mod->name, change.sha1, change.originalSize,
-                                                                        std::move(change.encoded), std::nullopt, std::move(names) });
-                            ++changed;
-                            continue;
-                        }
-                        // The same change again, from another of the mod's bundles or another mod.
-                        if (existing->second.sha1 == change.sha1) {
-                            existing->second.names.insert(names.begin(), names.end());
-                            continue;
-                        }
-                        if (!change.gameFile) continue;
-                        try {
-                            const auto baseDoc = decoded(store.read(baseRoot, change.gameFile->location,
-                                                         change.gameFile->offset, change.gameFile->size));
-                            const auto existingDoc = decoded(existing->second.encoded);
-                            const auto thisDoc = decoded(change.encoded);
-                            // Lowest priority first, the order a bundle's own copies are combined
-                            // in: where two mods changed one value, the higher mod's is kept.
-                            const std::array<const fb::ebx::Document*, 2> editDocs{ &thisDoc, &existingDoc };
-                            fb::ebx::MergeSummary summary;
-                            auto combined = fb::ebx::merge_documents(baseDoc, editDocs, &summary);
-                            // Changed values alone are only worth a copy that has all of them.
-                            if (!summary.instances && !summary.arrayEntries && !(summary.values && summary.exact())) continue;
-                            const auto rebuilt = fb::ebx::write_document(combined);
-                            existing->second.sha1 = sha1_of(rebuilt);
-                            existing->second.originalSize = rebuilt.size();
-                            existing->second.encoded = fb::encode_cas(rebuilt, { gameRoot });
-                            if (existing->second.mod != mod->name && !existing->second.mod.ends_with(" + " + mod->name))
-                                existing->second.mod += " + " + mod->name;
-                            existing->second.names.insert(names.begin(), names.end());
-                        }
-						catch (const std::exception&) {
-                        }
-                    }
-                    for (const auto& [other, clash] : shadowed)
-                        report.notes.push_back(mod->name + ": " + std::to_string(clash.first) +
-                            " added asset(s) share a name with ones " + other + " adds, e.g. " + clash.second +
-                            "; other mods' copies of the bundle get " + other + "'s");
-                    // The new TOC chunks this mod's carried EBX name (as raw GUID bytes, the way an
-                    // EBX stores a ChunkId), so they can follow those assets into other superbundles.
-                    if (!newChunks.empty()) {
-                        std::vector<std::vector<std::byte>> carried;
-                        for (const auto& [bundle, list] : out.added)
-                            for (const auto& addition : list)
-                                if (addition.mod == mod->name && addition.asset.kind == fb::AssetKind::ebx) try {
-                                    carried.push_back(fb::decode_cas(addition.encoded, { gameRoot }));
-                                }
-								catch (const std::exception&) {
-                                }
-                                // Each carried asset is gone through once, for all the chunks together: looking for
-                                // every chunk in every asset in turn took most of a merge with many of either.
-                                std::set<fb::Guid> wanted, named, taken;
-                                std::vector<bool> starts(0x10000); // the two bytes a wanted chunk's id starts with
-                                for (const auto& chunk : newChunks) {
-                                    wanted.insert(chunk.guid);
-                                    starts[std::to_integer<std::size_t>(chunk.guid.bytes[0]) << 8 |
-                                        std::to_integer<std::size_t>(chunk.guid.bytes[1])] = true;
-                                }
-                                for (const auto& bytes : carried)
-                                    for (std::size_t at = 0; at + sizeof(fb::Guid) <= bytes.size(); ++at) {
-                                        if (!starts[std::to_integer<std::size_t>(bytes[at]) << 8 | std::to_integer<std::size_t>(bytes[at + 1])])
-                                            continue;
-                                        fb::Guid id;
-                                        std::memcpy(id.bytes.data(), bytes.data() + at, id.bytes.size());
-                                        if (wanted.contains(id)) named.insert(id);
-                                    }
-                                for (const auto& chunk : newChunks)
-                                    if (named.contains(chunk.guid) && taken.insert(chunk.guid).second) out.chunks[mod->name].push_back(chunk);
-                                if (!taken.empty())
-                                    report.notes.push_back(mod->name + ": " + std::to_string(taken.size()) +
-                                        " added chunk(s) follow its added assets into other mods' superbundles");
-                    }
-                    if (changed)
-                        report.notes.push_back(mod->name + ": " + std::to_string(changed) +
-                            " changed asset(s) also apply to the copies other mods carry");
+                for (const auto& chunk : newChunks)
+                    if (named.contains(chunk.guid) && taken.insert(chunk.guid).second) out.chunks[mod->name].push_back(chunk);
+                if (!taken.empty())
+                    report.notes.push_back(mod->name + ": " + std::to_string(taken.size()) +
+                        " added chunk(s) follow its added assets into other mods' superbundles");
+            }
+            if (changed)
+                report.notes.push_back(mod->name + ": " + std::to_string(changed) +
+                    " changed asset(s) also apply to the copies other mods carry");
         }
         return out;
     }

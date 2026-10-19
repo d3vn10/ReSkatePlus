@@ -38,7 +38,7 @@ bool in_lobby(Session &s, std::uint64_t id) {
 }
 // A line only `to` reads: in the host's own chat, or sent to the guest as the host's notice.
 void tell(Session &s, std::uint64_t to, std::string_view text, std::uint64_t now) {
-    if (to == s.transport.status().local_id) return add_chat(s, 0, "ReSkate+", std::string(text));
+    if (to == s.transport.status().local_id) return add_chat(s, 0, "ReSkate", std::string(text));
     auto notice = packet(s, PacketKind::admin, now);
     notice.text = clean_chat_text(text);
     send_packet(s, to, notice, true, false);
@@ -98,7 +98,7 @@ void receive_party(Session &s, const Packet &p, std::uint64_t now) {
         ++s.party_revision;
         // The game's own invite toast (Accept / Decline) when it can show one; chat either way.
         const bool toast = post_native_party_invite(from);
-        add_chat(s, 0, "ReSkate+", name + " invited you to their party. " +
+        add_chat(s, 0, "ReSkate", name + " invited you to their party. " +
                  (toast ? "Accept it from the notification, the Multiplayer menu or /party accept."
                         : "Accept it in the Multiplayer menu or type /party accept."));
     } else if (p.party_action == PartyAction::withdrawn) {

@@ -137,11 +137,6 @@ struct State {
     // The item grids' search box (item_browser_overlay.cpp): "-" opens it while a grid has the focus.
     std::atomic<bool> item_search_visible{false}, item_search_focus_requested{false};
     std::atomic<bool> item_search_character_pending{false}, item_search_escape_pending{false};
-    // "V" opens the same box for a collection's name or number (the item into that collection).
-    std::atomic<bool> item_picker{false};
-    // The player's own tabs' panel over the item grid (item_browser_overlay.cpp): 0 closed, 1 adding
-    // the highlighted item to tabs (V), 2 making and changing tabs (R). It takes the keys and the mouse.
-    std::atomic<int> item_panel{0};
     std::atomic<bool> input_attached{false};
     std::atomic<bool> stop{false};
     std::atomic<HWND> window{nullptr};
@@ -173,7 +168,7 @@ struct State {
     IUnknown* swapchain_identity = nullptr;
     HWND swapchain_window = nullptr;
     std::atomic<bool> selected_window_destroyed{false};
-    // "ReSkate+ loaded" is queued as a notice the first time the overlay draws.
+    // "ReSkate loaded" is queued as a notice the first time the overlay draws.
     bool loaded_notice_posted = false;
     std::chrono::steady_clock::time_point last_selected_present{};
     std::chrono::steady_clock::time_point next_setup_attempt{};
@@ -186,6 +181,8 @@ struct State {
     ComPtr<ID3D12Resource> card_texture, card_upload;
     // The menu's map pictures (menu_map_pictures.cpp) in the third slot, likewise.
     ComPtr<ID3D12Resource> menu_map_texture, menu_map_upload;
+    // The icon of the mod the highlighted item is from (item_browser_overlay.cpp), in the fourth.
+    ComPtr<ID3D12Resource> mod_icon_texture, mod_icon_upload;
     ComPtr<ID3D12GraphicsCommandList> commands;
     ComPtr<ID3D12Fence> fence;
     HANDLE fence_event = nullptr;
@@ -317,16 +314,20 @@ bool decode_picture(const std::string& png, CardPixels& out, UINT side);
 bool take_menu_map_pixels(CardPixels& pixels);
 void menu_map_pixels_uploaded(ImTextureID texture, unsigned serial);
 void menu_map_pixels_lost();
+// The item card's mod icon (item_browser_overlay.cpp), the same way, in the fourth slot.
+bool take_mod_icon_pixels(CardPixels& pixels);
+void mod_icon_uploaded(ImTextureID texture, unsigned serial);
+void mod_icon_lost();
 // Game debug text (game_text_overlay.cpp): polled every presented frame.
 bool game_text_pending();
 void draw_game_text();
 // The FPV drone's goggle display and stick overlay (drone_hud_overlay.cpp): polled every presented frame.
 bool drone_hud_pending();
 void draw_drone_hud();
-// ReSkate+'s S.K.A.T.E. throwdown HUD (skate_hud_overlay.cpp): polled every presented frame.
+// ReSkate's S.K.A.T.E. throwdown HUD (skate_hud_overlay.cpp): polled every presented frame.
 bool skate_hud_pending();
 void draw_skate_hud();
-// ReSkate+'s nametags (nametag_overlay.cpp): polled every presented frame.
+// ReSkate's nametags (nametag_overlay.cpp): polled every presented frame.
 bool nametags_pending();
 void draw_nametags();
 // The profiler's HUD (drawn whenever it is on) and window (only in an interactive frame),
@@ -335,11 +336,9 @@ bool perf_hud_pending();
 void draw_perf_hud();
 void draw_perf_window();
 // The skater item grids' search bar and prompts (item_browser_overlay.cpp): polled every presented frame.
-enum class ItemBrowserKey { favorite, filter, layer, clear_layers, custom, previous_tab, next_tab };
+enum class ItemBrowserKey { favorite, filter };
 bool item_browser_pending();
 bool item_browser_open();
-bool item_browser_custom(); // the player's own tabs are shown in place of the game's
-void item_browser_keyboard_used(); // a key or mouse button: the prompts show keys again
 void item_browser_key(ItemBrowserKey key);
 void item_browser_search_cleared(); // Esc in the search box
 void draw_item_browser();

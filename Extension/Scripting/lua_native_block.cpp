@@ -27,7 +27,7 @@ std::atomic<ParseChunk> original_parse{};
 void refused(std::atomic<unsigned>& count, std::string_view what, std::string_view detail = {}) noexcept {
     if (count.fetch_add(1, std::memory_order_relaxed) >= 8) return;
     try {
-        logging::log(logging::Level::warning, logging::Channel::assets, "Lua script refused: {}{}{}. ReSkate+ does not let Lua do this.",
+        logging::log(logging::Level::warning, logging::Channel::assets, "Lua script refused: {}{}{}. ReSkate does not let Lua do this.",
             what, detail.empty() ? "" : " ", detail);
     } catch (...) {}
 }
@@ -45,7 +45,7 @@ std::string shown(const char* text) noexcept {
 int load_library(void* state, const char* path, const char*) {
     static std::atomic<unsigned> count{};
     refused(count, "loading a DLL", shown(path));
-    push_format(state, "ReSkate+ does not let Lua load a DLL");
+    push_format(state, "ReSkate does not let Lua load a DLL");
     return 1;
 }
 

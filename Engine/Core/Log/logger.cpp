@@ -127,7 +127,7 @@ struct State {
 State& state() { static auto* value = new State; return *value; }
 void sink_error(const std::string& error) noexcept {
     state().file_output.store(false);
-    OutputDebugStringA("ReSkate+ logging sink failed: ");
+    OutputDebugStringA("ReSkate logging sink failed: ");
     OutputDebugStringA(error.c_str());
     OutputDebugStringA("\n");
 }
@@ -197,7 +197,7 @@ bool initialize(const Options& options) noexcept {
             emit_locked(s, Level::info, Context::sdk, Channel::runtime, "Performance timings are sent for this launch.");
         return s.file_output.load();
     } catch (...) {
-        OutputDebugStringA("ReSkate+ logging initialization failed; debugger output remains available.\n");
+        OutputDebugStringA("ReSkate logging initialization failed; debugger output remains available.\n");
         return false;
     }
 }
@@ -241,7 +241,7 @@ void write(Level level, Context context, Channel channel, std::string_view messa
             }
         }
         emit_locked(s, level, context, channel, text);
-    } catch (...) { OutputDebugStringA("ReSkate+: a log message could not be recorded.\n"); }
+    } catch (...) { OutputDebugStringA("ReSkate: a log message could not be recorded.\n"); }
 }
 void write(Level level, Channel channel, std::wstring_view message) noexcept {
     write(level, default_context(channel), channel, message);

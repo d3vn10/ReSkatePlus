@@ -1,7 +1,7 @@
-ReSkate+ Dedicated Server
+ReSkate Dedicated Server
 ========================
 
-A headless ReSkate+ lobby that runs on its own, without the game. Players find it
+A headless ReSkate lobby that runs on its own, without the game. Players find it
 in the in-game server browser (Multiplayer > Servers), or join with its code.
 
 Start it
@@ -103,10 +103,10 @@ steam_token        A Steam game server login token, or empty (default). Without 
                    Make a token at steamcommunity.com/dev/managegameservers with
                    App ID 3354750; each running server needs its own. Keep it
                    private: anyone with it can sign in as your server.
-                   The ReSkate+ team can set the in-game server browser to show
+                   The ReSkate team can set the in-game server browser to show
                    only servers that have one; the server says so in its log when
                    that hides it. Players can always join with the code.
-auto_update        Install new ReSkate+ releases when nobody is on (default true).
+auto_update        Install new ReSkate releases when nobody is on (default true).
 autostart          The server window starts the server as soon as it opens,
                    without waiting for Start (default false). The console
                    server always starts at once.
@@ -125,6 +125,10 @@ reserved_players_slots
                    admins and 2 listed, anyone can join until 32 are on, and
                    those four can still join after that, up to 36. The browser then shows 33/32 and so on. Nothing is
                    held back from everyone else.
+use_global_bans    Turn away players the ReSkate team has banned from multiplayer
+                   (default true). The list is read from api.reskate.dev at startup
+                   and every ten minutes. false lets them in; the server's own
+                   bans (data/bans.json) apply either way.
 
 "maps" - What is skated.
 map                The map everyone skates, named like the game's load command:
@@ -193,7 +197,7 @@ allow_noclip, allow_no_bail, allow_boosts
                    Let players use noclip (and tp) / No Bail / the forward and up
                    boosts (default true; admins always can).
 allow_parties      Let players form parties (default true): invite each other
-                   from the game's Social menu, a player card, the ReSkate+
+                   from the game's Social menu, a player card, the ReSkate
                    Multiplayer menu or chat (/party invite <player>). Party
                    members join each other's coop challenges, see each other on
                    the map and talk with /p <message>.
@@ -211,8 +215,16 @@ kick_minutes       How long a player kicked by an admin is kept out: 1-1440
                    given its own time: kick <player> 30. A kick by a vote has
                    its own time, votes.kick_minutes.
                    Console: kick-time <minutes>|restart.
+word_warnings      The ReSkate team keeps a list of words that are not allowed
+                   in chat at all (read from api.reskate.dev with the global
+                   bans). A message with one is never passed on, whatever
+                   this is set to, and its player is warned. After this many
+                   warnings, 1-10 (default 3), the next one gets them kicked;
+                   they can join again, and are kicked again at the next.
+                   Warnings last until the server restarts. 0: nobody is
+                   warned or kicked; the message is still not passed on.
 use_global_word_filter
-                   Use the ReSkate+ team's chat word lists (default true). Set
+                   Use the ReSkate team's chat word lists (default true). Set
                    false to leave them out: then only the words in this
                    server's own data/words_blocked.txt are refused in chat.
                    Console: words global on|off. See "Chat words" below.
@@ -239,12 +251,21 @@ sync_effects       Let players see each other's skater effects (default true):
                    them, which saves a little traffic and drawing on a busy
                    server. Console: effects on|off.
 sync_drones        Let players see each other's FPV drones (default true): the
-                   marker where a player flying ReSkate+'s drone mode has
+                   marker where a player flying ReSkate's drone mode has
                    their drone. false relays none, and players' games
                    neither send their drone nor show anyone else's.
                    Console: drones on|off.
 announce_throwdowns  Tell everyone in chat when a throwdown drop is placed
                    (default true).
+throwdown_locks    Tools locked for the players of a throwdown while it runs,
+                   for fair games on a server that allows them for free
+                   skating (default [], none): any of "noclip" (with
+                   teleporting), "nobail", "boosts", "tuning" (their own
+                   physics tuning). They are locked when the throwdown starts
+                   and unlocked when the player quits it, it ends (the server
+                   hears nothing more of it for a minute or so) or they leave.
+                   Example: ["nobail", "boosts", "tuning"]. Console:
+                   throwdown-locks <tools>|off. See lock below.
 
 "anti_cheat" - What the server checks, and what it does about it.
 speed_hack         Catch players whose game runs faster than normal (Cheat
@@ -262,7 +283,7 @@ pinned_board       Catch players whose skateboard stays on another player as
 modified_scoring   Catch players whose mods change how many points tricks
                    score (per-trick points, the scoring multipliers, the
                    throwdown scoring logic) or how the skater handles (core
-                   physics, wipeouts, trick gestures). Each player's ReSkate+ checks its
+                   physics, wipeouts, trick gestures). Each player's ReSkate checks its
                    mods at launch and reports the result when joining:
                    "warn" (default) takes them out of throwdowns and coop
                    challenges (the server stops passing their throwdown
@@ -441,7 +462,7 @@ admin              Only admins may use it (default false).
 Every change made from the console or by an admin is saved back to this file.
 
 Bans are kept in data/bans.json, beside this file: the players who can never
-join, managed with ban / unban. The ReSkate+ team's own list is separate: see
+join, managed with ban / unban. The ReSkate team's own list is separate: see
 use_global_bans. A config from an older version that still has "bans" in it has
 them moved there the first time the server starts.
 
@@ -489,7 +510,7 @@ A role is:
   name         1 to 24 of a-z, 0-9, - and _.
   tag          The word shown before the player's name in the game, up to 16
                characters ("" for none). Not one the game uses itself (Server,
-               Host, Friend, Developer, ReSkate Admin...).
+               Host, Friend, Developer, Staff...).
   color        The tag's colour, like "#FF74C6".
   rank         0 to 1000. Nobody kicks, bans or changes the role of a player
                whose rank is theirs or higher, or gives out a role whose rank
@@ -506,7 +527,8 @@ A role is:
                  unlimited_objects  no object limit; build and resize when
                                     players may not
                  movement           noclip, No Bail and the boosts when
-                                    players may not
+                                    players may not (not a tool that is
+                                    locked for them: lock)
                  no_afk_kick        never removed for being away
                  vote_kick_immune   cannot be kicked by a vote
                  anticheat_alerts   told in chat what the anti-cheat finds
@@ -587,6 +609,27 @@ or Travel, and voice, distances, placement and kicks from the Multiplayer menu.
   noclip on|off   nobail on|off   boosts on|off
                                 What players may use (admins always can).
   tuning on|off                 Everyone on the game's own physics tuning.
+  lock <player|SteamID64> <tool[,tool...]|all>
+                                Take tools from one player: noclip (with
+                                teleporting), nobail, boosts, tuning (their own
+                                physics tuning), or all. Everyone else keeps what
+                                the server allows, and the player's role cannot
+                                give a locked tool back (movement). Takes effect
+                                at once, and is kept for their SteamID until
+                                unlocked or the server restarts: leaving and
+                                joining again does not lift it. A player who is
+                                not here is locked by their SteamID64. Logged as
+                                "[lock] <name> (<SteamID64>): nobail, boosts
+                                locked by <who>".
+  unlock <player|SteamID64> [<tool[,tool...]|all>]
+                                Give them back (all when none are named), also
+                                to a player who left (by SteamID64 or the name
+                                they had); also ends a throwdown's locks early.
+                                Logged as "[lock] ... unlocked by <who>".
+  locks                         The players with locked tools, also those who
+                                left ("not here").
+  throwdown-locks <tools>|off   What a throwdown locks for its players
+                                (players.throwdown_locks).
   tpall [player]                Everyone to you (admins in game) or to a player.
   tphere <player>               One player to you (admins in game).
   teleport <players> <player|x y z>
@@ -636,7 +679,7 @@ or Travel, and voice, distances, placement and kicks from the Multiplayer menu.
   activity-log on|off           Log player activity (see activity_log).
   words [reload | global on|off]
                                 This server's chat words: what is in use, read
-                                the two files again, or use the ReSkate+ team's
+                                the two files again, or use the ReSkate team's
                                 lists or not (see Chat words).
   announce-throwdowns on|off    Chat message when a throwdown is placed.
   parties [on|off]              List the parties, or allow them (off ends them all).

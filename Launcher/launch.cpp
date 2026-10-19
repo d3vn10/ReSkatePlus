@@ -230,29 +230,38 @@ namespace {
     constexpr wchar_t steam_process_key[] = LR"(Software\Valve\Steam\ActiveProcess)";
     constexpr std::uint64_t steam_id_base = 76561197960265728ull;
 
-    // Under Proton the Steam client is the native Linux one. Proton's stand-in
-    // steam.exe sets ActiveProcess\pid but never ActiveUser, and the
-    // C:\Program Files (x86)\Steam it points SteamPath at holds no account files.
-    // Steam passes the real client's directory to compatibility tools as a Unix
-    // path in STEAM_COMPAT_CLIENT_INSTALL_PATH, which Wine's kernel32 maps to a
-    // DOS one. Empty on Windows, and when Proton was not started by Steam.
-    // Reported, with the cause and the fix, by BenjaminJAnderson in
-    // https://github.com/Dingo-Shenanigans/ReSkate/issues/5.
-    fs::path proton_steam_directory() {
-        std::array<wchar_t, 32768> unix_path{};
-        const auto length = GetEnvironmentVariableW(L"STEAM_COMPAT_CLIENT_INSTALL_PATH", unix_path.data(),
-            static_cast<DWORD>(unix_path.size()));
-        if (!length || length >= unix_path.size()) return {};
-        using Convert = wchar_t* (__cdecl*)(const char*);
-        const auto convert = reinterpret_cast<Convert>(
-            GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "wine_get_dos_file_name"));
-        if (!convert) return {};
-        const auto dos_path = convert(utf8(std::wstring_view(unix_path.data(), length)).c_str());
-        if (!dos_path) return {};
-        fs::path directory(dos_path);
-        HeapFree(GetProcessHeap(), 0, dos_path);
-        return directory;
+// Under Proton the Steam client is the native Linux one. Proton's stand-in
+// steam.exe sets ActiveProcess\pid but never ActiveUser, and the
+// C:\Program Files (x86)\Steam it points SteamPath at holds no account files.
+// Steam passes the real client's directory to compatibility tools as a Unix
+// path in STEAM_COMPAT_CLIENT_INSTALL_PATH, which Wine's kernel32 maps to a
+// DOS one. Empty on Windows, and when Proton was not started by Steam.
+// Reported, with the cause and the fix, by BenjaminJAnderson in
+// https://github.com/Dingo-Shenanigans/ReSkate/issues/5.
+// Steam for Mac with a Wine-based compatibility tool (NotProton, CrossOver) passes the app
+// bundle's Steam.AppBundle/Steam/Contents/MacOS instead, below the directory that holds config/:
+// the nearest directory up from it that has config/loginusers.vdf is the client's. Found by
+// codejunky (https://github.com/Dingo-Shenanigans/ReSkate/pull/219).
+fs::path proton_steam_directory() {
+    std::array<wchar_t, 32768> unix_path{};
+    const auto length = GetEnvironmentVariableW(L"STEAM_COMPAT_CLIENT_INSTALL_PATH", unix_path.data(),
+        static_cast<DWORD>(unix_path.size()));
+    if (!length || length >= unix_path.size()) return {};
+    using Convert = wchar_t*(__cdecl*)(const char*);
+    const auto convert = reinterpret_cast<Convert>(
+        GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "wine_get_dos_file_name"));
+    if (!convert) return {};
+    const auto dos_path = convert(utf8(std::wstring_view(unix_path.data(), length)).c_str());
+    if (!dos_path) return {};
+    fs::path directory(dos_path);
+    HeapFree(GetProcessHeap(), 0, dos_path);
+    std::error_code ignored;
+    for (auto candidate = directory; !candidate.empty(); candidate = candidate.parent_path()) {
+        if (fs::exists(candidate / L"config" / L"loginusers.vdf", ignored)) return candidate;
+        if (candidate == candidate.root_path() || !candidate.has_parent_path()) break;
     }
+    return directory;
+}
 
     // The Steam client's directory, where config/loginusers.vdf lists its accounts.
     fs::path steam_directory() {
@@ -472,7 +481,7 @@ namespace dingosdk::launcher_app {
         logging_options.level = logging::parse_level(log_level).value_or(logging::Level::info);
         if (!logging::initialize(logging_options)) logging::write(logging::Level::warning,
             logging::Channel::launcher, "File logging is unavailable; debugger output remains active.");
-        logging::write(logging::Level::info, logging::Channel::launcher, L"ReSkate+ launcher starting");
+        logging::write(logging::Level::info, logging::Channel::launcher, L"ReSkate launcher starting");
         logging::write(logging::Level::info, logging::Channel::launcher, L"Current launch log: " + (session.paths.logs / L"ReSkate.log").wstring());
         // The official mods, put in place on a thread of their own while the launcher opens (Play waits).
         official_mods::start(launcher_mods::mods_root(session.paths.directory));
@@ -534,10 +543,10 @@ namespace dingosdk::launcher_app {
     }
 
     bool config_matches_build(const launcher_update::Config& config) {
-        return /*config.game.skate_sha256 == supported_build::game_sha256 &&*/
-            config.game.app_id == supported_build::steam_app_id /*&&
+        return config.game.skate_sha256 == supported_build::game_sha256 &&
+            config.game.app_id == supported_build::steam_app_id &&
             config.game.depot_id == supported_build::steam_depot_id &&
-            config.game.manifest_id == supported_build::steam_manifest_id*/;
+            config.game.manifest_id == supported_build::steam_manifest_id;
     }
 
     void relaunch(const fs::path& self, const std::vector<std::wstring>& arguments) {
@@ -583,31 +592,50 @@ namespace dingosdk::launcher_app {
         return true;
     }
 
-    std::wstring steam_offline_reason() {
-        const auto pid = registry_dword(steam_process_key, L"pid");
-        if (!pid || !*pid) return L"no Steam client is registered as running (ActiveProcess pid is 0)";
-        if (!active_steam_id()) return L"Steam reports no signed-in account (ActiveProcess ActiveUser is 0)";
-        Handle process(OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, *pid));
-        if (!process.get())
-            return std::format(L"the registered Steam process {} cannot be opened (Windows error {})", *pid, GetLastError());
-        DWORD code{};
-        if (!GetExitCodeProcess(process.get(), &code) || code != STILL_ACTIVE)
-            return std::format(L"the registered Steam process {} is no longer running", *pid);
-        std::wstring image(MAX_PATH, L'\0');
-        DWORD length = static_cast<DWORD>(image.size());
-        if (!QueryFullProcessImageNameW(process.get(), 0, image.data(), &length))
-            return std::format(L"the registered Steam process {} cannot be identified (Windows error {})", *pid,
-                GetLastError());
-        image.resize(length);
-        const auto name = fs::path(image).filename().wstring();
-        if (_wcsicmp(name.c_str(), L"steam.exe") != 0)
-            return std::format(L"the registered Steam process {} is {}, not steam.exe", *pid, name);
-        return {};
-    }
+// Steam started this process through a compatibility tool (Proton, or a Wine-based one on macOS):
+// the real client is a native process outside Wine, which the registry's ActiveProcess cannot show.
+bool started_by_native_steam() {
+    if (!under_wine()) return false;
+    wchar_t value[8]{};
+    return GetEnvironmentVariableW(L"STEAM_COMPAT_CLIENT_INSTALL_PATH", nullptr, 0) ||
+           (GetEnvironmentVariableW(L"SteamClientLaunch", value, 8) == 1 && value[0] == L'1');
+}
 
-    bool steam_signed_in() {
-        return steam_offline_reason().empty();
-    }
+// Why Steam's own client is not usable, by the registry Windows and Proton's stand-in keep up.
+std::wstring steam_process_reason() {
+    const auto pid = registry_dword(steam_process_key, L"pid");
+    if (!pid || !*pid) return L"no Steam client is registered as running (ActiveProcess pid is 0)";
+    if (!active_steam_id()) return L"Steam reports no signed-in account (ActiveProcess ActiveUser is 0)";
+    Handle process(OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, *pid));
+    if (!process.get())
+        return std::format(L"the registered Steam process {} cannot be opened (Windows error {})", *pid, GetLastError());
+    DWORD code{};
+    if (!GetExitCodeProcess(process.get(), &code) || code != STILL_ACTIVE)
+        return std::format(L"the registered Steam process {} is no longer running", *pid);
+    std::wstring image(MAX_PATH, L'\0');
+    DWORD length = static_cast<DWORD>(image.size());
+    if (!QueryFullProcessImageNameW(process.get(), 0, image.data(), &length))
+        return std::format(L"the registered Steam process {} cannot be identified (Windows error {})", *pid,
+                           GetLastError());
+    image.resize(length);
+    const auto name = fs::path(image).filename().wstring();
+    if (_wcsicmp(name.c_str(), L"steam.exe") != 0)
+        return std::format(L"the registered Steam process {} is {}, not steam.exe", *pid, name);
+    return {};
+}
+
+std::wstring steam_offline_reason() {
+    auto reason = steam_process_reason();
+    // A Wine-based tool on macOS keeps no stand-in Steam process up to date: started by the native
+    // client, its signed-in account (config/loginusers.vdf) is enough. Only where the checks above
+    // fail, so Windows and Proton, where they pass, stay as they were.
+    if (!reason.empty() && started_by_native_steam() && active_steam_id()) reason.clear();
+    return reason;
+}
+
+bool steam_signed_in() {
+    return steam_offline_reason().empty();
+}
 
     std::string steam_persona_name() {
         if (!steam_signed_in()) return {};
@@ -751,8 +779,8 @@ namespace dingosdk::launcher_app {
                 cache.status == CacheStatus::busy ? "is being installed by another launcher" : "could not be installed",
                 cache.http_status, cache.error);
             throw std::runtime_error(cache.status == CacheStatus::busy ?
-                "Another ReSkate+ launcher is installing the game content cache. Try again when it finishes." :
-                "ReSkate+ needs to download the game content cache once. Check your internet connection and try again.");
+                "Another ReSkate launcher is installing the game content cache. Try again when it finishes." :
+                "ReSkate needs to download the game content cache once. Check your internet connection and try again.");
         }
         // World layers are read from the level data; the first launch of a build
         // scans it here so the game does not wait on it. The runtime rescans if
@@ -787,7 +815,7 @@ namespace dingosdk::launcher_app {
                 loose_files = false;
                 logging::log(logging::Level::warning, logging::Channel::assets,
                     "Loose files are off for this launch: scripts/ and config/ could not be exported ({}). Skate still "
-                    "starts; editing them needs a folder ReSkate+ is allowed to write to.", failure.what());
+                    "starts; editing them needs a folder ReSkate is allowed to write to.", failure.what());
             }
         }
         set_environment(L"RESKATE_LOOSE_FILES", loose_files ? L"1" : L"0");

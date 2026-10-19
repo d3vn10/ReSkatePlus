@@ -39,7 +39,7 @@ LONG WINAPI native_child_handler(EXCEPTION_POINTERS* pointers) {
 __declspec(noinline) void fill_marker(std::array<char, 64>& bytes) {
     for (std::size_t i = 0; i < bytes.size(); ++i) bytes[i] = static_cast<char>((i * 37 + 11) ^ 0xa5);
 }
-// The game's own fatal handler: ReSkate+'s import hook asks for its dump first, then the game
+// The game's own fatal handler: ReSkate's import hook asks for its dump first, then the game
 // writes its own (game_fatal_dump.cpp).
 LONG WINAPI fatal_child_handler(EXCEPTION_POINTERS* pointers) {
     capture_game_fatal(GetCurrentThreadId(), pointers);
@@ -285,7 +285,7 @@ void crash_check(const std::filesystem::path& root, Mode mode) {
     check(code == 42, "Previous exception handler was not preserved");
     const auto log = read(root / L"ReSkate.log");
     check(log.find("Crash reporting enabled") != std::string::npos, "Helper did not start");
-    check((log.find("ReSkate+ unhandled exception") != std::string::npos) != native, "Fixture did not exercise the expected exception handler");
+    check((log.find("ReSkate unhandled exception") != std::string::npos) != native, "Fixture did not exercise the expected exception handler");
     const auto queue = queue_directory(root / L"crashes", L"https://127.0.0.1:1/test/minidump");
     std::filesystem::path dump;
     for (int attempt = 0; attempt < 100 && dump.empty(); ++attempt) {
@@ -369,7 +369,7 @@ int wmain(int argc, wchar_t** argv) {
                 "Only synthetic regression-test crashes may be submitted by this command");
             auto attributes = Json::parse(read(dump.wstring() + L".json"));
             attributes["integration.test"] = "true";
-            attributes["error.message"] = "Synthetic ReSkate+ crash report integration test; no game crash";
+            attributes["error.message"] = "Synthetic ReSkate crash report integration test; no game crash";
             auto url = environment(L"RESKATE_CRASH_REPORT_URL");
             if (url.empty()) url = configured_url;
             const auto result = upload_report(url, dump, attributes);

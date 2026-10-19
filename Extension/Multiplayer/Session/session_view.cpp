@@ -711,7 +711,7 @@ namespace dingosdk::multiplayer::session_detail {
 	    return {nametag_white, {}};
 	}
 	void add_chat(Session &s, std::uint64_t sender, std::string name, std::string text, bool local, bool marks) {
-	    if (name.empty()) name = sender ? "Player" : "ReSkate+";
+	    if (name.empty()) name = sender ? "Player" : "ReSkate";
 	    auto [color, tag] = player_role(s, sender, local, marks);
 	    // The dedicated server's own lines (its chat, and its answers sent to this player alone) stand out.
 	    const bool server = dedicated_host(s) && (sender ? sender == s.host_id : name == "Server");

@@ -47,7 +47,7 @@ struct LaunchOptions {
     bool log_trace{};
     bool loose_files{true};
     bool offline{};
-    // Virtual-key codes that open ReSkate+'s menu and console (--menu-key /
+    // Virtual-key codes that open ReSkate's menu and console (--menu-key /
     // --console-key); passed to the game as RESKATE_MENU_KEY / RESKATE_CONSOLE_KEY.
     unsigned menu_key{0x2D};     // VK_INSERT
     unsigned console_key{0xC0};  // VK_OEM_3, the key left of 1

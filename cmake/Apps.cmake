@@ -2,7 +2,7 @@ if(WIN32)
     add_executable(dingosdk_launcher WIN32 Launcher/main.cpp Launcher/launch.cpp
         Launcher/gui.cpp Launcher/gui_launcher.cpp Launcher/gui_renderer.cpp Launcher/gui_home.cpp
         Launcher/gui_settings.cpp Launcher/gui_sign_in.cpp Launcher/gui_mods.cpp Launcher/gui_mods_browse.cpp Launcher/gui_mods_profiles.cpp
-        Launcher/gui_gamepad.cpp Launcher/gamepad_input.cpp Launcher/gui_changelog.cpp Launcher/game_settings.cpp
+        Launcher/gui_gamepad.cpp Launcher/gamepad_input.cpp Launcher/gui_changelog.cpp Launcher/gui_legal.cpp Launcher/game_settings.cpp
         Launcher/updater.cpp Launcher/mod_manager.cpp Launcher/mod_profiles.cpp Launcher/thunderstore.cpp Launcher/official_mods.cpp
         Launcher/problem.h)
     target_link_libraries(dingosdk_launcher PRIVATE dingosdk_logging dingosdk_content_cache_install dingosdk_world_layer_scan dingosdk_launcher_support dingosdk_initfs
@@ -65,6 +65,9 @@ if(DINGOSDK_BUILD_LAUNCHER_TESTS AND WIN32)
     add_executable(dingosdk_mod_merge_grid_tests Engine/Vfs/Test/mod_merge_grid_tests.cpp)
     target_link_libraries(dingosdk_mod_merge_grid_tests PRIVATE dingosdk_mods)
     add_test(NAME mod_merge_grid COMMAND dingosdk_mod_merge_grid_tests "${DINGOSDK_TEST_GAME_ROOT}")
+    add_executable(dingosdk_mod_conflicts_tests Engine/Vfs/Test/mod_conflicts_tests.cpp)
+    target_link_libraries(dingosdk_mod_conflicts_tests PRIVATE dingosdk_mods)
+    add_test(NAME mod_conflicts COMMAND dingosdk_mod_conflicts_tests "${DINGOSDK_TEST_GAME_ROOT}")
     add_executable(dingosdk_mod_build_stamp_tests Engine/Vfs/Test/mod_build_stamp_tests.cpp)
     target_link_libraries(dingosdk_mod_build_stamp_tests PRIVATE dingosdk_mods)
     target_include_directories(dingosdk_mod_build_stamp_tests PRIVATE "${PROJECT_SOURCE_DIR}")
@@ -72,6 +75,16 @@ if(DINGOSDK_BUILD_LAUNCHER_TESTS AND WIN32)
     add_executable(dingosdk_bundle_ref_table_tests Engine/Vfs/Test/bundle_ref_table_tests.cpp)
     target_link_libraries(dingosdk_bundle_ref_table_tests PRIVATE dingosdk_mods)
     add_test(NAME bundle_ref_table COMMAND dingosdk_bundle_ref_table_tests)
+    # The shader program lookup's merge: added rows combined, rows past the base's records left out.
+    add_executable(dingosdk_shader_lookup_tests Engine/Resource/Test/shader_lookup_tests.cpp)
+    target_link_libraries(dingosdk_shader_lookup_tests PRIVATE dingosdk_mods)
+    target_include_directories(dingosdk_shader_lookup_tests PRIVATE "${PROJECT_SOURCE_DIR}")
+    add_test(NAME shader_lookup COMMAND dingosdk_shader_lookup_tests)
+    # A type reference on another fixup's slot taken out of an EBX (Master Chief / TASM2 costume crash).
+    add_executable(dingosdk_ebx_fixup_repair_tests Engine/Resource/Test/ebx_fixup_repair_tests.cpp)
+    target_link_libraries(dingosdk_ebx_fixup_repair_tests PRIVATE dingosdk_mods)
+    target_include_directories(dingosdk_ebx_fixup_repair_tests PRIVATE "${PROJECT_SOURCE_DIR}")
+    add_test(NAME ebx_fixup_repair COMMAND dingosdk_ebx_fixup_repair_tests)
     add_executable(dingosdk_mod_scoring_tests Engine/Vfs/Test/mod_scoring_tests.cpp)
     target_link_libraries(dingosdk_mod_scoring_tests PRIVATE dingosdk_mods)
     add_test(NAME mod_scoring COMMAND dingosdk_mod_scoring_tests "${DINGOSDK_TEST_GAME_ROOT}")

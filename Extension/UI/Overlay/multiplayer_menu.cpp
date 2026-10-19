@@ -273,7 +273,7 @@ void multiplayer_display_settings(SkateMenu &menu, const Model &model) {
     }
     bool nametags = mp.nametags;
     if (toggle_row(menu, "Player nametags",
-                   "The name above each skater, with their distance: purple for ReSkate+ developers, red for content creators, "
+                   "The name above each skater, with their distance: purple for ReSkate developers, red for content creators, "
                    "gold for homies, pink for server admins, blue for the host, green for your Steam friends.",
                    nametags)) {
         std::array<char, 65> unused{};
@@ -429,7 +429,7 @@ void special_page(SkateMenu &menu, const Model &model, const CallbacksV3 &) {
 			dingosdk::overlay::menu::current_identity = multiplayer::IdentityList::homie;
 	}
     int current_id = static_cast<int>(*dingosdk::overlay::menu::current_identity);
-    if (choice(menu, "current-identity", current_id, { "Developer", "Homie", "Content Creator", "Centrix", "Server", "ReSkate Admin" }, tag)) {
+    if (choice(menu, "current-identity", current_id, { "Developer", "Homie", "Content Creator", "Centrix", "Server", "Staff" }, tag)) {
         switch (current_id) {
 			case 0: dingosdk::overlay::menu::current_identity = multiplayer::IdentityList::developer; break;
             default:
@@ -488,17 +488,17 @@ void special_page(SkateMenu &menu, const Model &model, const CallbacksV3 &) {
         // gradient between the player's two colours, 3 their one colour, 4 the rainbow (the
         // staff's to pick).
         field(menu, "Color");
-        if (mp.identity_rainbow) {
-            static constexpr std::array<int, 5> modes{0, 4, 2, 3, 1}; // 0,2,3,1
-            int option = static_cast<int>(std::find(modes.begin(), modes.end(), style.mode) - modes.begin()) % 5;
-            if (choice(menu, "mode", option, {mp.identity_animation.c_str(), "RAINBOW", "GRADIENT", "SOLID", "OFF"}, shown))
-                send(modes[static_cast<std::size_t>(option)], style.speed);
-        } else {
-            static constexpr std::array<int, 4> modes{0, 2, 3, 1}; // 2,3,1
-            int option = static_cast<int>(std::find(modes.begin(), modes.end(), style.mode) - modes.begin()) % 4;
+        //if (mp.identity_rainbow) {
+        static constexpr std::array<int, 4> modes{0, 2, 3, 1};
+        int option = static_cast<int>(std::find(modes.begin(), modes.end(), style.mode) - modes.begin()) % 4;
+        if (choice(menu, "mode", option, {"RAINBOW", "GRADIENT", "SOLID", "OFF"}, shown))
+            send(modes[static_cast<std::size_t>(option)], style.speed);
+        /*} else {
+            static constexpr std::array<int, 3> modes{0, 3, 1}; // 2,3,1
+            int option = static_cast<int>(std::find(modes.begin(), modes.end(), style.mode) - modes.begin()) % 3;
             if (choice(menu, "mode", option, {mp.identity_animation.c_str(), "GRADIENT", "SOLID", "OFF"}, shown))
                 send(modes[static_cast<std::size_t>(option)], style.speed);
-        }
+        }*/
         if (style.mode == 2 || style.mode == 3) {
             const bool gradient = style.mode == 2;
             field(menu, gradient ? "Colors" : "Pick", gradient ? "The two colors it moves between. Click one to change it."
@@ -545,9 +545,14 @@ void multiplayer_page(SkateMenu &menu, const Model &model, const CallbacksV3 &ca
     const bool has_session = mp.active || mp.lobby_joining;
     if (has_session && !menu.multiplayer_session_seen) menu.multiplayer_tab = multiplayer_session_tab;
     menu.multiplayer_session_seen = has_session;
-    category_tabs(menu, menu.multiplayer_tab,
-                      {"SERVERS", has_session ? "SESSION" : "HOST", "VOICE", "BANS", "PLAYERS AND CHAT", "YOUR TAG"},
+    // YOUR TAG only for a player the backend lists (it was the SPECIAL page).
+    /*if (mp.identity_tag.empty())
+        category_tabs(menu, menu.multiplayer_tab, {"SERVERS", has_session ? "SESSION" : "HOST", "VOICE", "BANS", "PLAYERS AND CHAT"},
                       "multiplayer-categories");
+    else*/
+    category_tabs(menu, menu.multiplayer_tab,
+                    {"SERVERS", has_session ? "SESSION" : "HOST", "VOICE", "BANS", "PLAYERS AND CHAT", "YOUR TAG"},
+                    "multiplayer-categories");
     if (menu.multiplayer_tab != multiplayer_voice_tab) menu.voice_bind_capture = 0;
     ImGui::PushID(menu.multiplayer_tab);
     ImGui::BeginChild("multiplayer-category", ImVec2(0, page_body_height(menu)), ImGuiChildFlags_NavFlattened);

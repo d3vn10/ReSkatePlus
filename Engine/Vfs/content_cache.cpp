@@ -36,11 +36,11 @@ std::filesystem::path directory(const Pack& pack) {
 #endif
 }
 
-bool installed(const std::filesystem::path& folder, const Pack& /*pack*/) {
+bool installed(const std::filesystem::path& folder, const Pack& pack) {
     // The marker is written last, after every file is in place.
     std::ifstream marker(folder / detail::marker_name, std::ios::binary);
     std::string recorded;
-    return marker && std::getline(marker, recorded);//&& recorded == pack.sha256;
+    return marker && std::getline(marker, recorded) && recorded == pack.sha256;
 }
 
 bool installed() {

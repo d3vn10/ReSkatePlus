@@ -100,8 +100,6 @@ namespace dingosdk::profile {
         }
     }
 
-
-
     void detail::validate_settings(const Snapshot& s) {
         if (s.settings.contains("gameplay")) {
             const auto& values = s.settings.at("gameplay");
@@ -253,7 +251,7 @@ namespace dingosdk::profile {
     std::filesystem::path defaults_path() {
         std::array<wchar_t, 32768> buffer{};
         const auto count = GetModuleFileNameW(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
-        require(count && count < buffer.size(), "Cannot resolve ReSkate+ defaults path");
+        require(count && count < buffer.size(), "Cannot resolve ReSkate defaults path");
         return std::filesystem::path(buffer.data()).parent_path() / L"reskate.defaults.json";
     }
     // Entitlement ids are game data: every one in the installed content cache is
@@ -303,7 +301,7 @@ namespace dingosdk::profile {
             for (const auto* key : { "destinations", "access_points" }) next.extensions.at("location_travel").erase(key);
         if (!database_->exists() || next != value_) commit(std::move(next));
         note_change();
-    
+
     }
     Store::~Store() = default;
     std::uint64_t Store::changes() noexcept {
@@ -489,5 +487,4 @@ namespace dingosdk::profile {
         value_ = std::move(next);
         note_change();
     }
-
 }

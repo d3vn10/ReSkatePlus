@@ -9,12 +9,12 @@
 #include <array>
 #include <mutex>
 #include <set>
-#include "local_cosmetic_catalog.h"
 #include "cosmetic_catalog_limits.h"
 
 namespace dingosdk::profile_runtime {
     CosmeticRuntime& cosmetic_runtime() {
-        static auto* r = new CosmeticRuntime; return *r;
+        static auto* r = new CosmeticRuntime;
+        return *r;
     }
 
     bool cosmetic_diagnostic(const char* operation, const char* reason, std::string_view id) noexcept {
@@ -89,21 +89,21 @@ namespace dingosdk::profile_runtime {
         return hash && reserved_hashes.contains(hash);*/
         return false;
     }
-	bool installed_item_owned(const profile::Snapshot& snapshot, std::string_view key, std::uint32_t /*hash*/, bool build_kit) {
-	    //if (cosmetic_runtime().ownership_unavailable || reserved_cosmetic_hash(hash)) return false;
-	    const auto option = snapshot.bool_options.find(build_kit ? profile::unlock_objects_option : profile::unlock_cosmetics_option);
-	    if (option != snapshot.bool_options.end() && option->second) return true;
-	    const dingosdk::Json* section = &snapshot.customization;
-	    if (build_kit) {
-	        const auto objects = snapshot.extensions.find("object_dropper");
-	        if (objects == snapshot.extensions.end() || !objects->is_object()) return false;
-	        section = &*objects;
-	    }
-	    const auto inventory = section->find("inventory");
-	    if (inventory == section->end() || !inventory->is_object()) return false;
-	    const auto saved = inventory->find(key);
-	    return saved != inventory->end() && saved->is_boolean() && saved->get<bool>();
-	}
+    bool installed_item_owned(const profile::Snapshot& snapshot, std::string_view key, std::uint32_t /*hash*/, bool build_kit) {
+        //if (cosmetic_runtime().ownership_unavailable || reserved_cosmetic_hash(hash)) return false;
+        const auto option = snapshot.bool_options.find(build_kit ? profile::unlock_objects_option : profile::unlock_cosmetics_option);
+        if (option != snapshot.bool_options.end() && option->second) return true;
+        const dingosdk::Json* section = &snapshot.customization;
+        if (build_kit) {
+            const auto objects = snapshot.extensions.find("object_dropper");
+            if (objects == snapshot.extensions.end() || !objects->is_object()) return false;
+            section = &*objects;
+        }
+        const auto inventory = section->find("inventory");
+        if (inventory == section->end() || !inventory->is_object()) return false;
+        const auto saved = inventory->find(key);
+        return saved != inventory->end() && saved->is_boolean() && saved->get<bool>();
+    }
     bool refresh_cosmetic_catalog() {
         auto& s = local_runtime(); auto& c = cosmetic_runtime();
         std::uintptr_t manager{}, vtable{}, buckets{};
@@ -159,19 +159,19 @@ namespace dingosdk::profile_runtime {
         const auto& catalogs = content_cache::catalogs();
         c.ownership_unavailable = !catalogs.available;
         // What is owned is worked out from the items installed (installed_item_owned), not saved item
-		// by item: the rows earlier versions saved go, once.
-		s.store->forget_unlocked_inventory();
-		std::size_t objects{};
+        // by item: the rows earlier versions saved go, once.
+        s.store->forget_unlocked_inventory();
+        std::size_t objects{};
 
         {
-			std::set<std::uint32_t> hashes;
-	        for (const auto& [key, info] : items) {
-	            objects += info.build_kit;
-	            if (reserved_cosmetic(key)) hashes.insert(info.hash);
-	        }
-	        std::lock_guard lock(reserved_hash_mutex);
-	        reserved_hashes = std::move(hashes);
-	    }
+            std::set<std::uint32_t> hashes;
+            for (const auto& [key, info] : items) {
+                objects += info.build_kit;
+                if (reserved_cosmetic(key)) hashes.insert(info.hash);
+            }
+            std::lock_guard lock(reserved_hash_mutex);
+            reserved_hashes = std::move(hashes);
+        }
 
         c.items = std::move(items); c.item_count = count; c.item_manager = manager;
         ++c.items_generation;
@@ -205,7 +205,7 @@ namespace dingosdk::profile_runtime {
                     for (const auto& [key, info] : cosmetic_runtime().items)
                         if (info.hash == item.hash) {
                             slot.asset = key;
-							break;
+                            break;
                         }
                 }
                 if (item.hash != cosmetic_hash(slot.asset)) return false;
@@ -262,7 +262,7 @@ namespace dingosdk::profile_runtime {
         // copies the definitions and continues its normal selection state machine.
         struct Definition {
             std::uintptr_t resource;
-			const std::uintptr_t* presets;
+            const std::uintptr_t* presets;
         };
         static_assert(sizeof(Definition) == 16);
         CosmeticBorrowedArray<std::uintptr_t> no_presets(0);
@@ -421,7 +421,7 @@ namespace dingosdk::profile_runtime {
                             slot = &expected.items[j];
                         }
                         else {
-							if (!installed_item_owned(snapshot, slot->asset, found->second.hash, found->second.build_kit))
+                            if (!installed_item_owned(snapshot, slot->asset, found->second.hash, found->second.build_kit))
                                 slot = &expected.items[j];
                         }
                     }

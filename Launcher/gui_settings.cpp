@@ -99,7 +99,7 @@ void store_game_settings(Ui& ui) {
     }
     if (changes.empty()) return;
     try {
-        // (...\ReSkatePlus\Game\Skate\data -> ...\ReSkate\game-settings-backup)
+        // (...\ReSkate\Game\Skate\data -> ...\ReSkate\game-settings-backup)
         game::save(pages.saved, changes, game::save_root().parent_path().parent_path().parent_path() / L"game-settings-backup");
         pages.saved.values = pages.values;
         pages.error.clear();
@@ -257,7 +257,7 @@ void graphics_options(const Fonts& fonts, Ui& ui, bool running) {
     } catch (const std::exception&) {}
 }
 
-// Settings > KEYS: the keys that open ReSkate+'s menu and console in game.
+// Settings > KEYS: the keys that open ReSkate's menu and console in game.
 // Returns true when a key changed, so the caller can save straight away.
 bool key_bindings(const Fonts& fonts, Settings& settings, Ui& ui) {
     bool changed = false;
@@ -294,7 +294,7 @@ bool key_bindings(const Fonts& fonts, Settings& settings, Ui& ui) {
         ImGui::TextDisabled("%s", detail);
         ImGui::Spacing();
     };
-    row(1, "ReSkate+ menu", "Opens and closes the ReSkate+ menu.", settings.menu_key);
+    row(1, "ReSkate menu", "Opens and closes the ReSkate menu.", settings.menu_key);
     row(2, "Console", "Opens and closes the command console.", settings.console_key);
     if (!ui.key_error.empty())
         ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(color::danger), "%s", ui.key_error.c_str());
@@ -468,7 +468,7 @@ void settings_window(Launcher& launcher, const Fonts& fonts, ImVec2 size, Ui& ui
         setting_check("GPU crash diagnostics (DRED)", "Records extra detail when the graphics driver crashes. Slightly slower.",
                       settings.gpu_diagnostics);
         setting_check("Send crash reports",
-                      "When the launcher or Skate crashes, upload a crash dump and that session's log so the ReSkate+ "
+                      "When the launcher or Skate crashes, upload a crash dump and that session's log so the ReSkate "
                       "developers can fix it. The launcher picks a change up when it next starts.",
                       settings.crash_reports);
         setting_check("Send performance timings",
@@ -477,6 +477,11 @@ void settings_window(Launcher& launcher, const Fonts& fonts, ImVec2 size, Ui& ui
                       "about your account is included. Needs crash reports on; the launcher picks a change up when it "
                       "next starts.",
                       settings.performance_timings);
+        ImGui::Spacing();
+        if (ImGui::Button("Privacy Policy")) ui.legal.open = Legal::privacy;
+        ImGui::SameLine();
+        if (ImGui::Button("Terms of Service")) ui.legal.open = Legal::terms;
+        setting_note("What ReSkate collects and sends, and the rules for using it and its servers.");
         break;
     }
     ImGui::EndChild();

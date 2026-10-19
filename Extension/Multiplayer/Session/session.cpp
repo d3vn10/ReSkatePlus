@@ -39,7 +39,7 @@
 
 namespace dingosdk::multiplayer {
     using namespace session_detail;
-	
+
     namespace session_detail {
         std::uint64_t nonce() {
             std::uint64_t value{};
@@ -104,6 +104,7 @@ namespace dingosdk::multiplayer {
             s.server_map_pool.clear();
             s.server_map_rotation = 0;
             set_lobby_object_placement_allowed(true);
+            set_lobby_object_scaling_allowed(true);
             s.guest_noclip = s.guest_no_bail = s.guest_boosts = true;
             s.enforce_tuning = true;
             s.score_check = true;
@@ -421,7 +422,7 @@ namespace dingosdk::multiplayer {
             for (const auto& [sender, message] : s.throwdown_inbox) receive_throwdown_relay(sender, message);
             s.throwdown_inbox.clear();
             for (auto& message : tick_throwdown_relay(s.base, input)) send_throwdown(s, std::move(message));
-            for (auto& text : take_throwdown_relay_notices()) add_chat(s, 0, "ReSkate+", std::move(text));
+            for (auto& text : take_throwdown_relay_notices()) add_chat(s, 0, "ReSkate", std::move(text));
         }
         // A player in the local coop celebration stands at their spot there: the whole pose moves,
         // the board's rig anchor with it (offset_pose), or their board stays in the local player's hands.
@@ -875,7 +876,7 @@ namespace dingosdk::multiplayer {
             return true;
         }
         if (!loader) {
-            stop(s, "The native map loader is unavailable. Restart ReSkate+ and try joining again.");
+            stop(s, "The native map loader is unavailable. Restart ReSkate and try joining again.");
             return false;
         }
         if (!s.last_map_load_check || now - s.last_map_load_check >= 500000) {

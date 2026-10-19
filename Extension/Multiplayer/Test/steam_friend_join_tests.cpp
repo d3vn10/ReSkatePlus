@@ -6,7 +6,7 @@ using namespace dingosdk::multiplayer;
 void check(bool value, const char* message) { if (!value) throw std::runtime_error(message); }
 int main() {
     try {
-        check(steam_join_target("+reskate_lobby 9001") == 9001, "ReSkate+ lobby target parses");
+        check(steam_join_target("+reskate_lobby 9001") == 9001, "ReSkate lobby target parses");
         for (const auto* value : {"", "+connect_lobby 9001", "+reskate_lobby ", "+reskate_lobby 0",
                 "+reskate_lobby -1", "+reskate_lobby 9001 extra", "+reskate_lobby 9001\n",
                 "+reskate_lobby 18446744073709551616", "9001"})

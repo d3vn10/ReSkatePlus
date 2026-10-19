@@ -482,7 +482,7 @@ namespace dingosdk::multiplayer::session_detail {
     void check_shuffle_room(Session& s);
     // The colour and badge of one of the backend's categories.
     std::pair<std::uint32_t, std::string> mark_role(IdentityList list);
-    // A player's role colour and badge ("Dev", "Staff", "Content Creator", "Centrix", "Homie", "Admin", "Host", "Friend" or none), shown in chat
+    // A player's role colour and badge ("Developer", "Staff", "Content Creator", "Centrix", "Homie", "Admin", "Host", "Friend" or none), shown in chat
     // and on their nametag. `local`: the local player.
     std::pair<std::uint32_t, std::string> player_role(Session& s, std::uint64_t id, bool local, bool marks = true);
     // Sends one line from this player; returns why not when it cannot.
@@ -603,10 +603,13 @@ namespace dingosdk::multiplayer::session_detail {
     void apply_object_placement(Session& s, ObjectPlacement policy);
     // The session's limit, and this game's own share of it: none while hosting or as a server's admin.
     void apply_object_limit(Session& s, unsigned limit);
+    // Whether a dedicated server lets players resize what they place, and whether this game may (the
+    // host and a role that may always build are exempt): the placements follow it.
+    void apply_object_scaling(Session& s, bool allowed);
     // Stores what guests may use and applies it to the local player (the host and a dedicated
     // server's admins are exempt).
     void apply_guest_tools(Session& s, bool noclip, bool no_bail, bool boosts);
-    // Shows the chosen nametags: ReSkate+'s (and none of the game's nametags or compass
-    // arrows), the game's own, or none.
+    // Shows the chosen nametags: ReSkate's (and none of the game's nametags or compass
+        // arrows), the game's own, or none.
     void apply_nametags(const Session& s);
 } // namespace dingosdk::multiplayer::session_detail

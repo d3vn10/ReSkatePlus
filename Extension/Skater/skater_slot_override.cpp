@@ -329,7 +329,7 @@ void apply_slot_settings(SlotOverrideState& state) {
             std::string(field.name) + " settings object changed.");
         slot_require(!lease.owned || snapshot.value == lease.original ||
             snapshot.value == lease.applied,
-            std::string(field.name) + " changed outside ReSkate+.");
+            std::string(field.name) + " changed outside ReSkate.");
         slot_require(snapshot.value == field.desired ||
             slot_writable(snapshot.object + field.offset, field.size),
             std::string(field.name) + " is not writable.");
@@ -374,7 +374,7 @@ void restore_slot_settings(SlotOverrideState& state) {
             std::string(field.name) + " settings object changed.");
         slot_require(!lease.owned || snapshot.value == lease.applied ||
             snapshot.value == lease.original,
-            std::string(field.name) + " changed outside ReSkate+.");
+            std::string(field.name) + " changed outside ReSkate.");
         slot_require(!lease.owned || snapshot.value == lease.original ||
             slot_writable(snapshot.object + field.offset, field.size),
             std::string(field.name) + " is not writable for restoration.");

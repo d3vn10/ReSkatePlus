@@ -21,7 +21,7 @@ LONG WINAPI unhandled(EXCEPTION_POINTERS* exception) {
             for (int shift = 60; shift >= 0; shift -= 4) if (used + 1 < sizeof(text)) text[used++] = digits[(value >> shift) & 15];
             append("\r\n");
         };
-        append("\r\n[CRITICAL] ReSkate+ unhandled exception\r\n");
+        append("\r\n[CRITICAL] ReSkate unhandled exception\r\n");
         hex("process", GetCurrentProcessId()); hex("thread", GetCurrentThreadId());
         hex("exception", exception->ExceptionRecord->ExceptionCode);
         hex("address", reinterpret_cast<ULONG_PTR>(exception->ExceptionRecord->ExceptionAddress));

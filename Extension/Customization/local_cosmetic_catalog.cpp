@@ -7,6 +7,7 @@
 #include "Engine/Game/Build/20260929/engine.h"
 #include "Engine/Game/Build/20260929/local_cosmetic_catalog.h"
 #include "cosmetic_catalog_limits.h"
+#include "item_origins.h"
 
 namespace dingosdk::profile_runtime {
     // Retail OwnableData catalog bridge; included after the installed-item reader.
@@ -153,7 +154,6 @@ namespace dingosdk::profile_runtime {
             reinterpret_cast<std::uintptr_t>(&cosmetic_map_deleter) };
         const auto& items = cosmetic_runtime().items;
 
-        // Actually tell the user what is wrong with their profile, only saying 'invalid size' makes them think the program is broken...
         if (items.empty() || items.size() > dingosdk::profile_runtime::MAX_CATALOG_SIZE)
             throw std::runtime_error(std::format("Invalid local catalog size, max is {} and yours is {}", dingosdk::profile_runtime::MAX_CATALOG_SIZE, items.size()));
 
@@ -171,24 +171,24 @@ namespace dingosdk::profile_runtime {
         const auto groups = objects::object_groups(content_cache::catalogs());
         std::set<std::uint32_t> hashes;
         std::size_t index{}, left_out{};
-	    // One item the catalog cannot hold (two mods' items with one identity, a record the game will not
-	    // read) is left out and named in the log; the rest still publish. Failing the whole catalog for
-	    // it left a player owning nothing: no items in the customization menu, no playcard.
-	    const auto leave_out = [&](const std::string& key, const char* why) {
-	        if (++left_out <= 20)
-	            dingosdk::logging::log(dingosdk::logging::Level::warning, dingosdk::logging::Channel::customization,
-	                "Cosmetic item {} left out of the catalog: {}.", key, why);
-	    };
-		for (const auto& [key, info] : items) {
+        // One item the catalog cannot hold (two mods' items with one identity, a record the game will not
+        // read) is left out and named in the log; the rest still publish. Failing the whole catalog for
+        // it left a player owning nothing: no items in the customization menu, no playcard.
+        const auto leave_out = [&](const std::string& key, const char* why) {
+            if (++left_out <= 20)
+                dingosdk::logging::log(dingosdk::logging::Level::warning, dingosdk::logging::Channel::customization,
+                    "Cosmetic item {} left out of the catalog: {}.", key, why);
+        };
+        for (const auto& [key, info] : items) {
             if (!hashes.insert(info.hash).second) {
-	            leave_out(key, "another item has the same identity hash");
-	            continue;
-	        }
-        	auto& node = owner->nodes[index];
+                leave_out(key, "another item has the same identity hash");
+                continue;
+            }
+            auto& node = owner->nodes[index];
             node.hash = info.hash;
             const auto& item_catalog = info.build_kit ? object_catalog : catalog;
-            
-			const bool owned = installed_item_owned(snapshot, key, info.hash, info.build_kit);
+
+            const bool owned = installed_item_owned(snapshot, key, info.hash, info.build_kit);
             auto metadata = profile::item_display_metadata(key, item_catalog.value(key, dingosdk::Json::object()));
             if (info.build_kit) {
                 // The same tile and category the browser layout gives this object.
@@ -196,28 +196,35 @@ namespace dingosdk::profile_runtime {
                 metadata["group"] = placement.group ? placement.group->id : key;
                 metadata["browser_category"] = placement.category ? placement.category->id : info.category;
             }
-	        try {
-	            node.item = make_cosmetic_message(cosmetic_ownable_message(key, info, owned, metadata));
-	        } catch (const std::exception& failure) {
-	            node = {};
-	            hashes.erase(info.hash);
-	            leave_out(key, failure.what());
-	            continue;
-	        }
-	        ++index;
-	        const auto bucket = info.hash % bucket_count;
-	        node.next = owner->buckets[bucket]; owner->buckets[bucket] = &node;
-	    }
-	    if (!index)
-			throw std::runtime_error("No cosmetic item could be put in the catalog");
-	    if (left_out)
-	        dingosdk::logging::log(dingosdk::logging::Level::warning, dingosdk::logging::Channel::customization,
-	            "Cosmetic catalog: {} of {} items left out (see above).", left_out, items.size());
-	    owner->map.count = static_cast<std::uint32_t>(index);
-	    cosmetic_runtime().catalog_items = index;
-	    CosmeticShared result{&owner->map, owner.get()}; owner.release();
-	    return result;
-	}
+            // A mod's item (or one of the game's own a mod changes, unless it has a description of
+            // its own) keeps three empty lines where the game shows a description: room at the
+            // bottom of the game's item card, whose bottom edge never moves, for the overlay to show
+            // the mod there.
+            if (!info.build_kit && !metadata.contains("description") && item_origins::find(key))
+                metadata["description"] = std::string(item_origins::reserved_description);
+            try {
+                node.item = make_cosmetic_message(cosmetic_ownable_message(key, info, owned, metadata));
+            }
+            catch (const std::exception& failure) {
+                node = {};
+                hashes.erase(info.hash);
+                leave_out(key, failure.what());
+                continue;
+            }
+            ++index;
+            const auto bucket = info.hash % bucket_count;
+            node.next = owner->buckets[bucket]; owner->buckets[bucket] = &node;
+        }
+        if (!index)
+            throw std::runtime_error("No cosmetic item could be put in the catalog");
+        if (left_out)
+            dingosdk::logging::log(dingosdk::logging::Level::warning, dingosdk::logging::Channel::customization,
+                "Cosmetic catalog: {} of {} items left out (see above).", left_out, items.size());
+        owner->map.count = static_cast<std::uint32_t>(index);
+        cosmetic_runtime().catalog_items = index;
+        CosmeticShared result{ &owner->map, owner.get() }; owner.release();
+        return result;
+    }
 
     void publish_cosmetic_catalog() {
         auto& c = cosmetic_runtime(); auto& f = cosmetic_catalog_functions();
@@ -267,12 +274,12 @@ namespace dingosdk::profile_runtime {
         dingosdk::logging::event(dingosdk::logging::Channel::customization, event.str().c_str());
     }
 
-	std::vector<std::uint32_t> cosmetic_owned_ids(const profile::Snapshot& snapshot) {
-	    std::vector<std::uint32_t> ids;
-	    for (const auto& [key, info] : cosmetic_runtime().items)
-	        if (installed_item_owned(snapshot, key, info.hash, info.build_kit)) ids.push_back(info.hash);
-	    return ids;
-	}
+    std::vector<std::uint32_t> cosmetic_owned_ids(const profile::Snapshot& snapshot) {
+        std::vector<std::uint32_t> ids;
+        for (const auto& [key, info] : cosmetic_runtime().items)
+            if (installed_item_owned(snapshot, key, info.hash, info.build_kit)) ids.push_back(info.hash);
+        return ids;
+    }
 
     void publish_cosmetic_inventory() {
         auto& s = local_runtime(); auto& c = cosmetic_runtime(); auto& f = cosmetic_catalog_functions();
@@ -312,7 +319,7 @@ namespace dingosdk::profile_runtime {
 
         const auto ids = cosmetic_owned_ids(*s.store->shared_snapshot());
         if (ids.size() > dingosdk::profile_runtime::MAX_CATALOG_SIZE)
-			throw std::runtime_error(std::format("Invalid local cosmetic inventory size, max is {} and yours is {}", dingosdk::profile_runtime::MAX_CATALOG_SIZE, ids.size()));
+            throw std::runtime_error(std::format("Invalid local cosmetic inventory size, max is {} and yours is {}", dingosdk::profile_runtime::MAX_CATALOG_SIZE, ids.size()));
         // Same synchronous consumer as the native default-owned subscription
         // callback. It copies IDs into native models,
         // sets ownership and updates the category collections used by CAS pages.

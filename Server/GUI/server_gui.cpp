@@ -1,5 +1,5 @@
-// ReSkate+ Dedicated Server GUI
-// Built for DingoSDK ReSkate+ Dedicated Server — Made with love by wxndr
+// ReSkate Dedicated Server GUI
+// Built for DingoSDK ReSkate Dedicated Server — Made with love by wxndr
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -71,7 +71,7 @@ inline std::pair<std::uint32_t, std::string> player_role(std::uint64_t id, bool 
         case multiplayer::IdentityList::developer: return {nametag_developer, "Developer"};
         case multiplayer::IdentityList::content_creator: return {nametag_creator, "Content Creator"};
         case multiplayer::IdentityList::centrix: return {nametag_centrix, "Centrix"};
-        case multiplayer::IdentityList::staff: return {nametag_staff, "ReSkate Admin"};
+        case multiplayer::IdentityList::staff: return {nametag_staff, "Staff"};
         default: return {nametag_homie, "Homie"};
         }
     }
@@ -91,7 +91,7 @@ void show_notification(const std::string& message, double duration = 3.5, ImU32 
     }
 }
 
-// --- Section Header with Blue Accent Bar (1-1 with ReSkate+ in-game menu) ---
+// --- Section Header with Blue Accent Bar (1-1 with ReSkate in-game menu) ---
 void section(const char* text) {
     ImGui::Spacing();
     ImGui::PushFont(g_fonts.heading);
@@ -105,7 +105,7 @@ void section(const char* text) {
     ImGui::Dummy(ImVec2(0, S(8)));
 }
 
-// --- Card Container with 4px Blue Left Accent (1-1 with ReSkate+ in-game menu) ---
+// --- Card Container with 4px Blue Left Accent (1-1 with ReSkate in-game menu) ---
 void begin_card(const char* id, const char* title, const char* subtitle = nullptr) {
     ImGui::PushStyleColor(ImGuiCol_ChildBg, tile);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(S(16), S(14)));
@@ -2747,7 +2747,7 @@ void draw_settings_tab(ServerStatusSnapshot& stats) {
     end_card();
 
     // Column 1: Chat words
-    begin_card("card_cfg_words", "CHAT WORD FILTER", "The ReSkate+ team's lists and this server's own");
+    begin_card("card_cfg_words", "CHAT WORD FILTER", "The ReSkate team's lists and this server's own");
     ImGui::Checkbox("Use Global Word Filter", &s_form.global_words);
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Off: only this server's own words are filtered and blocked.\nPlayers' games still star the team's filtered words for players with their chat filter on.");
@@ -2795,7 +2795,7 @@ void draw_settings_tab(ServerStatusSnapshot& stats) {
     ImGui::PopStyleColor();
     badge("20 TPS (Dedicated Standard)", good, black);
     ImGui::PushStyleColor(ImGuiCol_Text, muted);
-    ImGui::TextWrapped("Fixed at 20 TPS by ReSkate+ dedicated server protocol specification for network bandwidth and crowd pose stability.");
+    ImGui::TextWrapped("Fixed at 20 TPS by ReSkate dedicated server protocol specification for network bandwidth and crowd pose stability.");
     ImGui::PopStyleColor();
 
     ImGui::PopItemWidth();
@@ -2823,7 +2823,7 @@ void draw_settings_tab(ServerStatusSnapshot& stats) {
 
     // Updates & Releases Card
     begin_card("card_cfg_updates", "UPDATES & RELEASES", "Check and install official releases");
-    stat_row("Installed Server Build", "ReSkate+ v" + dingosdk::reskate_version, good);
+    stat_row("Installed Server Build", std::format("ReSkate+ v{}", dingosdk::reskate_version), good);
     const auto update = ServerEngine::instance().update_info();
     stat_row("Release Status", update.message,
              update.status == ServerEngine::UpdateInfo::Status::Available ? warning : (update.status == ServerEngine::UpdateInfo::Status::Error ? danger : good));

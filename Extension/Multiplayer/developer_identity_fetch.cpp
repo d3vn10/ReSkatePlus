@@ -37,7 +37,7 @@ void fetch() noexcept {
             // The chat word lists come in the same answer (word_lists.h).
             if (const auto words = use_word_lists(*answer); words.changed)
                 logging::log(logging::Level::info, logging::Channel::runtime,
-                             "Word lists: {} filtered and {} not allowed at all, from the ReSkate+ backend.", words.filtered,
+                             "Word lists: {} filtered and {} not allowed at all, from the ReSkate backend.", words.filtered,
                              words.forbidden);
             ok = true;
         } else if (!failing) {

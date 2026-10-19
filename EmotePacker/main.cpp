@@ -1,7 +1,7 @@
 // ReSkateEmotePacker: builds the chat emote pack ReSkatePlus.dll bakes in (assets/emotes) from a
 // folder of pictures and GIFs. Every file becomes one emote named after the file; animated
 // GIFs keep their frames and timing. Output: emotes.json + emotes.png in Better Chat's format
-// (Extension/UI/Overlay/chat_emotes.h), within the limits ReSkate+'s loader accepts.
+// (Extension/UI/Overlay/chat_emotes.h), within the limits ReSkate's loader accepts.
 //
 //   ReSkateEmotePacker <folder> [output folder] [--size <px>] [--max-frames <n>]
 //                      [--max-width <px>] [--name <pack name>]
@@ -30,7 +30,7 @@ using dingosdk::Json;
 using dingosdk::path_utf8;
 
 namespace {
-// ReSkate+'s loader limits (chat_emotes.cpp): frames at most 256 x 256, names of letters,
+// ReSkate's loader limits (chat_emotes.cpp): frames at most 256 x 256, names of letters,
 // digits and _ up to 32 characters, 4096 frames in all, a texture at most 8192 x 8192.
 constexpr int max_side = 256, max_texture = 8192;
 constexpr std::size_t max_name = 32, max_total_frames = 4096;
@@ -314,7 +314,7 @@ int run(const Options &o) {
             frames = tidy(std::move(frames), o.max_frames);
             if (!animated || frames.size() == 1) frames.front().time = 0;
             if (total + frames.size() > max_total_frames)
-                throw std::runtime_error("the pack would pass ReSkate+'s " + std::to_string(max_total_frames) + " frames");
+                throw std::runtime_error("the pack would pass ReSkate's " + std::to_string(max_total_frames) + " frames");
             total += frames.size();
             if (!folded.insert(lowered(name)).second)
                 std::printf("  note: %s differs from another emote only in case; typing picks the first.\n", name.c_str());
@@ -332,7 +332,7 @@ int run(const Options &o) {
     const int height = pack(emotes, o.max_width);
     if (height > max_texture)
         throw std::runtime_error("the atlas would be " + std::to_string(height) +
-                                 " pixels tall (ReSkate+ takes 8192): use a smaller --size or --max-frames");
+                                 " pixels tall (ReSkate takes 8192): use a smaller --size or --max-frames");
     std::vector<unsigned char> atlas(static_cast<std::size_t>(o.max_width) * height * 4, 0);
     auto emote_list = Json::object();
     for (const auto &e : emotes) {
@@ -392,7 +392,7 @@ int wmain(int argc, wchar_t **argv) {
         try {
             code = run(parse(argc, argv));
         } catch (const std::invalid_argument &) {
-            std::printf("ReSkateEmotePacker: builds ReSkate+'s chat emote pack from a folder of pictures and GIFs.\n\n"
+            std::printf("ReSkateEmotePacker: builds ReSkate's chat emote pack from a folder of pictures and GIFs.\n\n"
                         "  ReSkateEmotePacker <folder> [output folder] [--size 56] [--max-frames 64]\n"
                         "                     [--max-width 2048] [--name ReSkate]\n\n"
                         "Each file becomes :FileName: (letters, digits and _). Animated GIFs keep their frames.\n"

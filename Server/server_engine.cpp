@@ -211,7 +211,7 @@ bool ServerEngine::load_environment(const std::filesystem::path& folder, const s
         }
     }
 
-    // Fetch ReSkate+ identity lists, categories (Centrix, Dev, Staff, Homie, Creator) and global bans in background
+    // Fetch ReSkate identity lists, categories (Centrix, Dev, Staff, Homie, Creator) and global bans in background
     std::thread([]() {
         try {
             read_global_bans();
@@ -425,7 +425,7 @@ void ServerEngine::worker_loop() {
             log(std::string("Server tick error: ") + e.what(), LogLevel::error);
         }
 
-        // Live ReSkate+ Identity Sync (Centrix, Dev, Staff, Homie, Content Creator, Global Bans)
+        // Live ReSkate Identity Sync (Centrix, Dev, Staff, Homie, Content Creator, Global Bans)
         const auto now_time = std::chrono::steady_clock::now();
         if (const auto maps = map_updater.tick(config_.latest_versions, config_.latest_check_minutes, config_.mods, host_->map_folder_in_play(),
                                                host_->take_map_update_request());
@@ -440,18 +440,18 @@ void ServerEngine::worker_loop() {
             const auto check = ban_check.get();
             next_ban_check = now_time + (check.ok ? std::chrono::minutes(10) : std::chrono::minutes(1));
             if (config_.global_bans && check.ok && (check.changed || bans_unread)) {
-                log("Global bans: " + std::to_string(check.banned) + " player(s) banned from ReSkate+ multiplayer cannot join.");
+                log("Global bans: " + std::to_string(check.banned) + " player(s) banned from ReSkate multiplayer cannot join.");
             }
             if (check.ok && check.words_changed) {
                 log("Word lists: " + std::to_string(check.filtered_words) + " filtered and " + std::to_string(check.forbidden_words) +
-                    " not allowed at all, from the ReSkate+ team's lists.");
+                    " not allowed at all, from the ReSkate team's lists.");
             } else if (!check.ok && !bans_unread) {
-                log("The ReSkate+ team's lists could not be read (" + check.problem + "). Trying again every minute.", LogLevel::warning);
+                log("The ReSkate team's lists could not be read (" + check.problem + "). Trying again every minute.", LogLevel::warning);
             }
             bans_unread = false;
         }
 
-        // The ReSkate+ team's rule, read with its ban list: say when it starts or stops hiding this server.
+        // The ReSkate team's rule, read with its ban list: say when it starts or stops hiding this server.
         if (const bool required = multiplayer::server_tokens_required(); required != tokens_required) {
             tokens_required = required;
             if (config_.steam_token.empty() && config_.listed) {

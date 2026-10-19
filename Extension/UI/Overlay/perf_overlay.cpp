@@ -77,9 +77,9 @@ void draw_perf_hud() {
     const double frame = framed ? m.client_frame_average_ms : m.client_interval_average_ms;
     text(bold, std::format("CLIENT  {:.0f}/s   frame {:.1f} / {:.1f} ms", m.client_updates_per_second, frame, budget),
          frame <= budget * 0.85 ? skate::white : frame <= budget ? skate::warning : skate::danger);
-    text(font, std::format("ReSkate+ {:.2f} ms tick + {:.2f} ms hooks per frame", m.client_own_average_ms,
+    text(font, std::format("ReSkate {:.2f} ms tick + {:.2f} ms hooks per frame", m.client_own_average_ms,
          m.hooks_milliseconds_per_update), skate::grey_text);
-    text(font, std::format("longest: frame {:.1f}  interval {:.1f}  ReSkate+ {:.1f} ms", m.client_frame_longest_ms,
+    text(font, std::format("longest: frame {:.1f}  interval {:.1f}  ReSkate {:.1f} ms", m.client_frame_longest_ms,
          m.client_interval_longest_ms, m.client_own_longest_ms),
          m.client_frame_longest_ms > budget || m.client_own_longest_ms > budget * 0.25f ? skate::warning : skate::grey_text);
     bars(draw, ImVec2(at.x, at.y + P(2)), ImVec2(width - P(20), P(34)),
@@ -95,8 +95,8 @@ void draw_perf_hud() {
     text(bold, std::format("CPU  {:.0f}% of {} cores   client thread {:.0f}%", m.process_cpu_percent, m.cores, client_cpu), skate::white);
     // A ReSkate+ thread using most of a core is never expected: name it.
     for (const auto& thread : m.threads)
-        if (thread.label == "ReSkate+ Worker" && thread.cpu_percent >= 50)
-            text(bold, std::format("ReSkate+ Worker {} at {:.0f}%", thread.id, thread.cpu_percent), skate::danger);
+        if (thread.label == "ReSkate Worker" && thread.cpu_percent >= 50)
+            text(bold, std::format("ReSkate Worker {} at {:.0f}%", thread.id, thread.cpu_percent), skate::danger);
     if (!m.zones.empty()) {
         const auto& top = m.zones.front();
         text(font, std::format("busiest: {} {:.2f} ms/s", top.name, top.milliseconds_per_second), skate::grey_text);
@@ -125,7 +125,7 @@ void draw_perf_window() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0f);
     bool open = true;
-    if (ImGui::Begin("ReSkate+ Profiler###ReSkateProfiler", &open, ImGuiWindowFlags_NoCollapse)) {
+    if (ImGui::Begin("ReSkate Profiler###ReSkateProfiler", &open, ImGuiWindowFlags_NoCollapse)) {
         const auto summary = profiler::summary();
         const auto& m = *summary;
         std::array<float, 240> buffer{};
@@ -136,9 +136,9 @@ void draw_perf_window() {
                     m.client_interval_average_ms, m.client_interval_longest_ms);
                 ImGui::Text("  client frame %.2f ms (longest %.1f) of a %.1f ms budget", m.client_frame_average_ms,
                     m.client_frame_longest_ms, budget);
-                ImGui::Text("  ReSkate+ tick %.2f ms (longest %.1f), ReSkate+ hooks %.2f ms per frame", m.client_own_average_ms,
+                ImGui::Text("  ReSkate tick %.2f ms (longest %.1f), ReSkate hooks %.2f ms per frame", m.client_own_average_ms,
                     m.client_own_longest_ms, m.hooks_milliseconds_per_update);
-                ImGui::TextDisabled("The client frame includes ReSkate+'s tick and hooks. Over budget, the game runs in slow motion.");
+                ImGui::TextDisabled("The client frame includes ReSkate's tick and hooks. Over budget, the game runs in slow motion.");
                 const auto graph = [&](const char* label, profiler::Series series, float height) {
                     const auto values = recent(series, buffer);
                     const auto at = ImGui::GetCursorScreenPos();
@@ -151,7 +151,7 @@ void draw_perf_window() {
                 };
                 graph("Client update interval (ms)", profiler::Series::client_interval, P(70));
                 graph("Client frame time (ms)", profiler::Series::client_frame, P(50));
-                graph("ReSkate+ tick time (ms)", profiler::Series::client_own, P(40));
+                graph("ReSkate tick time (ms)", profiler::Series::client_own, P(40));
                 ImGui::Separator();
                 ImGui::Text("Frames: %.1f/s, %.2f ms (longest %.1f ms)", m.presents_per_second, m.present_interval_average_ms,
                     m.present_interval_longest_ms);
@@ -160,7 +160,7 @@ void draw_perf_window() {
                 ImGui::EndTabItem();
             }
             if (ImGui::BeginTabItem("ReSkate+")) {
-                ImGui::TextDisabled("ReSkate+'s own work, timed. \"hooks/\" zones run inside the game's update.");
+                ImGui::TextDisabled("ReSkate's own work, timed. \"hooks/\" zones run inside the game's update.");
                 if (ImGui::BeginTable("##zones", 6, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV |
                         ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp)) {
                     ImGui::TableSetupScrollFreeze(0, 1);
