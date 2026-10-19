@@ -22,45 +22,66 @@ namespace dingosdk::overlay::menu {
         bool freecam_controller = model.bindings.freecam_controller;
         if (toggle_row(menu, "Block Input(Enable Controller Support)", "Block player input and use the controller for the Freecam.", freecam_controller,
             model.bindings.available && callbacks.queue_debug)) {
-            std::array<char, 512> result{};
-            callbacks.queue_console_command(callbacks.user, freecam_controller ? "freecam_controller true" : "freecam_controller false", result.data(), result.size());
-        }
-        field(menu, "Teleport to Freecam");
-        ImGui::BeginDisabled(!debug.free_camera || !debug.camera_position_valid || !callbacks.queue_console_command);
-        if (ImGui::Button("Teleport", ImVec2(-1, 0))) {
-            std::array<char, 512> result{};
-            callbacks.queue_console_command(callbacks.user, "tp_to_freecam", result.data(), result.size());
-        }
+        std::array<char, 512> result{};
+        callbacks.queue_console_command(callbacks.user, freecam_controller ? "freecam_controller true" : "freecam_controller false", result.data(), result.size());
+    }
+    field(menu, "Teleport to Freecam");
+    ImGui::BeginDisabled(!debug.free_camera || !debug.camera_position_valid || !callbacks.queue_console_command);
+    if (ImGui::Button("Teleport", ImVec2(-1, 0))) {
+        std::array<char, 512> result{};
+        callbacks.queue_console_command(callbacks.user, "tp_to_freecam", result.data(), result.size());
+    }
+    ImGui::EndDisabled();
+    {
+        field(menu, "Field of view");
+        const bool custom = debug.free_camera_fov > 0;
+        int free_fov = static_cast<int>(std::lround(custom ? debug.free_camera_fov : debug.camera_fov));
+        const float reset = trailing_width("Default");
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - reset - ImGui::GetStyle().ItemSpacing.x);
+        ImGui::BeginDisabled(!callbacks.queue_debug);
+        if (::dingosdk::overlay::menu::slider_int("##free-camera-fov", &free_fov, 40, 120, custom ? "%d degrees" : "%d degrees (game)",
+                ImGuiSliderFlags_AlwaysClamp))
+            debug_request(menu, callbacks, {DebugAction::set_free_camera_fov, false, static_cast<float>(free_fov)});
+        ImGui::SameLine();
+        ImGui::BeginDisabled(!custom);
+        if (ImGui::Button("Default", ImVec2(reset, 0)))
+            debug_request(menu, callbacks, {DebugAction::set_free_camera_fov, false, 0.0f});
         ImGui::EndDisabled();
-        {
-            field(menu, "Field of view");
-            const bool custom = debug.free_camera_fov > 0;
-            int free_fov = static_cast<int>(std::lround(custom ? debug.free_camera_fov : debug.camera_fov));
-            const float reset = trailing_width("Default");
-            ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - reset - ImGui::GetStyle().ItemSpacing.x);
-            ImGui::BeginDisabled(!callbacks.queue_debug);
-            if (dingosdk::overlay::menu::slider_int("##free-camera-fov", &free_fov, 40, 120, custom ? "%d degrees" : "%d degrees (game)", ImGuiSliderFlags_AlwaysClamp)) //::?
-                debug_request(menu, callbacks, { DebugAction::set_free_camera_fov, false, static_cast<float>(free_fov) });
-            ImGui::SameLine();
-            ImGui::BeginDisabled(!custom);
-            if (ImGui::Button("Default", ImVec2(reset, 0)))
-                debug_request(menu, callbacks, { DebugAction::set_free_camera_fov, false, 0.0f });
-            ImGui::EndDisabled();
-            ImGui::EndDisabled();
-        }
-        field(menu, "Flight speed", "Also used by Noclip.");
-        ImGui::BeginDisabled((!debug.free_camera && !debug.noclip) || !debug.camera_available || !callbacks.queue_debug);
-        constexpr std::array<float, 7> speeds{ 0.6f, 3, 5, 15, 60, 300, 1500 };
-        constexpr std::array<const char*, 7> labels{ "Precise", "Slow", "Cruise", "Default", "Fast", "Travel", "Maximum" };
-        int selected = 3;
-        for (int i = 0; i < static_cast<int>(speeds.size()); ++i)
-            if (std::abs(debug.camera_speed - speeds[i]) < .01f) selected = i;
-        if (dingosdk::overlay::menu::slider_int("##flight-speed", &selected, 0, 6, labels[selected], ImGuiSliderFlags_NoInput)) //::?
-            debug_request(menu, callbacks, { DebugAction::set_camera_speed, false, speeds[selected] });
         ImGui::EndDisabled();
-        if (debug.free_camera) note("Close the menu to fly. WASD / Q E move; hold the right mouse button to look.");
-        if (!debug.camera_available) warn(debug.camera_unavailable.c_str());
-        end_card();
+    }
+    field(menu, "Flight speed", "Also used by Noclip.");
+    ImGui::BeginDisabled((!debug.free_camera && !debug.noclip) || !debug.camera_available || !callbacks.queue_debug);
+    constexpr std::array<float, 7> speeds{0.6f, 3, 5, 15, 60, 300, 1500};
+    constexpr std::array<const char*, 7> labels{"Precise", "Slow", "Cruise", "Default", "Fast", "Travel", "Maximum"};
+    int selected = 3;
+    for (int i = 0; i < static_cast<int>(speeds.size()); ++i)
+        if (std::abs(debug.camera_speed - speeds[i]) < .01f) selected = i;
+    if (::dingosdk::overlay::menu::slider_int("##flight-speed", &selected, 0, 6, labels[selected], ImGuiSliderFlags_NoInput))
+        debug_request(menu, callbacks, {DebugAction::set_camera_speed, false, speeds[selected]});
+    ImGui::EndDisabled();
+    if (debug.free_camera) note("Close the menu to fly. WASD / Q E move; hold the right mouse button to look.");
+    if (!debug.camera_available) warn(debug.camera_unavailable.c_str());
+    end_card();
+
+    // Keyframe smoothing (Extension/ReplayKeyframes/replay_keyframes.h).
+    begin_card(menu, "replay-editor", "REPLAY EDITOR");
+    bool keysmooth = model.keyframe_smoothing.enabled;
+    if (toggle_row(menu, "Keyframe smoothing",
+            "The free camera glides through its keys instead of changing speed at each one. Every key is still met, at its time.",
+            keysmooth, model.keyframe_smoothing.available && callbacks.queue_console_command))
+        send_console(menu, callbacks, keysmooth ? "keysmooth on" : "keysmooth off");
+    field(menu, "Smoothness", "100% is the smoothest that still meets every key; 0% the game's own curve.");
+    // Sent once it is let go: every change rebuilds the open replay's camera.
+    static int dragged = -1;
+    int smoothness = dragged >= 0 ? dragged : keyframe_smoothness_percent(model.keyframe_smoothing);
+    ImGui::BeginDisabled(!model.keyframe_smoothing.available || !model.keyframe_smoothing.enabled || !callbacks.queue_console_command);
+    if (::dingosdk::overlay::menu::slider_int("##keyframe-smoothness", &smoothness, 0, 100, "%d%%", ImGuiSliderFlags_AlwaysClamp))
+        dragged = smoothness;
+    if (ImGui::IsItemDeactivatedAfterEdit() && dragged >= 0)
+        send_console(menu, callbacks, "keysmooth amount " + std::to_string(dragged / 100.0));
+    if (!ImGui::IsItemActive()) dragged = -1;
+    ImGui::EndDisabled();
+    end_card();
 }
 
 void first_person_controls(SkateMenu& menu, const Model& model, const CallbacksV3& callbacks) {
@@ -294,40 +315,40 @@ void grind_exits_addon(SkateMenu& menu, const Model& model, const CallbacksV3& c
     bool grind_on = grind.enabled;
     if (toggle_row(menu, "Grind exit triggers", "Press LT or RT while grinding to pick the side you pop out to.",
             grind_on, grind_console))
-            send_console(menu, callbacks, grind_on ? "grindexit exits on" : "grindexit exits off");
-        field(menu, "Input Mode");
-        int grind_sides = grind.toe_heel ? 0 : 1;
-        if (choice(menu, "grind-sides", grind_sides, { "Toe / Heel", "Left / Right" }, grind_console, 0.0f,
-            { "Direction is based on your skater's toe/heel side", "Direction is based on left or right of your direction of travel" }))
-            send_console(menu, callbacks, grind_sides == 0 ? "grindexit sides toeheel" : "grindexit sides travel");
-        if (grind.toe_heel) {
-            field(menu, "Your stance");
-            int grind_stance = grind.stance == 2 ? 1 : grind.stance == 1 ? 0 : -1;
-            if (choice(menu, "grind-stance", grind_stance, { "Regular", "Goofy" }, grind_console))
-                send_console(menu, callbacks, grind_stance == 1 ? "grindexit stance goofy" : "grindexit stance regular");
-            if (grind.stance == 0) warn("Pick your stance. Until then LT / RT are left / right of travel.");
-        }
-        {
-            // Sent once the slider is let go (not every frame of a drag); the dragged value shows
-            // until the setting comes back, in steps of 5.
-            static int edited = -1;
-            static double edited_at = 0;
-            int strength = edited >= 0 ? edited : grind.strength;
-            field(menu, "Pop-out strength", "How far to the side a trigger exit pops. 100% is the full exit; lower it for rails next to a wall.");
-            ImGui::BeginDisabled(!grind_console);
-        	if (slider_int("##grind-strength", &strength, 10, 100, "%d%%", ImGuiSliderFlags_AlwaysClamp)) {
-                edited = std::clamp((strength + 2) / 5 * 5, 10, 100);
-                edited_at = ImGui::GetTime();
-            }
-            if (ImGui::IsItemDeactivatedAfterEdit() && edited >= 0) {
-                send_console(menu, callbacks, "grindexit strength " + std::to_string(edited));
-                edited_at = ImGui::GetTime();
-            }
-            if (edited >= 0 && !ImGui::IsItemActive() && (grind.strength == edited || ImGui::GetTime() - edited_at > 2.0)) edited = -1;
-            ImGui::EndDisabled();
-        }
-        end_card();
+        send_console(menu, callbacks, grind_on ? "grindexit exits on" : "grindexit exits off");
+    field(menu, "Input Mode");
+    int grind_sides = grind.toe_heel ? 0 : 1;
+    if (choice(menu, "grind-sides", grind_sides, {"Toe / Heel", "Left / Right"}, grind_console, 0.0f,
+            {"Direction is based on your skater's toe/heel side", "Direction is based on left or right of your direction of travel"}))
+        send_console(menu, callbacks, grind_sides == 0 ? "grindexit sides toeheel" : "grindexit sides travel");
+    if (grind.toe_heel) {
+        field(menu, "Your stance");
+        int grind_stance = grind.stance == 2 ? 1 : grind.stance == 1 ? 0 : -1;
+        if (choice(menu, "grind-stance", grind_stance, {"Regular", "Goofy"}, grind_console))
+            send_console(menu, callbacks, grind_stance == 1 ? "grindexit stance goofy" : "grindexit stance regular");
+        if (grind.stance == 0) warn("Pick your stance. Until then LT / RT are left / right of travel.");
     }
+    {
+        // Sent once the slider is let go (not every frame of a drag); the dragged value shows
+        // until the setting comes back, in steps of 5.
+        static int edited = -1;
+        static double edited_at = 0;
+        int strength = edited >= 0 ? edited : grind.strength;
+        field(menu, "Pop-out strength", "How far to the side a trigger exit pops. 100% is the full exit; lower it for rails next to a wall.");
+        ImGui::BeginDisabled(!grind_console);
+        if (slider_int("##grind-strength", &strength, 10, 100, "%d%%", ImGuiSliderFlags_AlwaysClamp)) {
+            edited = std::clamp((strength + 2) / 5 * 5, 10, 100);
+            edited_at = ImGui::GetTime();
+        }
+        if (ImGui::IsItemDeactivatedAfterEdit() && edited >= 0) {
+            send_console(menu, callbacks, "grindexit strength " + std::to_string(edited));
+            edited_at = ImGui::GetTime();
+        }
+        if (edited >= 0 && !ImGui::IsItemActive() && (grind.strength == edited || ImGui::GetTime() - edited_at > 2.0)) edited = -1;
+        ImGui::EndDisabled();
+    }
+    end_card();
+}
 
 void skater_page(SkateMenu& menu, const Model& model, const CallbacksV3& callbacks) {
     // (Grind exits are an addon: Addons > Grind Exits.)

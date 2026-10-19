@@ -303,8 +303,8 @@ void install(std::uintptr_t base) {
     // One transaction (one suspension of every game thread) for all of them.
     for (const auto &hook : hooks)
         require(hook_queue_enable(reinterpret_cast<void *>(base + hook.rva)) == HookOk,
-                "Cannot enable native player map hooks; restart ReSkate+.");
-    require(hook_apply_queued() == HookOk, "Cannot enable native player map hooks; restart ReSkate+.");
+                "Cannot enable native player map hooks; restart ReSkate.");
+    require(hook_apply_queued() == HookOk, "Cannot enable native player map hooks; restart ReSkate.");
     shared().installed.store(true, std::memory_order_release);
 }
 } // namespace

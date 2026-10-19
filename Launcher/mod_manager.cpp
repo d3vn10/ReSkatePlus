@@ -31,7 +31,7 @@ namespace dingosdk::launcher_mods {
         // Thunderstore requires these at the top of a package (lower case here); they
         // follow the mod in when it is packed one folder deeper.
         constexpr std::array<std::string_view, 4> package_files{ "manifest.json", "icon.png", "readme.md", "changelog.md" };
-        constexpr char no_mod[] = " does not contain a ReSkate+ mod (no layout.toc, reskate-levels.json or manifest.json).";
+        constexpr char no_mod[] = " does not contain a ReSkate mod (no layout.toc, reskate-levels.json or manifest.json).";
         // Staging lives inside Mods so the final move is a rename on one volume; the
         // leading dot keeps the runtime from ever treating it as a mod.
         constexpr wchar_t staging_folder[] = L".reskate-install";
@@ -152,7 +152,7 @@ namespace dingosdk::launcher_mods {
         // refused when asked, and the author goes into manifest.json.
         void finish(const fs::path& staging, const Root& root, const std::string& source_name, const InstallOptions& options) {
             if (options.require_content && !root.content)
-                fail(source_name + " has nothing for ReSkate+ to load: no layout.toc, reskate-levels.json or parks folder. "
+                fail(source_name + " has nothing for ReSkate to load: no layout.toc, reskate-levels.json or parks folder. "
                     "Only mods built with ReSkate Studio, and park mods, can be installed.");
             const auto manifest = staging / mods::manifest_file;
 		    std::error_code error;

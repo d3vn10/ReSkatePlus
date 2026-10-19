@@ -10,6 +10,7 @@
 #include "Extension/World/mesh_unload_guard.h"
 #include "Extension/World/mesh_settings_guard.h"
 #include "Extension/World/shader_permutation_guard.h"
+#include "Extension/World/shader_registry_guard.h"
 #include "Extension/World/light_table_guard.h"
 #include "Extension/World/stack_check_report.h"
 #include "Extension/Music/music_inject.h"
@@ -30,7 +31,6 @@
 #include "Extension/Boot/offline_boot.h"
 #include "Extension/HallOfMeat/hall_of_meat.h"
 #include "Extension/RoadRash/road_rash.h"
-#include "Extension/OutfitLayers/outfit_layers.h"
 #include "Extension/BoardBreak/board_break.h"
 #include "Extension/Skater/grind_exit_control.h"
 #include "Extension/Skater/camera_observer.h"
@@ -59,6 +59,7 @@
 #include "Extension/World/loading_screen.h"
 #include "Extension/Customization/preset_lookup_guard.h"
 #include "Extension/Rendering/replay_export.h"
+#include "Extension/ReplayKeyframes/replay_keyframes.h"
 #include "Engine/Vfs/content_catalogs.h"
 #include "Engine/Vfs/world_layer_scan.h"
 #include "Engine/Game/World/world_layer_catalog.h"
@@ -249,7 +250,7 @@ extern "C" __declspec(dllexport) BOOL WINAPI DingoSDKDebugInitialize() {
         dingosdk::overlay::set_nametag_feed(dingosdk::multiplayer::custom_nametags);
         // Engine functions the profiler's stack sampler names in its reports.
         static constexpr dingosdk::profiler::Label engine_labels[]{
-            {dingosdk::addr::profiler_labels::client_update, "Client game update (ReSkate+ tick hook)"},
+            {dingosdk::addr::profiler_labels::client_update, "Client game update (ReSkate tick hook)"},
             {dingosdk::addr::profiler_labels::client_frame_job.rva, "Client frame job"},
             {dingosdk::addr::profiler_labels::expression_vm, "Expression VM"},
             {dingosdk::addr::profiler_labels::expression_vm_profiled, "Expression VM (profiled)"},
@@ -273,6 +274,8 @@ extern "C" __declspec(dllexport) BOOL WINAPI DingoSDKDebugInitialize() {
         dingosdk::overlay::set_park_preview_queue(dingosdk::queue_local_park_preview);
         dingosdk::overlay::set_park_selection_queue(dingosdk::queue_local_park_selection);
         dingosdk::overlay::set_park_paste_queue(dingosdk::queue_local_park_paste);
+        dingosdk::overlay::set_park_object_set_queue(dingosdk::queue_local_park_object_set);
+        dingosdk::overlay::set_park_delete_queue(dingosdk::queue_local_park_delete);
         if (!DingoSDKOverlayStartV3(&callbacks)) {
             dingosdk::logging::write(dingosdk::logging::Level::error, dingosdk::logging::Channel::graphics, "Overlay startup failed.");
             return FALSE;
@@ -334,6 +337,7 @@ extern "C" __declspec(dllexport) BOOL WINAPI DingoSDKDebugInitialize() {
         (void)dingosdk::mesh_unload_guard::install(r.base);
         (void)dingosdk::mesh_settings_guard::install(r.base);
         (void)dingosdk::shader_permutation_guard::install(r.base);
+        (void)dingosdk::shader_registry_guard::install(r.base);
         (void)dingosdk::light_table_guard::install(r.base);
         (void)dingosdk::load_error_guard::install(r.base);
         (void)dingosdk::texture_handle_limit::install(r.base);
@@ -444,8 +448,6 @@ extern "C" __declspec(dllexport) BOOL WINAPI DingoSDKDebugInitialize() {
         record("{\"event\":\"hall_of_meat_initialized\",\"active\":" + std::string(meat ? "true" : "false") + "}");
         const bool rash = dingosdk::road_rash::start(r.base);
         record("{\"event\":\"road_rash_initialized\",\"active\":" + std::string(rash ? "true" : "false") + "}");
-        const bool layers = dingosdk::outfit_layers::start(r.base);
-        record("{\"event\":\"outfit_layers_initialized\",\"active\":" + std::string(layers ? "true" : "false") + "}");
         const bool board_break = dingosdk::board_break::start(r.base);
         record("{\"event\":\"board_break_initialized\",\"active\":" + std::string(board_break ? "true" : "false") + "}");
         const bool grind_control = dingosdk::grind_exit_control::start(r.base);
@@ -458,6 +460,8 @@ extern "C" __declspec(dllexport) BOOL WINAPI DingoSDKDebugInitialize() {
         record("{\"event\":\"preset_lookup_guard_initialized\",\"active\":" + std::string(preset_guard ? "true" : "false") + "}");
         const bool replay_export = dingosdk::replay_export::start(r.base);
         record("{\"event\":\"replay_export_initialized\",\"active\":" + std::string(replay_export ? "true" : "false") + "}");
+        const bool replay_keyframes = dingosdk::replay_keyframes::start(r.base);
+        record("{\"event\":\"replay_keyframes_initialized\",\"active\":" + std::string(replay_keyframes ? "true" : "false") + "}");
         void* original{};
         auto* address = reinterpret_cast<void*>(r.base + rt::client_tick);
         auto hook_status = dingosdk::hook_prepare(address, reinterpret_cast<void*>(&tick), &original);
@@ -500,7 +504,7 @@ extern "C" __declspec(dllexport) BOOL WINAPI DingoSDKDebugInitialize() {
                 dingosdk::multiplayer::throwdown_lab_before_level_transition(next);
             });
         if (!r.native_loading_logging) dingosdk::logging::write(dingosdk::logging::Level::warning,
-            dingosdk::logging::Channel::ui, "Native ReSkate+ menu disabled: shutdown cleanup hook is unavailable.");
+            dingosdk::logging::Channel::ui, "Native ReSkate menu disabled: shutdown cleanup hook is unavailable.");
         r.initialized = true;
         if (global_offline_requested)
             record("{\"event\":\"launcher_readiness\",\"ready\":true}");

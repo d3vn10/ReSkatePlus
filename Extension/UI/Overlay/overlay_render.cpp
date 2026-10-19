@@ -7,7 +7,6 @@
 #include "Extension/HallOfMeat/hall_of_meat_overlay.h"
 #include "park_previews.h"
 #include "chat_emotes.h"
-#include "tab_icons.h"
 #include "input_capture.h"
 #include "cursor.h"
 #include <algorithm>
@@ -80,6 +79,8 @@ void destroy_graphics() {
     card_image_lost();
     s.menu_map_texture.Reset(); s.menu_map_upload.Reset();
     menu_map_pixels_lost();
+    s.mod_icon_texture.Reset(); s.mod_icon_upload.Reset();
+    mod_icon_lost();
     s.commands.Reset(); s.rtvs.Reset(); s.srvs.Reset(); s.fence.Reset(); s.device.Reset();
     if (s.fence_event) CloseHandle(s.fence_event);
     s.fence_event = nullptr;
@@ -287,7 +288,7 @@ bool setup_graphics() {
         return false;
     }
     heap.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-    heap.NumDescriptors = 3; // ImGui's atlas, the map download card's icon, the menu's map pictures (upload_image)
+    heap.NumDescriptors = 4; // ImGui's atlas, the map download card's icon, the menu's map pictures, an item's mod icon (upload_image)
     heap.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
     graphics_result = s.device->CreateDescriptorHeap(&heap, IID_PPV_ARGS(&s.srvs));
     if (FAILED(graphics_result)) {
@@ -351,10 +352,10 @@ bool setup_graphics() {
             static_cast<unsigned long>(graphics_result));
         return false;
     }
-    s.commands->SetName(L"ReSkate+ Overlay Draw");
+    s.commands->SetName(L"ReSkate Overlay Draw");
     dingosdk::overlay::watch_draws(s.commands.Get());
     dingosdk::overlay::watch_addresses(s.commands.Get());
-    s.fence->SetName(L"ReSkate+ Overlay Fence");
+    s.fence->SetName(L"ReSkate Overlay Fence");
     s.fence_event = CreateEventW(nullptr, FALSE, FALSE, nullptr);
     if (!s.fence_event) return false;
     ImGuiContext* previous = ImGui::GetCurrentContext();
@@ -378,11 +379,9 @@ bool setup_graphics() {
     };
     const auto emote_count = reserve_chat_emotes(*ImGui::GetIO().Fonts, left());
     reserve_hall_of_meat_images(*ImGui::GetIO().Fonts, left());
-    reserve_tab_icons(*ImGui::GetIO().Fonts, left());
     const auto preview_count = load_park_previews(*ImGui::GetIO().Fonts, left());
     fill_chat_emotes(*ImGui::GetIO().Fonts);
     fill_hall_of_meat_images(*ImGui::GetIO().Fonts);
-    fill_tab_icons(*ImGui::GetIO().Fonts);
     if (emote_count)
         dingosdk::logging::printf(dingosdk::logging::Level::info, dingosdk::logging::Channel::graphics,
             "Chat emotes: %zu ready.", emote_count);
@@ -462,74 +461,74 @@ bool setup_graphics() {
         return std::all_of(position.begin(), position.end(), [](float value) { return std::isfinite(value); });
     }
 
-    void draw_menu() {
-        auto& s = state();
-        const auto now = std::chrono::steady_clock::now();
-        // This only copies the published model; native world/catalog discovery stays
-        // on the client thread at its existing cadence.
-        const auto interval = std::chrono::milliseconds(16);
-        // Chat alone shows nothing from the model: polling it then would only make
-        // the game thread wait on the host's lock.
-        const bool model_shown = s.visible.load() || s.console_visible.load() || s.editor_visible.load();
-        if (model_shown && now - s.last_model >= interval) {
-            s.last_model = now;
-            if (s.callbacks.read_model) {
-                // Hand the host the model already held: it copies only what changed since.
-                dingosdk::overlay::Model next = std::move(s.model);
-                next.console_log.clear();
-                s.callbacks.read_model(s.callbacks.user, next);
-                // Bound the UI work even if a corrupt/native catalog is returned.
-                if (next.levels.size() > 128) next.levels.resize(128);
-                for (auto& level : next.levels)
-                    if (level.start_points.size() > 64) level.start_points.resize(64);
-                if (next.offline.variables.size() > 512) next.offline.variables.resize(512);
-                for (auto& variable : next.offline.variables)
-                    if (variable.name.size() > 256) variable.name.resize(256);
-                if (next.console_log.size() > maximum_console_lines)
-                    next.console_log.erase(next.console_log.begin(), next.console_log.end() - maximum_console_lines);
-                for (auto& line : next.console_log)
-                    if (line.text.size() > maximum_console_line_length)
-                        line.text.resize(maximum_console_line_length);
-                next.debug.camera_position_valid &= finite_position(next.debug.camera_position);
-                next.debug.skater_position_valid &= finite_position(next.debug.skater_position);
-                // The callback owns this fresh batch. Move it into ingestion rather
-                // than copying every retained log string a second time each poll.
-                ingest_console_log(std::move(next.console_log));
-                s.model = std::move(next);
-            }
+void draw_menu() {
+    auto& s = state();
+    const auto now = std::chrono::steady_clock::now();
+    // This only copies the published model; native world/catalog discovery stays
+    // on the client thread at its existing cadence.
+    const auto interval = std::chrono::milliseconds(16);
+    // Chat alone shows nothing from the model: polling it then would only make
+    // the game thread wait on the host's lock.
+    const bool model_shown = s.visible.load() || s.console_visible.load() || s.editor_visible.load();
+    if (model_shown && now - s.last_model >= interval) {
+        s.last_model = now;
+        if (s.callbacks.read_model) {
+            // Hand the host the model already held: it copies only what changed since.
+            dingosdk::overlay::Model next = std::move(s.model);
+            next.console_log.clear();
+            s.callbacks.read_model(s.callbacks.user, next);
+            // Bound the UI work even if a corrupt/native catalog is returned.
+            if (next.levels.size() > 128) next.levels.resize(128);
+            for (auto& level : next.levels)
+                if (level.start_points.size() > 64) level.start_points.resize(64);
+            if (next.offline.variables.size() > 512) next.offline.variables.resize(512);
+            for (auto& variable : next.offline.variables)
+                if (variable.name.size() > 256) variable.name.resize(256);
+            if (next.console_log.size() > maximum_console_lines)
+                next.console_log.erase(next.console_log.begin(), next.console_log.end() - maximum_console_lines);
+            for (auto& line : next.console_log)
+                if (line.text.size() > maximum_console_line_length)
+                    line.text.resize(maximum_console_line_length);
+            next.debug.camera_position_valid &= finite_position(next.debug.camera_position);
+            next.debug.skater_position_valid &= finite_position(next.debug.skater_position);
+            // The callback owns this fresh batch. Move it into ingestion rather
+            // than copying every retained log string a second time each poll.
+            ingest_console_log(std::move(next.console_log));
+            s.model = std::move(next);
         }
-        // Nothing but the chat: the held model may be old, so it must not reopen the editor.
-        if (!model_shown) {
-            s.editor_flight.store(false);
-            return;
-        }
-        const bool editor_was_visible = s.editor_visible.exchange(s.model.debug.park_editor);
-        if (s.model.debug.park_editor) {
-            if (!editor_was_visible) s.editor.exit_pending = false;
-            bool visible = s.visible.load();
-            s.editor.title_font = s.menu.title;
-            s.editor.bold_font = s.menu.bold;
-            s.editor.heading_font = s.menu.heading;
-            s.editor.ui_scale = std::clamp(s.model.menu_scale, dingosdk::min_menu_scale, dingosdk::max_menu_scale);
-            static const auto close_key = dingosdk::launcher::key_cap(dingosdk::launcher::overlay_keys().menu);
-            s.editor.close_key = close_key;
-            ImGui::PushFont(s.menu.body);
-            const bool flight = dingosdk::overlay::draw_park_editor(s.editor, s.model, s.callbacks,
-                s.console_visible.load(), s.editor_exit_requested.exchange(false), visible);
-            ImGui::PopFont();
-            s.visible.store(visible);
-            s.editor_flight.store(flight);
-            s.editor_input_time.store(GetTickCount64());
-            return;
-        }
-        s.editor_flight.store(false);
-        if (!s.visible.load()) return;
-        bool visible = true;
-        dingosdk::overlay::draw_skate_menu(s.menu, s.model, s.callbacks, visible);
-        if (!visible) s.visible.store(false);
     }
+    // Nothing but the chat: the held model may be old, so it must not reopen the editor.
+    if (!model_shown) {
+        s.editor_flight.store(false);
+        return;
+    }
+    const bool editor_was_visible = s.editor_visible.exchange(s.model.debug.park_editor);
+    if (s.model.debug.park_editor) {
+        if (!editor_was_visible) s.editor.exit_pending = false;
+        bool visible = s.visible.load();
+        s.editor.title_font = s.menu.title;
+        s.editor.bold_font = s.menu.bold;
+        s.editor.heading_font = s.menu.heading;
+        s.editor.ui_scale = std::clamp(s.model.menu_scale, dingosdk::min_menu_scale, dingosdk::max_menu_scale);
+        static const auto close_key = dingosdk::launcher::key_cap(dingosdk::launcher::overlay_keys().menu);
+        s.editor.close_key = close_key;
+        ImGui::PushFont(s.menu.body);
+        const bool flight = dingosdk::overlay::draw_park_editor(s.editor, s.model, s.callbacks,
+            s.console_visible.load(), s.editor_exit_requested.exchange(false), visible);
+        ImGui::PopFont();
+        s.visible.store(visible);
+        s.editor_flight.store(flight);
+        s.editor_input_time.store(GetTickCount64());
+        return;
+    }
+    s.editor_flight.store(false);
+    if (!s.visible.load()) return;
+    bool visible = true;
+    dingosdk::overlay::draw_skate_menu(s.menu, s.model, s.callbacks, visible);
+    if (!visible) s.visible.store(false);
+}
 
-// The ReSkate+ menu on a controller: while it is open the pad drives ImGui's navigation (the game
+// The ReSkate menu on a controller: while it is open the pad drives ImGui's navigation (the game
 // does not see the pad then), and nothing of it reaches the overlay otherwise. X is left out: ImGui
 // holds it for its window switcher.
 void feed_menu_gamepad(bool menu_open) {
@@ -591,8 +590,8 @@ void feed_menu_gamepad(bool menu_open) {
     }
 }
 
-// Pixels made into a texture in the SRV heap's slot `slot`: the map download card's icon (1) or
-// the menu's map pictures (2). Recorded on the frame's command list ahead of ImGui's draws, so
+// Pixels made into a texture in the SRV heap's slot `slot`: the map download card's icon (1),
+// the menu's map pictures (2) or the item card's mod icon (3). Recorded on the frame's command list ahead of ImGui's draws, so
 // the copy is done before anything samples it. Returns the texture's id for ImGui, or 0. Nothing
 // here is fatal: without it a card shows a plain tile.
 ImTextureID upload_image(State& s, const CardPixels& pixels, UINT slot, ComPtr<ID3D12Resource>& texture_out,
@@ -683,6 +682,15 @@ void upload_menu_map_image(State& s) {
     CardPixels pixels;
     if (!take_menu_map_pixels(pixels) || pixels.rgba.empty()) return;
     if (const auto id = upload_image(s, pixels, 2, s.menu_map_texture, s.menu_map_upload)) menu_map_pixels_uploaded(id, pixels.serial);
+}
+
+// The item card's mod icon (item_browser_overlay.cpp), when another is waiting.
+void upload_mod_icon(State& s) {
+    if (!s.device || !s.srvs) return;
+    if (s.mod_icon_texture && s.next_fence && !completed(s.next_fence, render_fence_timeout_ms)) return;
+    CardPixels pixels;
+    if (!take_mod_icon_pixels(pixels) || pixels.rgba.empty()) return;
+    if (const auto id = upload_image(s, pixels, 3, s.mod_icon_texture, s.mod_icon_upload)) mod_icon_uploaded(id, pixels.serial);
 }
 
 void render(IDXGISwapChain* presented, UINT flags) {
@@ -836,6 +844,7 @@ void render(IDXGISwapChain* presented, UINT flags) {
     }
     upload_card_image(s);
     upload_menu_map_image(s);
+    upload_mod_icon(s);
     D3D12_RESOURCE_BARRIER barrier{};
     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
     barrier.Transition.pResource = frame.buffer.Get();

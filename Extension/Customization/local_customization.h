@@ -17,20 +17,20 @@ namespace dingosdk::profile {
 	// Exact decoded recipe values. Float parameters retain their IEEE-754 bits;
 	// resource pointers, allocator state and transient UI flags are never saved.
 	struct CosmeticSlot {
-	    std::uint32_t slot{};
-	    std::string asset;
-	    std::vector<std::uint32_t> parameter_bits;
-	    bool operator==(const CosmeticSlot&) const = default;
+		std::uint32_t slot{};
+		std::string asset;
+		std::vector<std::uint32_t> parameter_bits;
+		bool operator==(const CosmeticSlot&) const = default;
 	};
 	struct CosmeticRecipe {
-	    std::uint32_t template_key{}, template_version{};
-	    std::vector<std::uint32_t> scalar_bits;
-	    std::vector<CosmeticSlot> items;
-	    bool operator==(const CosmeticRecipe&) const = default;
+		std::uint32_t template_key{}, template_version{};
+		std::vector<std::uint32_t> scalar_bits;
+		std::vector<CosmeticSlot> items;
+		bool operator==(const CosmeticRecipe&) const = default;
 	};
 	struct CosmeticLoadout {
-	    std::vector<CosmeticRecipe> recipes;
-	    bool operator==(const CosmeticLoadout&) const = default;
+		std::vector<CosmeticRecipe> recipes;
+		bool operator==(const CosmeticLoadout&) const = default;
 	};
 	dingosdk::Json encode_loadout(const CosmeticLoadout&);
 	CosmeticLoadout decode_loadout(const dingosdk::Json&);

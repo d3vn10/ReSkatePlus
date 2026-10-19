@@ -46,7 +46,7 @@ bool join_code(std::string_view text) {
     return true;
 }
 
-// Tells Discord how to start ReSkate+ for someone who presses Join while it is not running:
+// Tells Discord how to start ReSkate for someone who presses Join while it is not running:
 // the URL scheme Discord opens for an application ("discord-<id>:"), pointing at the launcher
 // beside the game. In the player's own part of the registry.
 void register_launcher() noexcept {
@@ -62,7 +62,7 @@ void register_launcher() noexcept {
             RegSetKeyValueW(HKEY_CURRENT_USER, key.c_str(), name, REG_SZ, value.c_str(), static_cast<DWORD>((value.size() + 1) * sizeof(wchar_t)));
         };
         const auto root = L"Software\\Classes\\" + scheme;
-        put(root, nullptr, L"URL:Run ReSkatePlus");
+        put(root, nullptr, L"URL:Run ReSkate");
         put(root, L"URL Protocol", L"");
         // --no-gui: straight into the game, which is what pressing Join asked for.
         put(root + L"\\shell\\open\\command", nullptr, L"\"" + launcher + L"\" --no-gui");

@@ -123,7 +123,7 @@ namespace dingosdk::console {
 	    collision_choice.complete = [](const Model &, auto) { return std::vector<std::string>{"on", "off"}; };
 	    auto collision = action("mp collision",
 	                            "Player collision: show whether other players are solid for your skater, or switch "
-	                            "ReSkate+'s collision capsules on or off. Both players need the game's Enable Party "
+	                            "ReSkate's collision capsules on or off. Both players need the game's Enable Party "
 	                            "Collision setting (shown while the playercollision feature is on)",
 	                            Group::gameplay, {std::move(collision_choice)});
 	    collision.run = [](const Model &, const Values &values, const Output &out) {
@@ -178,7 +178,7 @@ namespace dingosdk::console {
 	    auto hud_choice = argument("reskate|game", Type::text, true);
 	    hud_choice.complete = [](const Model &, auto) { return std::vector<std::string>{"reskate", "game"}; };
 	    auto hud = action("throwdown-hud",
-	                      "The S.K.A.T.E. throwdown HUD: ReSkate+'s (default) or the game's own debug text",
+	                      "The S.K.A.T.E. throwdown HUD: ReSkate's (default) or the game's own debug text",
 	                      Group::gameplay, {std::move(hud_choice)});
 	    hud.run = [](const Model &, const Values &values, const Output &out) {
 	        const auto &choice = values.empty() ? std::string{} : std::get<std::string>(values[0]);
@@ -187,7 +187,7 @@ namespace dingosdk::console {
 	            out("error: Choose reskate or game.");
 	            return;
 	        }
-	        out(multiplayer::skate_hud_reskate() ? "S.K.A.T.E. HUD: ReSkate+'s." : "S.K.A.T.E. HUD: the game's debug text.");
+	        out(multiplayer::skate_hud_reskate() ? "S.K.A.T.E. HUD: ReSkate's." : "S.K.A.T.E. HUD: the game's debug text.");
 	    };
 	    registry.add(std::move(hud));
 	    auto offboard_choice = argument("on|off", Type::text, true);

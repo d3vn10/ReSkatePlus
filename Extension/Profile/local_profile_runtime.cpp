@@ -290,111 +290,115 @@ namespace dingosdk::profile_runtime {
 	namespace dingosdk {
 	using namespace profile_runtime;
 
-	void set_local_location_travel_queue(LocalLocationTravelQueue queue) noexcept {
-	    location_travel_queue.store(queue, std::memory_order_release);
-	}
-	void update_local_customization() noexcept {
-	    PreserveError preserve;
-	    auto& s = local_runtime();
-	    if (!s.active.load(std::memory_order_acquire)) return;
-	    std::lock_guard lock(s.native_mutex);
+void set_local_location_travel_queue(LocalLocationTravelQueue queue) noexcept {
+    location_travel_queue.store(queue, std::memory_order_release);
+}
+void update_local_item_browser() noexcept {
+    PreserveError preserve;
+    auto& s = local_runtime();
+    if (!s.active.load(std::memory_order_acquire)) return;
+    std::lock_guard lock(s.native_mutex);
+    if (cosmetic_runtime().update_thread != GetCurrentThreadId()) return;
+    item_browser::update(s.base);
+}
 
-	    try {
-	        auto& c = cosmetic_runtime();
-	        const auto thread = GetCurrentThreadId();
-	        if (!c.update_thread) c.update_thread = thread;
-	        if (c.update_thread != thread) return;
-	        if (!c.catalog_failed && refresh_cosmetic_catalog()) {
-	            publish_cosmetic_catalog();
-	            publish_cosmetic_inventory();
-	        }
-	    }
-		catch (const std::exception& failure) {
-	        // (Why, in the log: a bare "failed" left a player with no items and nothing to go on.)
-	        cosmetic_runtime().catalog_failed = true;
-	        const dingosdk::Json event{{"event", "local_cosmetic_catalog_failed"}, {"reason", failure.what()}};
-	        dingosdk::logging::event(dingosdk::logging::Channel::profile, event.dump().c_str());
-	    }
-		catch (...) {
-	        cosmetic_runtime().catalog_failed = true;
-	        dingosdk::logging::event(dingosdk::logging::Channel::profile, "{\"event\":\"local_cosmetic_catalog_failed\"}");
-	    }
-
-	    try { update_challenge_catalog(); update_challenge_requests(); update_selected_challenge_progress(); }
-	    catch (...) { dingosdk::logging::event(dingosdk::logging::Channel::profile, "{\"event\":\"local_challenge_update_failed\"}"); }
-	    try { update_location_travel(); }
-	    catch (...) { dingosdk::logging::event(dingosdk::logging::Channel::profile, "{\"event\":\"local_location_travel_failed\"}"); }
-	    try { update_position_teleport(); }
-	    catch (...) { dingosdk::logging::event(dingosdk::logging::Channel::profile, "{\"event\":\"position_teleport_failed\"}"); }
-	    try { update_placement_restore(); }
-	    catch (...) { dingosdk::logging::event(dingosdk::logging::Channel::profile, "{\"event\":\"local_placement_restore_failed\"}"); }
-	    try { update_buildkit_limits(); }
-	    catch (...) { dingosdk::logging::event(dingosdk::logging::Channel::profile, "{\"event\":\"local_buildkit_limits_failed\"}"); }
-	    try { update_rip_score(); }
-	    catch (...) { dingosdk::logging::event(dingosdk::logging::Channel::profile, "{\"event\":\"local_rip_score_failed\"}"); }
-	    try { update_news_subscriptions(); }
-	    catch (...) { dingosdk::logging::event(dingosdk::logging::Channel::profile, "{\"event\":\"local_news_failed\",\"operation\":\"update\"}"); }
-	    try { update_object_categories(); }
-	    catch (...) { dingosdk::logging::event(dingosdk::logging::Channel::profile, "{\"event\":\"local_object_categories_failed\",\"operation\":\"update\"}"); }
-	    update_music_catalog();
-	    try { update_music_catalog_refresh(); } catch (...) {}
-	    try { update_spotify_cover(); } catch (...) {}
-	    update_music_shelf();
-	    item_browser::update(s.base);
-	    try {
-	        if (cosmetic_runtime().update_thread == GetCurrentThreadId() && !cosmetic_runtime().items.empty())
-	            update_player_card();
-	    } catch (...) {
-	        player_card_runtime().failed = true;
-	        dingosdk::logging::event(dingosdk::logging::Channel::profile, "{\"event\":\"local_player_card_failed\"}");
-	    }
-	}
-	void local_profile_before_level_transition(unsigned next) noexcept {
-	    PreserveError preserve;
-	    auto& s = local_runtime();
-	    if (!s.active.load(std::memory_order_acquire)) return;
-	    std::lock_guard lock(s.native_mutex);
-	    music_shelf_before_level_transition(next);
-	    item_browser::before_level_transition(next, s.base);
-	    news_runtime().pending.before_transition(next);
-	    object_runtime().pending.before_transition(next);
-	    auto& placements = placements_runtime();
-	    if (next == 3 || next == 14 || next == 22 || next == 24 || next == 25) {
-	        placements.creates_enabled = false;
-	        placements.creates.clear();
-	        placements.creation.reset();
-	    } else if (next == 13 || next == 21) placements.creates_enabled = true;
-	}
-	std::uint32_t local_customization_selected_preset() noexcept {
-	    PreserveError preserve;
-	    auto& s = local_runtime();
-	    if (!s.active.load(std::memory_order_acquire)) return 0;
-	    try { return s.store->selected_cosmetic_preset(); } catch (...) { return 0; }
-	}
-	bool local_customization_outfits_loadable() noexcept {
-	    PreserveError preserve;
-	    auto& s = local_runtime();
-	    if (!s.active.load(std::memory_order_acquire)) return true;
-	    std::lock_guard lock(s.native_mutex);
-	    try {
-	        if (!cosmetic_runtime().items.empty() || refresh_cosmetic_catalog()) return true;
-	        // Nothing saved is nothing to check: a new profile's slots are built
-	        // from the game's own defaults and need no catalog.
-	        const auto snapshot = s.store->shared_snapshot();
-	        return snapshot->customization.value("loadouts", dingosdk::Json::object()).empty();
-	    } catch (...) { return true; }
-	}
-	void observe_local_customization_selection(std::int32_t index) noexcept {
-	    PreserveError preserve;
-	    auto& s = local_runtime();
-	    if (!s.active.load(std::memory_order_acquire) || index < 0 || index >= 10) return;
-	    std::lock_guard lock(s.native_mutex);
-	    auto& c = cosmetic_runtime();
-	    if (c.update_thread != GetCurrentThreadId() || c.observed_selection == index) return;
-	    c.observed_selection = index;
-	    try { s.store->set_selected_cosmetic_preset(static_cast<std::uint32_t>(index)); }
-	    catch (...) { dingosdk::logging::event(dingosdk::logging::Channel::profile, "{\"event\":\"local_cosmetic_selection_save_failed\"}"); }
-	}
+void update_local_customization() noexcept {
+    PreserveError preserve;
+    auto& s = local_runtime();
+    if (!s.active.load(std::memory_order_acquire)) return;
+    std::lock_guard lock(s.native_mutex);
+    try {
+        auto& c = cosmetic_runtime();
+        const auto thread = GetCurrentThreadId();
+        if (!c.update_thread) c.update_thread = thread;
+        if (c.update_thread != thread) return;
+        if (!c.catalog_failed && refresh_cosmetic_catalog()) {
+            publish_cosmetic_catalog();
+            publish_cosmetic_inventory();
+        }
+    } catch (const std::exception& failure) {
+        // (Why, in the log: a bare "failed" left a player with no items and nothing to go on.)
+        cosmetic_runtime().catalog_failed = true;
+        const dingosdk::Json event{{"event", "local_cosmetic_catalog_failed"}, {"reason", failure.what()}};
+        dingosdk::logging::event(dingosdk::logging::Channel::profile, event.dump().c_str());
+    } catch (...) {
+        cosmetic_runtime().catalog_failed = true;
+        dingosdk::logging::event(dingosdk::logging::Channel::profile, "{\"event\":\"local_cosmetic_catalog_failed\"}");
+    }
+    try { update_challenge_catalog(); update_challenge_requests(); update_selected_challenge_progress(); }
+    catch (...) { dingosdk::logging::event(dingosdk::logging::Channel::profile, "{\"event\":\"local_challenge_update_failed\"}"); }
+    try { update_location_travel(); }
+    catch (...) { dingosdk::logging::event(dingosdk::logging::Channel::profile, "{\"event\":\"local_location_travel_failed\"}"); }
+    try { update_position_teleport(); }
+    catch (...) { dingosdk::logging::event(dingosdk::logging::Channel::profile, "{\"event\":\"position_teleport_failed\"}"); }
+    try { update_placement_restore(); }
+    catch (...) { dingosdk::logging::event(dingosdk::logging::Channel::profile, "{\"event\":\"local_placement_restore_failed\"}"); }
+    try { update_buildkit_limits(); }
+    catch (...) { dingosdk::logging::event(dingosdk::logging::Channel::profile, "{\"event\":\"local_buildkit_limits_failed\"}"); }
+    try { update_rip_score(); }
+    catch (...) { dingosdk::logging::event(dingosdk::logging::Channel::profile, "{\"event\":\"local_rip_score_failed\"}"); }
+    try { update_news_subscriptions(); }
+    catch (...) { dingosdk::logging::event(dingosdk::logging::Channel::profile, "{\"event\":\"local_news_failed\",\"operation\":\"update\"}"); }
+    try { update_object_categories(); }
+    catch (...) { dingosdk::logging::event(dingosdk::logging::Channel::profile, "{\"event\":\"local_object_categories_failed\",\"operation\":\"update\"}"); }
+    update_music_catalog();
+    try { update_music_catalog_refresh(); } catch (...) {}
+    try { update_spotify_cover(); } catch (...) {}
+    update_music_shelf();
+    try {
+        if (cosmetic_runtime().update_thread == GetCurrentThreadId() && !cosmetic_runtime().items.empty())
+            update_player_card();
+    } catch (...) {
+        player_card_runtime().failed = true;
+        dingosdk::logging::event(dingosdk::logging::Channel::profile, "{\"event\":\"local_player_card_failed\"}");
+    }
+}
+void local_profile_before_level_transition(unsigned next) noexcept {
+    PreserveError preserve;
+    auto& s = local_runtime();
+    if (!s.active.load(std::memory_order_acquire)) return;
+    std::lock_guard lock(s.native_mutex);
+    music_shelf_before_level_transition(next);
+    item_browser::before_level_transition(next, s.base);
+    news_runtime().pending.before_transition(next);
+    object_runtime().pending.before_transition(next);
+    auto& placements = placements_runtime();
+    if (next == 3 || next == 14 || next == 22 || next == 24 || next == 25) {
+        placements.creates_enabled = false;
+        placements.creates.clear();
+        placements.creation.reset();
+    } else if (next == 13 || next == 21) placements.creates_enabled = true;
+}
+std::uint32_t local_customization_selected_preset() noexcept {
+    PreserveError preserve;
+    auto& s = local_runtime();
+    if (!s.active.load(std::memory_order_acquire)) return 0;
+    try { return s.store->selected_cosmetic_preset(); } catch (...) { return 0; }
+}
+bool local_customization_outfits_loadable() noexcept {
+    PreserveError preserve;
+    auto& s = local_runtime();
+    if (!s.active.load(std::memory_order_acquire)) return true;
+    std::lock_guard lock(s.native_mutex);
+    try {
+        if (!cosmetic_runtime().items.empty() || refresh_cosmetic_catalog()) return true;
+        // Nothing saved is nothing to check: a new profile's slots are built
+        // from the game's own defaults and need no catalog.
+        const auto snapshot = s.store->shared_snapshot();
+        return snapshot->customization.value("loadouts", dingosdk::Json::object()).empty();
+    } catch (...) { return true; }
+}
+void observe_local_customization_selection(std::int32_t index) noexcept {
+    PreserveError preserve;
+    auto& s = local_runtime();
+    if (!s.active.load(std::memory_order_acquire) || index < 0 || index >= 10) return;
+    std::lock_guard lock(s.native_mutex);
+    auto& c = cosmetic_runtime();
+    if (c.update_thread != GetCurrentThreadId() || c.observed_selection == index) return;
+    c.observed_selection = index;
+    try { s.store->set_selected_cosmetic_preset(static_cast<std::uint32_t>(index)); }
+    catch (...) { dingosdk::logging::event(dingosdk::logging::Channel::profile, "{\"event\":\"local_cosmetic_selection_save_failed\"}"); }
+}
 
 	bool initialize_local_profile(std::uintptr_t base, bool authored_offline,
 	    const std::filesystem::path& path) {

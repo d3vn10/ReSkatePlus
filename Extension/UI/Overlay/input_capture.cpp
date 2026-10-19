@@ -28,25 +28,7 @@ namespace dingosdk::overlay::detail {
     PromptReads take_prompt_reads() noexcept {
         return { prompt_xinput.exchange(0), 0, prompt_direct.exchange(0), prompt_hid.exchange(0), prompt_raw.exchange(0) };
     }
-    namespace {
-        std::array<std::atomic<std::uint64_t>, 4> withheld{};
-        // A key press the game is not to see.
-        bool withheld_press(const RAWINPUT& raw, std::size_t bytes) noexcept {
-            return raw.header.dwType == RIM_TYPEKEYBOARD && bytes >= offsetof(RAWINPUT, data) + sizeof(RAWKEYBOARD) &&
-                !(raw.data.keyboard.Flags & RI_KEY_BREAK) && key_withheld(raw.data.keyboard.VKey);
-        }
-    }
-    std::atomic<unsigned> withheld_pad{};
-    void set_withheld_pad_buttons(unsigned buttons) noexcept { withheld_pad.store(buttons & 0xffff, std::memory_order_relaxed); }
-    void set_withheld_keys(std::initializer_list<unsigned> keys) noexcept {
-        std::array<std::uint64_t, 4> bits{};
-        for (const auto key : keys)
-            if (key < 256) bits[key / 64] |= std::uint64_t{ 1 } << (key % 64);
-        for (std::size_t i = 0; i < bits.size(); ++i) withheld[i].store(bits[i], std::memory_order_relaxed);
-    }
-    bool key_withheld(unsigned key) noexcept {
-        return key < 256 && !overlay_input_access && (withheld[key / 64].load(std::memory_order_relaxed) >> (key % 64) & 1) != 0;
-    }
+	
     bool block_polled_input() {
         const auto error = GetLastError();
         const bool capture = !overlay_input_access && (owns_menu_cursor(state()) || state().freecam_controller_active.load(std::memory_order_relaxed) ||
@@ -351,7 +333,6 @@ namespace dingosdk::overlay::detail {
     // read already being answered (Steam's hook going on to XInput runs inside OverlayInputAccess).
     void filter_pad(bool outer, DWORD user, XINPUT_STATE* output) noexcept {
         if (!outer || !output) return;
-        output->Gamepad.wButtons = static_cast<WORD>(output->Gamepad.wButtons & ~withheld_pad.load(std::memory_order_relaxed));
         const auto filter = gamepad_filter().load(std::memory_order_acquire);
         if (!filter) return;
         auto& g = output->Gamepad;
@@ -416,18 +397,15 @@ namespace dingosdk::overlay::detail {
     }
     SHORT WINAPI captured_async_key(int key) {
         const auto value = original<SHORT(WINAPI*)(int)>(input_hooks().async_key)(key);
-        return block_polled_input() || key_withheld(static_cast<unsigned>(key)) ? 0 : value;
+        return block_polled_input() ? 0 : value;
     }
     SHORT WINAPI captured_key(int key) {
         const auto value = original<SHORT(WINAPI*)(int)>(input_hooks().key)(key);
-        return block_polled_input() || key_withheld(static_cast<unsigned>(key)) ? 0 : value;
+        return block_polled_input() ? 0 : value;
     }
     BOOL WINAPI captured_keyboard(PBYTE keys) {
         const auto result = original<BOOL(WINAPI*)(PBYTE)>(input_hooks().keyboard)(keys);
         if (result && keys && block_polled_input()) std::memset(keys, 0, 256);
-        else if (result && keys)
-            for (unsigned key = 0; key < 256; ++key)
-                if (key_withheld(key)) keys[key] = 0;
         return result;
     }
     UINT WINAPI captured_raw_data(HRAWINPUT input, UINT command, LPVOID data, PUINT size, UINT header_size) {
@@ -445,13 +423,7 @@ namespace dingosdk::overlay::detail {
             const bool mouse = raw->header.dwType == RIM_TYPEMOUSE && result >= offsetof(RAWINPUT, data) + sizeof(RAWMOUSE);
             const bool keyboard =
                 raw->header.dwType == RIM_TYPEKEYBOARD && result >= offsetof(RAWINPUT, data) + sizeof(RAWKEYBOARD);
-            if (!block_polled_input() && keyboard && withheld_press(*raw, result)) {
-                raw->data.keyboard = {};
-                raw->data.keyboard.VKey = 255; // documented discard packet; never synthesize a key press
-                raw->data.keyboard.Flags = RI_KEY_BREAK;
-                raw->data.keyboard.Message = WM_KEYUP;
-            }
-            else if (!block_polled_input()) {
+           	if (!block_polled_input()) {
                 if ((mouse || keyboard) && !overlay_input_access) held_input().seen(*raw);
             }
             else if ((mouse || keyboard) && held_input().release_only(*raw)) {
@@ -560,15 +532,8 @@ namespace dingosdk::overlay::detail {
                 const bool mouse = record->header.dwType == RIM_TYPEMOUSE && bytes >= offsetof(RAWINPUT, data) + sizeof(RAWMOUSE);
                 const bool keyboard =
                     record->header.dwType == RIM_TYPEKEYBOARD && bytes >= offsetof(RAWINPUT, data) + sizeof(RAWKEYBOARD);
-                if (!capture && withheld_press(*record, bytes)) {
-                    // Dropped; the records after it move forward over it.
-                }
-                else if (!capture) {
+                if (!capture) {
                     if ((mouse || keyboard) && !overlay_input_access) held_input().seen(*record);
-                    if (write != reinterpret_cast<std::uintptr_t>(record))
-                        std::memmove(reinterpret_cast<void*>(write), record, bytes);
-                    write = align(write + bytes);
-                    ++kept;
                 }
                 else if ((mouse || keyboard) && held_input().release_only(*record)) {
                     // Kept records move forward over the dropped ones, in the same layout.
@@ -579,7 +544,7 @@ namespace dingosdk::overlay::detail {
                 }
                 record = reinterpret_cast<RAWINPUT*>(next);
             }
-            return kept;
+            if (capture) return kept;
         }
         return capture ? 0 : result;
     }
@@ -843,7 +808,8 @@ namespace dingosdk::overlay::detail {
             ComPtr<IUnknown> owner;
             if (FAILED(create(GetModuleHandleW(nullptr), DIRECTINPUT_VERSION, iid,
                 reinterpret_cast<void**>(owner.GetAddressOf()), nullptr))) {
-                ready = false; continue;
+                ready = false; 
+				continue;
             }
             auto** table = *reinterpret_cast<void***>(owner.Get());
             create_targets[create_count++] = table[3];
@@ -852,7 +818,8 @@ namespace dingosdk::overlay::detail {
                 ComPtr<IUnknown> device;
                 if (FAILED(reinterpret_cast<CreateDevice>(table[3])(owner.Get(), guid,
                     reinterpret_cast<void**>(device.GetAddressOf()), nullptr))) {
-                    ready = false; continue;
+                    ready = false; 
+					continue;
                 }
                 // No Acquire or cooperative-level change: these temporary objects
                 // identify shared implementations before the game starts workers.

@@ -708,7 +708,7 @@ void time_of_day_page(SkateMenu& menu, const Model& model, const CallbacksV3& ca
     const int current = time_of_day_shown(model);
     const auto apply = [&](unsigned next) { set_time_of_day(menu, model, callbacks, static_cast<int>(next), false); };
     if (console_style()) {
-        static const std::vector<std::string> times{"Default", "Morning", "Noon", "Afternoon", "Evening", "Night", "Weather Day", "Weather Night"};
+        static const std::vector<std::string> times{"Default", "Morning", "Noon", "Afternoon", "Evening", "Night", "Weather day", "Weather night"};
         int chosen = current;
         if (option_row(menu, "Time of day", "Left / right to change it. Default follows the level's own time.", chosen, times, available))
             apply(static_cast<unsigned>(chosen));

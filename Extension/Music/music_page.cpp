@@ -186,7 +186,7 @@ namespace dingosdk::overlay::menu {
 		void sound_tab(SkateMenu& menu, Page& p) {
 		    bool editing{}, changed{};
 		    begin_card(menu, "music-loudness", "LOUDNESS");
-		    field(menu, "Music loudness", "How loud the music you play through ReSkate+ is in the game.");
+		    field(menu, "Music loudness", "How loud the music you play through ReSkate is in the game.");
 		    if (::dingosdk::overlay::menu::slider_float("##music-gain", &p.gain, 0.0f, 400.0f, "%.0f%%", ImGuiSliderFlags_AlwaysClamp)) music_inject::set_gain(p.gain / 100.0f);
 		    editing |= ImGui::IsItemActive();
 		    changed |= ImGui::IsItemDeactivatedAfterEdit();
@@ -230,7 +230,7 @@ namespace dingosdk::overlay::menu {
 		            for (int band = 0; band < audio_dsp::bands; ++band) audio_dsp::set_band(band, p.bands[static_cast<std::size_t>(band)]);
 		            changed = true;
 		        }
-		        note("The loudness, levelling and equaliser only change music played through ReSkate+, not the game's own.");
+		        note("The loudness, levelling and equaliser only change music played through ReSkate, not the game's own.");
 		        end_card();
 		        p.editing = editing;
 		        if (changed) spotify_dashboard::save_settings();
@@ -294,7 +294,7 @@ namespace dingosdk::overlay::menu {
 		        }
 		        if (on) ImGui::PopStyleColor();
 		    }
-		    note("The loudness, levelling and equaliser only change music played through ReSkate+, not the game's own.");
+		    note("The loudness, levelling and equaliser only change music played through ReSkate, not the game's own.");
 		    end_card();
 		    p.editing = editing;
 		    if (changed) spotify_dashboard::save_settings();
@@ -310,7 +310,7 @@ namespace dingosdk::overlay::menu {
 		    using youtube_music::Kind;
 		    const auto count = [&](Kind kind) { return std::count_if(p.streams.playlists.begin(), p.streams.playlists.end(), [&](const youtube_music::Playlist& playlist) { return playlist.kind == kind; }); };
 		    begin_card(menu, "music-sources", "SOURCES");
-		    info(menu, "Spotify", spotify_device::connected() ? "Connected" : spotify_device::in_use() ? "Remembered, connects by itself" : "Pick \"ReSkate+\" in Spotify's device list");
+		    info(menu, "Spotify", spotify_device::connected() ? "Connected" : spotify_device::in_use() ? "Remembered, connects by itself" : "Pick \"ReSkate\" in Spotify's device list");
 		    info(menu, "YouTube Music", !p.streams.tools ? "Not set up" : std::format("{} playlist(s)", count(Kind::youtube)));
 		    info(menu, "Local files", count(Kind::files) ? std::format("{} folder(s)", count(Kind::files)) : std::string("No folder added"));
 		    info(menu, "Online radio", count(Kind::radio) ? std::format("{} station(s)", count(Kind::radio)) : std::string("No station added"));

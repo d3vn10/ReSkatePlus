@@ -39,14 +39,14 @@ void print_summary(const Output& out) {
     const auto s = profiler::summary();
     if (!s || s->seconds <= 0) { out("No figures yet; try again in a second."); return; }
     out(std::format("Client update: {:.1f}/s, every {:.1f} ms (longest {:.1f}); client frame {:.2f} ms (longest {:.1f}); "
-        "ReSkate+ tick {:.2f} ms (longest {:.1f}) + hooks {:.2f} ms per frame",
+        "ReSkate tick {:.2f} ms (longest {:.1f}) + hooks {:.2f} ms per frame",
         s->client_updates_per_second, s->client_interval_average_ms, s->client_interval_longest_ms,
         s->client_frame_average_ms, s->client_frame_longest_ms, s->client_own_average_ms,
         s->client_own_longest_ms, s->hooks_milliseconds_per_update));
     out(std::format("Frames: {:.1f}/s, {:.2f} ms (longest {:.1f}); process CPU {:.0f}% of {} cores",
         s->presents_per_second, s->present_interval_average_ms, s->present_interval_longest_ms,
         s->process_cpu_percent, s->cores));
-    out("ReSkate+ zones (busiest first):");
+    out("ReSkate zones (busiest first):");
     std::size_t shown{};
     for (const auto& zone : s->zones) {
         if (shown++ == 12) break;
@@ -255,7 +255,7 @@ void register_perf_commands(Commands& registry) {
     };
     registry.add(std::move(toggle));
 
-    auto hud = variable("perf hud", "Performance HUD: client update, frame time, ReSkate+'s cost, CPU per thread",
+    auto hud = variable("perf hud", "Performance HUD: client update, frame time, ReSkate's cost, CPU per thread",
         Group::console, argument("on|off", Type::boolean));
     hud.execution = Execution::local;
     hud.inspect = [](const Model&) { return boolean_state(true, profiler::hud()); };
@@ -325,21 +325,21 @@ void register_perf_commands(Commands& registry) {
     auto microseconds = argument("microseconds", Type::number);
     microseconds.minimum = 0;
     microseconds.maximum = 5000;
-    auto spin = variable("perf jobspin", "How long idle engine job threads poll for work before sleeping (ReSkate+ 50 us, stock 250 us)",
+    auto spin = variable("perf jobspin", "How long idle engine job threads poll for work before sleeping (ReSkate 50 us, stock 250 us)",
         Group::engine, microseconds);
     spin.execution = Execution::local;
     spin.inspect = [](const Model&) {
         const auto value = job_spin::microseconds();
         return State{value.has_value(), value ? std::optional<std::string>(std::format("{:.0f}", *value)) : std::nullopt,
                      "The job system's spin setting is unavailable for this build.",
-                     std::format("ReSkate+ default {:.0f} us; stock {:.0f} us", job_spin::default_microseconds,
+                     std::format("ReSkate default {:.0f} us; stock {:.0f} us", job_spin::default_microseconds,
                          job_spin::stock_microseconds()),
                      value && *value != job_spin::default_microseconds};
     };
     spin.run = [](const Model&, const Values& args, const Output& out) {
         const double wanted = std::get<double>(args[0]);
         if (!job_spin::set_microseconds(wanted)) { out("error: The job system's spin setting is unavailable for this build."); return; }
-        out(std::format("Job threads now poll for {:.0f} us before sleeping (ReSkate+ default {:.0f}, stock {:.0f}; not saved).",
+        out(std::format("Job threads now poll for {:.0f} us before sleeping (ReSkate default {:.0f}, stock {:.0f}; not saved).",
             wanted, job_spin::default_microseconds, job_spin::stock_microseconds()));
     };
     spin.reset = [](const Model&, const Output& out) {
@@ -539,7 +539,7 @@ void register_perf_commands(Commands& registry) {
     };
     registry.add(std::move(memory));
 
-    auto status = action("perf status", "Client update and frame timing, ReSkate+'s zones, CPU per thread", Group::console);
+    auto status = action("perf status", "Client update and frame timing, ReSkate's zones, CPU per thread", Group::console);
     status.execution = Execution::local;
     status.run = [](const Model&, const Values&, const Output& out) { print_summary(out); };
     registry.add(std::move(status));

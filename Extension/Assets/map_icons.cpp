@@ -26,7 +26,7 @@ namespace {
 namespace fs = std::filesystem;
 namespace package = thunderstore_package;
 
-constexpr wchar_t agent[] = L"ReSkate+";
+constexpr wchar_t agent[] = L"ReSkate";
 constexpr char community[] = "reskate";
 constexpr std::uintmax_t largest_icon = 4 * 1024 * 1024;
 

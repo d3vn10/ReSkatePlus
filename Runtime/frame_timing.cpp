@@ -8,7 +8,7 @@
 #include <format>
 
 // The game's client frame job, timed for the profiler (Engine/Core/Profiling/profiler.h). It runs
-// the whole client frame, ReSkate+'s tick included, so its time against the sim budget (16.7 ms at
+// the whole client frame, ReSkate's tick included, so its time against the sim budget (16.7 ms at
 // 60 Hz) says how close the game is to slow motion. Two clock reads per client frame.
 namespace dingosdk::runtime::detail {
 namespace {
@@ -17,10 +17,10 @@ ClientFrameJob original_client_frame_job{};
 
 // A freeze: half a second or more from one client frame's start to the next. When this launch
 // sends timings, each is sent as a "game.freeze" saying where the time went:
-//  - the game's client frame (which ReSkate+'s tick runs inside), and ReSkate+'s own tick in it;
+//  - the game's client frame (which ReSkate's tick runs inside), and ReSkate's own tick in it;
 //  - the rest, outside the frame: the game waiting on rendering, the GPU or loading;
 //  - how many frames the renderer presented meanwhile (none: it stopped as well);
-//  - ReSkate+'s zones (profiler.h) that took the most time in it, on any thread.
+//  - ReSkate's zones (profiler.h) that took the most time in it, on any thread.
 // Players reported freezes of about a second while skating (2026-10-15); the level session's
 // timing only gave their length.
 constexpr std::uint64_t freeze_ns = 500'000'000;
@@ -41,7 +41,7 @@ void describe_freeze(Frames& f, std::uint64_t start) {
     const auto frame = std::min(f.frame_ns, interval);
     const auto own = std::min(f.own_ns, frame);
     const auto presented = dingosdk::profiler::presents() - f.presents;
-    const char* where = own * 2 >= interval ? "ReSkate+'s tick"
+    const char* where = own * 2 >= interval ? "ReSkate's tick"
         : frame * 2 >= interval ? "the game's frame"
         : "outside the frame (rendering, GPU or loading)";
     dingosdk::trace::Tags tags{{"destination", dingosdk::last_level_destination()},

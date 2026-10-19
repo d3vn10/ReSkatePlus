@@ -31,7 +31,7 @@ namespace dingosdk::overlay::menu {
         if (toggle_row(menu, "Hide game UI", "Keep the view clear for riding and captures.", hidden,
             model.debug.available && model.debug.ui_available && callbacks.queue_debug))
             debug_request(menu, callbacks, { DebugAction::set_game_ui_hidden, hidden });
-        const auto back = dingosdk::launcher::key_name(dingosdk::launcher::overlay_keys().menu) + " always brings ReSkate+ back.";
+        const auto back = dingosdk::launcher::key_name(dingosdk::launcher::overlay_keys().menu) + " always brings ReSkate back.";
         note(back.c_str());
         end_card();
 
@@ -76,7 +76,7 @@ namespace dingosdk::overlay::menu {
         begin_card(menu, "performance", "PERFORMANCE");
         // The profiler is thread-safe: its state is read here directly, not through the model.
         bool hud = dingosdk::profiler::hud();
-        if (toggle_row(menu, "Performance HUD", "Client update and frame timing, ReSkate+'s cost and CPU per thread.",
+        if (toggle_row(menu, "Performance HUD", "Client update and frame timing, ReSkate's cost and CPU per thread.",
             hud, callbacks.queue_console_command != nullptr))
             send_console(menu, callbacks, hud ? "perf hud on" : "perf hud off");
         bool window = dingosdk::profiler::window();

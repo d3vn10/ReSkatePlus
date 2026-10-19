@@ -91,6 +91,7 @@ add_library(dingosdk_runtime SHARED
     Extension/World/mesh_unload_guard.cpp
     Extension/World/mesh_settings_guard.cpp
     Extension/World/shader_permutation_guard.cpp
+    Extension/World/shader_registry_guard.cpp
     Extension/World/light_table_guard.cpp
     Extension/World/stack_check_report.cpp
     Extension/World/texture_handle_limit.cpp
@@ -129,6 +130,10 @@ add_library(dingosdk_runtime SHARED
     Extension/World/spatial_cull_ids.cpp
     Extension/Rendering/display_startup.cpp
     Extension/Rendering/replay_export.cpp
+    Extension/ReplayKeyframes/replay_curve.cpp
+    Extension/ReplayKeyframes/replay_keyframes.cpp
+    Extension/ReplayKeyframes/replay_keyframes_commands.cpp
+    Extension/ReplayKeyframes/replay_settings.cpp
     Engine/Game/World/world_model.cpp
     Extension/World/level_loading.cpp
     Extension/World/loading_screen.cpp
@@ -161,8 +166,6 @@ add_library(dingosdk_runtime SHARED
     Extension/HallOfMeat/hall_of_meat_skeleton.cpp
     Extension/HallOfMeat/hall_of_meat_slow_motion.cpp
     Extension/RoadRash/road_rash.cpp
-    Extension/OutfitLayers/outfit_layers.cpp
-    Extension/OutfitLayers/outfit_layers_commands.cpp
     Extension/RoadRash/road_rash_commands.cpp
     Extension/BoardBreak/board_break.cpp
     Extension/BoardBreak/board_break_commands.cpp
@@ -191,6 +194,7 @@ add_library(dingosdk_runtime SHARED
     Extension/Profile/local_profile_objects.cpp
     Extension/Profile/local_profile_missions.cpp
     Extension/Customization/local_cosmetic_catalog.cpp
+    Extension/Customization/item_origins.cpp
     Extension/Customization/local_customization_runtime.cpp
     Extension/Customization/item_browser.cpp
     Extension/Progression/local_entitlement_trigger_runtime.cpp
@@ -321,21 +325,9 @@ if(EXISTS "${dingosdk_emotes}/emotes.json" AND EXISTS "${dingosdk_emotes}/emotes
         "EMOTES_PNG RCDATA \"${dingosdk_emotes_native}\\\\emotes.png\"\n")
     target_sources(dingosdk_runtime PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated/emotes.rc")
 endif()
-# ReSkate+'s own icons for the player's item tabs (Extension/UI/Overlay/tab_icons.h), drawn by
-# assets/tab_icons/make_tab_icons.py.
-set(dingosdk_tab_icons "${PROJECT_SOURCE_DIR}/assets/tab_icons")
-if(EXISTS "${dingosdk_tab_icons}/tab_icons.json" AND EXISTS "${dingosdk_tab_icons}/tab_icons.png")
-    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${dingosdk_tab_icons}/tab_icons.json" "${dingosdk_tab_icons}/tab_icons.png")
-    file(TO_NATIVE_PATH "${dingosdk_tab_icons}" dingosdk_tab_icons_native)
-    string(REPLACE "\\" "\\\\" dingosdk_tab_icons_native "${dingosdk_tab_icons_native}")
-    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/generated/tab_icons.rc"
-        "TABICONS_JSON RCDATA \"${dingosdk_tab_icons_native}\\\\tab_icons.json\"\n"
-        "TABICONS_PNG RCDATA \"${dingosdk_tab_icons_native}\\\\tab_icons.png\"\n")
-    target_sources(dingosdk_runtime PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated/tab_icons.rc")
-endif()
-# Game content ReSkate+ carries itself (Engine/Vfs/builtin_packs.h), one zip each in assets/builtin:
+# Game content ReSkate carries itself (Engine/Vfs/builtin_packs.h), one zip each in assets/builtin:
 # the FPV drone's model (tools/models/build_drone_pack.py; without it other players' drones use a
-# stand-in prop). A missing zip is left out. (Mods that are content for ReSkate+'s features, such
+# stand-in prop). A missing zip is left out. (Mods that are content for ReSkate's features, such
 # as Board Break's decks, are official mods the launcher downloads: Launcher/official_mods.h.)
 # Each zip is made into a zstd pack by ReSkateBuiltinPacker as the build goes (again only when the
 # zip changes), which is what the DLL carries: compressed whole, a pack's repeated files cost

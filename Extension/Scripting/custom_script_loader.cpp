@@ -95,7 +95,7 @@ namespace dingosdk {
 	bool start_custom_script_loader(std::uintptr_t base, std::string& error) {
 	    error.clear();
 	    if (!custom_scripts_enabled) {
-	        custom_scripts::report("", "Custom scripts are switched off in this version of ReSkate+");
+	        custom_scripts::report("", "Custom scripts are switched off in this version of ReSkate");
 	        logging::write(logging::Level::info, logging::Channel::assets, "Custom scripts are switched off; scripts/Custom is not read.");
 	        return true;
 	    }

@@ -242,7 +242,7 @@ struct Window {
         make_shadow();
     }
 
-    // The picture, or ReSkate+'s own card when there is none.
+    // The picture, or ReSkate's own card when there is none.
     void make_background() {
         if (background) DeleteObject(background);
         void* bits{};

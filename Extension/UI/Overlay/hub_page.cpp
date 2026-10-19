@@ -1,5 +1,6 @@
 #include "overlay_internal.h"
 #include "skate_style.h"
+#include "skate_menu_internal.h"
 #include "cursor.h"
 #include "input_capture.h"
 #include "Extension/UI/NativeMenu/native_menu_view.h"
@@ -1028,319 +1029,372 @@ namespace dingosdk::overlay {
 	    void end() { list.end(); }
 	};
 
-	// The page's tabs. What a control does, and when it can, is the same as on ReSkate's own menu
-	// (native_tools_view.h for travel, parks and the world; the same requests and commands that
-	// menu sends for the rest); how it is laid out is here.
-	void tools_page(Ui &ui, ImVec2 a, ImVec2 z) {
-	    auto &h = ui.h;
-	    const auto &m = h.full;
-	    const auto &mp = m.multiplayer;
-	    const auto &cb = h.callbacks;
-	    const float u = ui.u, gap = 28 * u, tall = 96 * u, between = 10 * u;
-	    auto *draw = ui.draw;
-	    native_tools::sync(h.tools, m);
-	    const auto changed = [&] { h.next_model = {}; }; // what it changed shows at once
-	    const auto act = [&](std::string_view command, const std::string &argument = {}) {
-	        native_tools::activate(h.tools, m, cb, command, argument);
-	        if (!h.tools.feedback.empty()) say(h, std::exchange(h.tools.feedback, {}));
-	        changed();
-	    };
-	    const bool console = cb.queue_console_command != nullptr, debugging = cb.queue_debug != nullptr;
-	    const auto run = [&](const std::string &line) {
-	        std::array<char, 512> result{};
-	        if (!console || !cb.queue_console_command(cb.user, line.c_str(), result.data(), result.size())) say(h, "Couldn't apply that change. Try again when the game is ready.");
-	        changed();
-	    };
-	    const auto debug = [&](DebugRequest request) {
-	        std::array<char, 512> result{};
-	        if (!debugging || !cb.queue_debug(cb.user, request, result.data(), result.size())) say(h, "Couldn't apply that change. Try again when the game is ready.");
-	        changed();
-	    };
-	    const auto online = [&](const char *action, const std::string &argument) {
-	        send(h, action, argument);
-	        changed();
-	    };
-	    const auto on_off = [](bool on) { return std::string(on ? "On" : "Off"); };
-	    const float list_width = std::min((z.x - a.x) * .56f, 2300 * u), column_width = std::min(z.x - a.x, 2100 * u);
-	    // A list of levels: the one pointed at says LOAD, and pressing it travels there.
-	    const auto levels = [&](bool custom, const char *title, const char *empty, const char *empty_help) {
-	        draw->AddText(ui.heading, 52 * u, a, theme::paper, title);
-	        std::vector<const Level *> listed;
-	        for (const auto &entry : m.levels)
-	            if (native_tools::listed(entry) && entry.custom == custom) listed.push_back(&entry);
-	        std::sort(listed.begin(), listed.end(), [](const auto *x, const auto *y) { return native_tools::level_name(*x) < native_tools::level_name(*y); });
-	        const auto *root = native_tools::level(m, native_tools::root_asset);
-	        const bool travel = root && root->native_registered && root->can_load && m.can_queue_load && !multiplayer_controls_level(mp) && cb.queue_load;
-	        Scroller list(ui, hash(title, 30), ImVec2(a.x, a.y + 96 * u), ImVec2(a.x + list_width, z.y));
-	        for (const auto *entry : listed) {
-	            const auto id = hash("level", hash(entry->asset));
-	            const bool can = travel && entry->can_load && entry != root;
-	            bool drawn{};
-	            const float top = list.next(tall, between, drawn);
-	            const ImVec2 p(a.x, top), q(a.x + list_width - 20 * u, top + tall);
-	            const Hit hit = item(ui, id, p, q, &list.box);
-	            list.reveal(id, top, tall);
-	            if (hit.press && can) h.tools.destination = entry->asset, act("load-level");
-	            if (!drawn) continue;
-	            const bool lit = hit.focus || hit.hover;
-	            skate_theme::rough_rect(draw, p, q, lit ? theme::blue : skate_theme::tile, id & 0xfff, u * 2);
-	            float name_right = q.x - 30 * u;
-	            if (lit) {
-	                const char *does = can ? "LOAD" : multiplayer_controls_level(mp) ? "HOST'S CHOICE" : "NOT NOW";
-	                const float w = width_of(ui.bold, 30 * u, does) + 40 * u;
-	                const ImVec2 c(q.x - w - 24 * u, top + 20 * u), d(q.x - 24 * u, top + tall - 20 * u);
-	                skate_theme::rough_rect(draw, c, d, can ? sticky : sticky_off, 0x52, u * 2);
-	                draw->AddText(ui.bold, 30 * u, ImVec2(c.x + 20 * u, c.y + (d.y - c.y - 30 * u) * .5f), skate_theme::black, does);
-	                name_right = c.x - 20 * u;
-	            }
-	            label(draw, ui.bold, 42 * u, ImVec2(p.x + 30 * u, top + (tall - 42 * u) * .5f), name_right, can || lit ? theme::paper : theme::muted,
-	                  native_tools::level_name(*entry));
-	        }
-	        list.end();
-	        if (listed.empty()) {
-	            draw->AddText(ui.body, 38 * u, ImVec2(a.x, a.y + 110 * u), theme::muted, empty);
-	            if (*empty_help) draw->AddText(ui.body, 32 * u, ImVec2(a.x, a.y + 164 * u), theme::muted, empty_help);
-	        }
-	        const std::string note = multiplayer_controls_level(mp) ? "Only the lobby host can change levels."
-	                                 : !m.can_queue_load ? "Travel is unavailable right now. Wait for the game to finish loading." : h.notice;
-	        if (!note.empty())
-	            draw->AddText(ui.body, 30 * u, ImVec2(a.x + list_width + gap, a.y + 110 * u), theme::muted, note.c_str(), nullptr, std::min(z.x - a.x - list_width - gap, 1500 * u));
-	    };
+// The page's tabs. What a control does, and when it can, is the same as on ReSkate's own menu
+// (native_tools_view.h for travel, parks and the world; the same requests and commands that
+// menu sends for the rest); how it is laid out is here.
+void tools_page(Ui &ui, ImVec2 a, ImVec2 z) {
+    auto &h = ui.h;
+    const auto &m = h.full;
+    const auto &mp = m.multiplayer;
+    const auto &cb = h.callbacks;
+    const float u = ui.u, gap = 28 * u, tall = 96 * u, between = 10 * u;
+    auto *draw = ui.draw;
+    native_tools::sync(h.tools, m);
+    const auto changed = [&] { h.next_model = {}; }; // what it changed shows at once
+    const auto act = [&](std::string_view command, const std::string &argument = {}) {
+        native_tools::activate(h.tools, m, cb, command, argument);
+        if (!h.tools.feedback.empty()) say(h, std::exchange(h.tools.feedback, {}));
+        changed();
+    };
+    const bool console = cb.queue_console_command != nullptr, debugging = cb.queue_debug != nullptr;
+    const auto run = [&](const std::string &line) {
+        std::array<char, 512> result{};
+        if (!console || !cb.queue_console_command(cb.user, line.c_str(), result.data(), result.size())) say(h, "Couldn't apply that change. Try again when the game is ready.");
+        changed();
+    };
+    const auto debug = [&](DebugRequest request) {
+        std::array<char, 512> result{};
+        if (!debugging || !cb.queue_debug(cb.user, request, result.data(), result.size())) say(h, "Couldn't apply that change. Try again when the game is ready.");
+        changed();
+    };
+    const auto online = [&](const char *action, const std::string &argument) {
+        send(h, action, argument);
+        changed();
+    };
+    const auto on_off = [](bool on) { return std::string(on ? "On" : "Off"); };
+    const float column_width = std::min(z.x - a.x, 2100 * u);
+    // Every map as a grid of cards, each with its picture (an official map's loading screen, a custom
+    // map's mod icon: the same pictures as the ReSkate menu's map grid, menu_map_pictures.cpp) and its
+    // name under it: the game's maps, then the custom ones under their own heading. The one pointed at
+    // says LOAD, and pressing it travels there. (Not Tutorial Island: the game's first-time tutorial.)
+    const auto levels = [&](const char *title) {
+        draw->AddText(ui.heading, 52 * u, a, theme::paper, title);
+        std::vector<const Level *> listed;
+        for (const bool custom : {false, true}) {
+            const auto first = listed.size();
+            for (const auto &entry : m.levels)
+                if (native_tools::listed(entry) && entry.custom == custom && world_level_name(entry.asset) != "Tutorial Island")
+                    listed.push_back(&entry);
+            std::sort(listed.begin() + static_cast<std::ptrdiff_t>(first), listed.end(),
+                      [](const auto *x, const auto *y) { return native_tools::level_name(*x) < native_tools::level_name(*y); });
+        }
+        {
+            std::vector<MenuMapWanted> wanted;
+            for (const auto *entry : listed) wanted.push_back({entry->asset, native_tools::level_name(*entry)});
+            want_menu_map_pictures(std::move(wanted));
+        }
+        // Why a level cannot be loaded now, or what loading one said: beside the title.
+        const std::string note = multiplayer_controls_level(mp) ? "Only the lobby host can change levels."
+                                 : !m.can_queue_load ? "Travel is unavailable right now. Wait for the game to finish loading." : h.notice;
+        if (!note.empty()) {
+            const float after = a.x + width_of(ui.heading, 52 * u, title) + 48 * u;
+            label(draw, ui.body, 30 * u, ImVec2(after, a.y + 14 * u), z.x - 20 * u, theme::muted, note);
+        }
+        const auto *root = native_tools::level(m, native_tools::root_asset);
+        const bool travel = root && root->native_registered && root->can_load && m.can_queue_load && !multiplayer_controls_level(mp) && cb.queue_load;
+        const float card_gap = 24 * u, room = z.x - a.x - 16 * u;
+        const int columns = std::max(1, static_cast<int>((room + card_gap) / (540 * u + card_gap)));
+        const float card = (room - card_gap * static_cast<float>(columns - 1)) / static_cast<float>(columns);
+        const float picture = card * 0.5625f, name_bar = 86 * u, card_tall = picture + name_bar;
+        Scroller list(ui, hash(title, 30), ImVec2(a.x, a.y + 96 * u), ImVec2(z.x, z.y));
+        float row_top{};
+        bool row_drawn{};
+        std::size_t in_section{};
+        bool any_custom{};
+        for (std::size_t i = 0; i < listed.size(); ++i) {
+            const auto *entry = listed[i];
+            // The custom maps start a new row under their own heading.
+            if (entry->custom && !any_custom) {
+                any_custom = true;
+                in_section = 0;
+                bool heading_drawn{};
+                const float heading_top = list.next(70 * u, 0, heading_drawn);
+                if (heading_drawn) draw->AddText(ui.heading, 40 * u, ImVec2(a.x, heading_top + 18 * u), theme::paper, "CUSTOM MAPS");
+            }
+            const auto column = static_cast<int>(in_section++ % static_cast<std::size_t>(columns));
+            if (!column) row_top = list.next(card_tall, card_gap, row_drawn);
+            const auto id = hash("level", hash(entry->asset));
+            const bool can = travel && entry->can_load && entry != root;
+            const ImVec2 p(a.x + (card + card_gap) * static_cast<float>(column), row_top), q(p.x + card, row_top + card_tall);
+            const Hit hit = item(ui, id, p, q, &list.box);
+            list.reveal(id, row_top, card_tall);
+            if (hit.press && can) h.tools.destination = entry->asset, act("load-level");
+            if (!row_drawn) continue;
+            const bool lit = hit.focus || hit.hover;
+            skate_theme::rough_rect(draw, p, q, lit ? theme::blue : skate_theme::tile, id & 0xfff, u * 2);
+            // The picture: the middle band of its square, to the card's shape.
+            const ImVec2 shot_a(p.x + 8 * u, p.y + 8 * u), shot_b(q.x - 8 * u, p.y + picture);
+            ImTextureID texture{};
+            ImVec2 uv0, uv1;
+            if (menu_map_picture(entry->asset, texture, uv0, uv1)) {
+                const float band = (uv1.y - uv0.y) * (1.0f - (shot_b.y - shot_a.y) / (shot_b.x - shot_a.x)) * 0.5f;
+                draw->AddImage(texture, shot_a, shot_b, ImVec2(uv0.x, uv0.y + band), ImVec2(uv1.x, uv1.y - band),
+                               can || lit ? IM_COL32_WHITE : IM_COL32(255, 255, 255, 110));
+            } else {
+                draw->AddRectFilled(shot_a, shot_b, IM_COL32(18, 18, 20, 255));
+            }
+            // The name under it, and on the one pointed at what pressing it does.
+            const float bar_top = p.y + picture, text_y = bar_top + (name_bar - 38 * u) * .5f;
+            float name_right = q.x - 24 * u;
+            if (lit) {
+                const char *does = can ? "LOAD" : multiplayer_controls_level(mp) ? "HOST'S CHOICE" : "NOT NOW";
+                const float w = width_of(ui.bold, 28 * u, does) + 36 * u;
+                const ImVec2 c(q.x - w - 18 * u, bar_top + 18 * u), d(q.x - 18 * u, q.y - 18 * u);
+                skate_theme::rough_rect(draw, c, d, can ? sticky : sticky_off, 0x52, u * 2);
+                draw->AddText(ui.bold, 28 * u, ImVec2(c.x + 18 * u, c.y + (d.y - c.y - 28 * u) * .5f), skate_theme::black, does);
+                name_right = c.x - 16 * u;
+            }
+            label(draw, ui.bold, 38 * u, ImVec2(p.x + 24 * u, text_y), name_right, can || lit ? theme::paper : theme::muted,
+                  native_tools::level_name(*entry));
+        }
+        list.end();
+        if (listed.empty()) draw->AddText(ui.body, 38 * u, ImVec2(a.x, a.y + 110 * u), theme::muted, "Waiting for available levels...");
+    };
 
-	    switch (h.tools_tab) {
-	    case official_tab: levels(false, "FIND YOUR SPOT", "Waiting for available levels...", ""); break;
-	    case custom_tab: levels(true, "CUSTOM MAPS", "No custom maps installed.", "Custom maps from the Mods folder appear here."); break;
-	    case world_tab: {
-	        Column list(ui, hash("world"), a, ImVec2(a.x + column_width, z.y));
-	        list.heading("THIS WORLD");
-	        const bool population = m.world.ready && m.world_controls.population_available && console;
-	        if (list.setting("Traffic", population_labels[std::clamp(m.world_controls.choices.traffic, -1, 3) + 1], population)) act("traffic");
-	        if (list.setting("Pedestrians", population_labels[std::clamp(m.world_controls.choices.pedestrians, -1, 3) + 1], population)) act("pedestrians");
-	        if (list.setting("Time of day", native_tools::time_of_day_labels[native_tools::time_of_day(m)], native_tools::time_of_day_available(m, cb))) act("time-of-day");
-	        if (m.world.controlled_by_host)
-	            list.note(server_can(mp, "tod") ? "Your role sets it: time of day changes for the whole server." : "The lobby host controls world layers, including time of day.");
-	        list.note(h.notice);
-	        list.end();
-	        break;
-	    }
-	    case parks_tab: {
-	        // One card for each of the three lots: its style, its layout, and loading it.
-	        draw->AddText(ui.heading, 52 * u, a, theme::paper, "PARK LAYOUTS");
-	        const bool available = native_tools::can_park(m, cb);
-	        const float cards = static_cast<float>(park_lots.size());
-	        const float width = std::min(((z.x - a.x) - gap * (cards - 1)) / cards, 1300 * u), top = a.y + 96 * u;
-	        const float card_height = 36 * u + 60 * u + (tall + between) * 2 + 16 * u + 110 * u + 36 * u;
-	        for (unsigned lot = 0; lot < park_lots.size(); ++lot) {
-	            const ImVec2 p(a.x + static_cast<float>(lot) * (width + gap), top), q(p.x + width, top + card_height);
-	            skate_theme::rough_rect(draw, p, q, skate_theme::tile, 0x60 + lot, u * 2);
-	            const float left = p.x + 36 * u, right = q.x - 36 * u;
-	            float y = p.y + 36 * u;
-	            label(draw, ui.bold, 40 * u, ImVec2(left, y), right, theme::paper, std::string(park_lots[lot].label));
-	            y += 60 * u;
-	            std::string family = "Empty lot";
-	            for (unsigned i = 0; i < park_families.size(); ++i)
-	                if (h.tools.parks[lot].starts_with(park_families[i])) family = park_family_labels[i];
-	            const auto row = [&](const char *name, const std::string &value, std::string_view command) {
-	                if (button(ui, hash(name, 40 + lot), ImVec2(left, y), ImVec2(right, y + tall), name, Look::plain, available, value)) h.tools.lot = lot, act(command);
-	                y += tall + between;
-	            };
-	            row("Style", family, "park-family");
-	            row("Layout", park_label(h.tools.parks[lot]), "park-layout");
-	            y += 16 * u;
-	            if (button(ui, hash("load-park", lot), ImVec2(left, y), ImVec2(right, y + 110 * u), "LOAD THIS LAYOUT", Look::sticky,
-	                       available && valid_park(lot, h.tools.parks[lot])))
-	                h.tools.lot = lot, act("load-park");
-	        }
-	        Column all(ui, hash("parks"), ImVec2(a.x, top + card_height + 30 * u), ImVec2(a.x + std::min(z.x - a.x, 1500 * u), z.y));
-	        all.title("ALL THREE LOTS");
-	        if (all.setting("Load random parks", {}, available)) act("load-random-parks");
-	        if (all.setting("Randomize on launch", on_off(m.parks.randomize_on_launch), m.parks.available && console)) act("park-random-on-launch");
-	        all.note(m.world.map != WorldMap::bam ? std::string("Load San Vansterdam to change parks.")
-	                 : native_tools::parks_locked(m) ? std::string("The lobby host controls park layouts.")
-	                 : m.parks.controlled_by_host ? std::string("Your role sets them: layouts you load change for the whole server.") : h.notice);
-	        all.end();
-	        break;
-	    }
-	    case player_tab: {
-	        Column list(ui, hash("player"), a, ImVec2(a.x + column_width, z.y));
-	        const auto &d = m.debug;
-	        list.heading("SKATE YOUR WAY");
-	        if (list.setting("Noclip", on_off(d.noclip), (d.noclip_available || d.noclip) && debugging)) debug({DebugAction::set_noclip, !d.noclip});
-	        if (list.setting("No bail", on_off(d.no_bail), (d.no_bail_available || d.no_bail) && debugging)) debug({DebugAction::set_no_bail, !d.no_bail});
-	        if (list.setting("Hall of Meat", on_off(m.hall_of_meat.enabled), m.hall_of_meat.available && console)) act("hall-of-meat");
-	        if (list.setting("Road Rash", on_off(m.road_rash.enabled), m.road_rash.available && console)) act("road-rash");
-	        if (list.setting("Road Rash blood", on_off(m.road_rash.blood), m.road_rash.available && m.road_rash.enabled && console)) act("road-rash-blood");
-	        if (list.setting("Heal Road Rash", {}, m.road_rash.available && m.road_rash.enabled && console)) act("road-rash-heal");
-	        if (list.setting("Board Break", on_off(m.board_break.enabled), m.board_break.available && console)) act("board-break");
-	        if (list.setting("Board Break deck", m.board_break.deck, m.board_break.available && m.board_break.has_deck && console))
-	            act("board-break-deck");
-	        const auto &grind = m.grind_exit;
-	        if (list.setting("Grind exit triggers", on_off(grind.enabled), grind.available && console)) act("grind-exits");
-	        if (list.setting("Input Mode", grind.toe_heel ? "Toe / Heel" : "Left / Right", grind.available && console)) act("grind-exit-sides");
-	        if (grind.toe_heel &&
-	            list.setting("Your stance", grind.stance == 2 ? "Goofy" : grind.stance == 1 ? "Regular" : "Not set", grind.available && console))
-	            act("grind-exit-stance");
-	        if (list.setting("Pop-out strength", std::to_string(grind.strength) + "%", grind.available && console)) act("grind-exit-strength");
-	        const auto &wear = m.offline.board_wear;
-	        if (list.setting("Board wear", on_off(wear.effective), wear.available && cb.queue_offline_feature)) act("board-wear");
-	        if (list.setting("Reset board wear", {}, wear.available && wear.effective && console)) act("board-wear-reset");
-	        list.title("CAMERA");
-	        const bool camera = d.available && d.camera_available && debugging, edit = d.available && debugging;
-	        if (list.setting("First person", on_off(d.first_person), camera)) debug({DebugAction::set_first_person, !d.first_person});
-	        if (list.setting("True first person", on_off(d.first_person_arm.stabilize), edit)) debug({DebugAction::set_first_person_stabilize, !d.first_person_arm.stabilize});
-	        if (list.setting("Third person on foot", on_off(d.first_person_arm.board_only), edit)) debug({DebugAction::set_first_person_board_only, !d.first_person_arm.board_only});
-	        if (list.setting("Freecam", on_off(d.free_camera), camera)) debug({DebugAction::set_free_camera, !d.free_camera});
-	        {
-	            constexpr std::array<float, 7> speeds{.6f, 3.f, 5.f, 15.f, 60.f, 300.f, 1500.f};
-	            const auto text = std::to_string(d.camera_speed);
-	            if (const int way = list.adjust("Flight speed", text.substr(0, text.find('.') + 2), (d.free_camera || d.noclip) && d.camera_available && debugging))
-	                debug({DebugAction::set_camera_speed, false, stepped(d.camera_speed, speeds, way)});
-	        }
-	        list.title("BOOSTS");
-	        {
-	            constexpr std::array<float, 9> forward{1.f, 5.f, 10.f, 25.f, 50.f, 100.f, 150.f, 200.f, 300.f};
-	            constexpr std::array<float, 8> up{1.f, 2.f, 3.f, 5.f, 8.f, 12.f, 18.f, 25.f};
-	            if (const int way = list.adjust("Forward boost", "+" + whole(d.forward_velocity_speed), debugging))
-	                debug({DebugAction::set_forward_velocity_speed, false, stepped(d.forward_velocity_speed, forward, way)});
-	            if (const int way = list.adjust("Up boost", "+" + whole(d.up_velocity_speed), debugging))
-	                debug({DebugAction::set_up_velocity_speed, false, stepped(d.up_velocity_speed, up, way)});
-	            if (const int way = list.adjust("Off-board up boost", "+" + whole(d.offboard_up_velocity_speed), debugging))
-	                debug({DebugAction::set_offboard_up_velocity_speed, false, stepped(d.offboard_up_velocity_speed, up, way)});
-	        }
-	        list.note(!h.notice.empty() ? h.notice : std::string("The buttons for the boosts are on the BINDS tab. Flight speed is for noclip and freecam; close the menu to fly."));
-	        list.end();
-	        break;
-	    }
-	    case online_tab: {
-	        Column list(ui, hash("online"), a, ImVec2(a.x + column_width, z.y));
-	        list.heading("OTHER SKATERS");
-	        if (m.steam_offline) {
-	            list.note("Multiplayer is off in offline mode.");
-	        } else {
-	            constexpr std::array<float, 8> shown{50.f, 75.f, 100.f, 150.f, 200.f, 300.f, 500.f, 1000.f};
-	            constexpr std::array<float, 8> tags{10.f, 25.f, 50.f, 75.f, 120.f, 200.f, 300.f, 500.f};
-	            constexpr std::array<float, 7> reach{5.f, 10.f, 20.f, 40.f, 75.f, 120.f, 200.f};
-	            constexpr std::array<float, 6> seconds{1.f, 3.f, 5.f, 8.f, 15.f, 30.f};
-	            constexpr std::array<float, 8> lines{1.f, 2.f, 3.f, 4.f, 5.f, 6.f, 7.f, 8.f};
-	            if (const int way = list.adjust("Player distance", mp.player_distance >= player_distance_unlimited ? std::string("Everyone") : whole(mp.player_distance, " m"), true))
-	                online("player-distance", whole(stepped(mp.player_distance, shown, way)));
-	            if (list.setting("Direct connections", on_off(mp.prefer_direct), true)) online("direct-connections", mp.prefer_direct ? "off" : "on");
-	            list.title("OUTFITS");
-	            constexpr std::array<const char *, 3> shuffle_names{"Nothing", "Everything", "Not installed"}, shuffle_words{"off", "all", "missing"};
-	            const std::size_t shuffle = mp.outfit_shuffle < shuffle_names.size() ? static_cast<std::size_t>(mp.outfit_shuffle) : 0;
-	            if (list.setting("Shuffle outfits", shuffle_names[shuffle], true)) online("shuffle-outfits", shuffle_words[(shuffle + 1) % shuffle_words.size()]);
-	            if (list.setting("Reroll shuffle", "", shuffle != 0)) online("shuffle-outfits", "reroll");
-	            list.note("Randomise other players outfits and boards, Everything: every item. Not installed: only the items you don't have installed.");
-	            list.title("NAMETAGS");
-	            if (list.setting("Nametags", on_off(mp.nametags), true)) online("nametags", mp.nametags ? "off" : "on");
-	            if (const int way = list.adjust("Nametag distance", whole(mp.nametag_distance, " m"), true)) online("nametag-distance", whole(stepped(mp.nametag_distance, tags, way)));
-	            if (list.setting("Nametag dots", on_off(mp.nametag_dots), true)) online("nametag-dots", mp.nametag_dots ? "off" : "on");
-	            if (list.setting("Friends' nametags only", on_off(mp.nametags_friends), true)) online("nametags-friends", mp.nametags_friends ? "off" : "on");
-	            list.title("CHAT");
-	            if (list.setting("Text chat", on_off(mp.chat_visible), true)) online("chat-visible", mp.chat_visible ? "off" : "on");
-	            if (list.setting("Chat bubbles", on_off(mp.chat_bubbles), true)) online("chat-bubbles", mp.chat_bubbles ? "off" : "on");
-	            if (list.setting("Own chat bubbles", on_off(mp.chat_bubbles_own), mp.chat_bubbles)) online("chat-bubbles-own", mp.chat_bubbles_own ? "off" : "on");
-	            if (const int way = list.adjust("Bubble distance", whole(mp.chat_bubbles_distance, " m"), mp.chat_bubbles))
-	                online("chat-bubbles-distance", whole(stepped(mp.chat_bubbles_distance, reach, way)));
-	            if (const int way = list.adjust("Bubble time", whole(mp.chat_bubbles_duration, " s"), mp.chat_bubbles))
-	                online("chat-bubbles-duration", whole(stepped(mp.chat_bubbles_duration, seconds, way)));
-	            if (const int way = list.adjust("Bubble lines", whole(static_cast<float>(mp.chat_bubbles_history)), mp.chat_bubbles))
-	                online("chat-bubbles-history", whole(stepped(static_cast<float>(mp.chat_bubbles_history), lines, way)));
-	            if (dingosdk::discord_presence::available()) {
-	                list.title("DISCORD");
-	                if (list.setting("Discord status", on_off(dingosdk::discord_presence::enabled()), true)) dingosdk::discord_presence::set_enabled(!dingosdk::discord_presence::enabled());
-	            }
-	            if (!mp.identity_tag.empty()) {
-	                // Only for players the ReSkate team has given a tag.
-	                list.title("YOUR TAG");
-	                if (list.setting("Show my tag", on_off(mp.identity_tag_shown), true)) online("mark-tag", mp.identity_tag_shown ? "off" : "on");
-	                if (list.setting("Show my items", on_off(mp.identity_items_shown), true)) online("mark-items", mp.identity_items_shown ? "off" : "on");
-	            }
-	            list.note(h.notice);
-	        }
-	        list.end();
-	        break;
-	    }
-	    case visuals_tab: {
-	        Column list(ui, hash("visuals"), a, ImVec2(a.x + column_width, z.y));
-	        list.heading("WHAT YOU SEE AND HEAR");
-	        constexpr std::array<const char *, 3> names{"Film grain", "Vignette", "Chromatic aberration"};
-	        for (unsigned i = 0; i < names.size(); ++i) {
-	            const auto choice = m.graphics.choices.effects[i];
-	            const bool on = choice < 0 ? !m.graphics.ready[i] || m.graphics.enabled[i] : choice != 0;
-	            if (list.setting(names[i], on_off(on) + (choice < 0 ? " (default)" : ""), m.graphics.available && console)) act("graphics", std::string(graphics_keys[i]));
-	        }
-	        if (list.setting("Restore default effects", {}, m.graphics.available && console)) act("graphics-reset");
-	        if (list.setting("Challenges", m.progression.challenges_hidden ? "Hidden" : "Shown", m.progression.challenges_enabled && console)) act("challenges");
-	        {
-	            const bool shuffle = dingosdk::profile_runtime::music_shuffle_enabled();
-	            if (list.setting("Shuffle playlists", on_off(shuffle), true)) {
-	                dingosdk::profile_runtime::set_music_shuffle_enabled(!shuffle);
-	                dingosdk::profile_runtime::set_local_preference("MusicShuffle", !shuffle);
-	            }
-	        }
-	        list.note(!h.notice.empty() ? h.notice : std::string("Hiding challenges keeps your progress."));
-	        list.end();
-	        break;
-	    }
-	    default: {
-	        // Buttons for ReSkate's own actions. Pressing a row records the next button, combination
-	        // of buttons or key; for that long the game does not see them.
-	        const auto &binds = m.bindings;
-	        const bool available = binds.available && console;
-	        const auto recording = hash("bind-recording");
-	        const auto save = [&](int action, std::uint32_t combo) {
-	            run("bind " + (action >= 10 ? std::string(action_binds[static_cast<std::size_t>(action - 10)].name) : std::string(action == 1 ? "freecamcontroller" : action == 2 ? "freecam"
-	                           : action == 3 ? "noclip" : action == 4 ? "forwardvelocity" : action == 5 ? "upvelocity" : action == 6 ? "tptofreecam" : action == 8 ? "voteyes"
-	                           : action == 9 ? "voteno" : "offboardupvelocity")) + " " + std::to_string(combo));
-	        };
-	        if (h.recording_bind) {
-	            ControllerInput controller;
-	            DingoSDKOverlayReadControllerInput(&controller, true);
-	            if (!available || GetTickCount64() >= h.recording_until || ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
-	                h.recording_bind = 0, set_typing(h, 0);
-	                say(h, "Recording cancelled. Your binding is unchanged.");
-	            } else if (const auto combo = h.bind_capture.update(controller, true)) {
-	                const int action = std::exchange(h.recording_bind, 0);
-	                set_typing(h, 0);
-	                save(action, *combo);
-	            }
-	        }
-	        Column list(ui, hash("binds"), a, ImVec2(a.x + column_width, z.y));
-	        list.heading("ACTION BINDS");
-	        list.note(h.recording_bind ? std::string("Press the button, combination or key to use. Escape cancels.")
-	                  : !h.notice.empty() ? h.notice : std::string("Pick an action, then press what should do it. CLEAR takes its button away."));
-	        const auto row = [&](int action, const std::string &name, std::uint32_t combo) {
-	            const float u2 = ui.u, clear_width = 260 * u2;
-	            const auto id = hash("bind", static_cast<std::uint64_t>(action)), clear = hash("bind-clear", static_cast<std::uint64_t>(action));
-	            bool drawn{};
-	            const float top = list.list.next(list.tall, list.between, drawn);
-	            list.list.reveal(id, top, list.tall), list.list.reveal(clear, top, list.tall);
-	            const bool mine = h.recording_bind == action, idle = available && !h.recording_bind;
-	            if (button(ui, id, ImVec2(list.left, top), ImVec2(list.right - clear_width - 12 * u2, top + list.tall), name, mine ? Look::chosen : Look::tile, idle,
-	                       mine ? std::string("Recording...") : controller_combo_label(combo, ui.pad.style), &list.list.box)) {
-	                h.recording_bind = action;
-	                h.bind_capture = {};
-	                h.recording_until = GetTickCount64() + 30000;
-	                h.notice.clear();
-	                set_typing(h, recording);
-	            }
-	            if (button(ui, clear, ImVec2(list.right - clear_width, top), ImVec2(list.right, top + list.tall), "CLEAR", Look::plain, idle && combo != 0, {}, &list.list.box))
-	                save(action, 0);
-	        };
-	        row(1, "Freecam controller", binds.freecam_controller_combo);
-	        row(2, "Freecam", binds.freecam_combo);
-	        row(3, "Noclip", binds.noclip_combo);
-	        row(4, "Forward boost", binds.forward_velocity_combo);
-	        row(5, "Up boost", binds.up_velocity_combo);
-	        row(7, "Off-board up boost", binds.offboard_up_velocity_combo);
-	        row(6, "Teleport to freecam", binds.tp_to_freecam_combo);
-	        row(8, "Vote yes", binds.vote_yes_combo);
-	        row(9, "Vote no", binds.vote_no_combo);
-	        for (std::size_t i = 0; i < action_binds.size(); ++i) row(10 + static_cast<int>(i), std::string(action_binds[i].label), binds.action_combos[i]);
-	        list.end();
-	        break;
-	    }
+    switch (h.tools_tab) {
+    case official_tab:
+    case custom_tab: levels("FIND YOUR SPOT"); break; // (custom maps are on the one tab now)
+    case world_tab: {
+        Column list(ui, hash("world"), a, ImVec2(a.x + column_width, z.y));
+        list.heading("THIS WORLD");
+        const bool population = m.world.ready && m.world_controls.population_available && console;
+        if (list.setting("Traffic", population_labels[std::clamp(m.world_controls.choices.traffic, -1, 3) + 1], population)) act("traffic");
+        if (list.setting("Pedestrians", population_labels[std::clamp(m.world_controls.choices.pedestrians, -1, 3) + 1], population)) act("pedestrians");
+        if (list.setting("Time of day", native_tools::time_of_day_labels[native_tools::time_of_day(m)], native_tools::time_of_day_available(m, cb))) act("time-of-day");
+        if (m.world.controlled_by_host)
+            list.note(server_can(mp, "tod") ? "Your role sets it: time of day changes for the whole server." : "The lobby host controls world layers, including time of day.");
+        list.note(h.notice);
+        list.end();
+        break;
+    }
+    case parks_tab: {
+        // One card for each of the three lots: its style, its layout, and loading it.
+        draw->AddText(ui.heading, 52 * u, a, theme::paper, "PARK LAYOUTS");
+        const bool available = native_tools::can_park(m, cb);
+        const float cards = static_cast<float>(park_lots.size());
+        const float width = std::min(((z.x - a.x) - gap * (cards - 1)) / cards, 1300 * u), top = a.y + 96 * u;
+        const float card_height = 36 * u + 60 * u + (tall + between) * 2 + 16 * u + 110 * u + 36 * u;
+        for (unsigned lot = 0; lot < park_lots.size(); ++lot) {
+            const ImVec2 p(a.x + static_cast<float>(lot) * (width + gap), top), q(p.x + width, top + card_height);
+            skate_theme::rough_rect(draw, p, q, skate_theme::tile, 0x60 + lot, u * 2);
+            const float left = p.x + 36 * u, right = q.x - 36 * u;
+            float y = p.y + 36 * u;
+            label(draw, ui.bold, 40 * u, ImVec2(left, y), right, theme::paper, std::string(park_lots[lot].label));
+            y += 60 * u;
+            std::string family = "Empty lot";
+            for (unsigned i = 0; i < park_families.size(); ++i)
+                if (h.tools.parks[lot].starts_with(park_families[i])) family = park_family_labels[i];
+            const auto row = [&](const char *name, const std::string &value, std::string_view command) {
+                if (button(ui, hash(name, 40 + lot), ImVec2(left, y), ImVec2(right, y + tall), name, Look::plain, available, value)) h.tools.lot = lot, act(command);
+                y += tall + between;
+            };
+            row("Style", family, "park-family");
+            row("Layout", park_label(h.tools.parks[lot]), "park-layout");
+            y += 16 * u;
+            if (button(ui, hash("load-park", lot), ImVec2(left, y), ImVec2(right, y + 110 * u), "LOAD THIS LAYOUT", Look::sticky,
+                       available && valid_park(lot, h.tools.parks[lot])))
+                h.tools.lot = lot, act("load-park");
+        }
+        Column all(ui, hash("parks"), ImVec2(a.x, top + card_height + 30 * u), ImVec2(a.x + std::min(z.x - a.x, 1500 * u), z.y));
+        all.title("ALL THREE LOTS");
+        if (all.setting("Load random parks", {}, available)) act("load-random-parks");
+        if (all.setting("Randomize on launch", on_off(m.parks.randomize_on_launch), m.parks.available && console)) act("park-random-on-launch");
+        all.note(m.world.map != WorldMap::bam ? std::string("Load San Vansterdam to change parks.")
+                 : native_tools::parks_locked(m) ? std::string("The lobby host controls park layouts.")
+                 : m.parks.controlled_by_host ? std::string("Your role sets them: layouts you load change for the whole server.") : h.notice);
+        all.end();
+        break;
+    }
+    case player_tab: {
+        Column list(ui, hash("player"), a, ImVec2(a.x + column_width, z.y));
+        const auto &d = m.debug;
+        list.heading("SKATE YOUR WAY");
+        if (list.setting("Noclip", on_off(d.noclip), (d.noclip_available || d.noclip) && debugging)) debug({DebugAction::set_noclip, !d.noclip});
+        if (list.setting("No bail", on_off(d.no_bail), (d.no_bail_available || d.no_bail) && debugging)) debug({DebugAction::set_no_bail, !d.no_bail});
+        if (list.setting("Hall of Meat", on_off(m.hall_of_meat.enabled), m.hall_of_meat.available && console)) act("hall-of-meat");
+        // (Not listed when its official mod is turned off in the launcher.)
+        if (!m.road_rash.off) {
+            if (list.setting("Road Rash", on_off(m.road_rash.enabled), m.road_rash.available && console)) act("road-rash");
+            if (list.setting("Road Rash blood", on_off(m.road_rash.blood), m.road_rash.available && m.road_rash.enabled && console)) act("road-rash-blood");
+            if (list.setting("Heal Road Rash", {}, m.road_rash.available && m.road_rash.enabled && console)) act("road-rash-heal");
+        }
+        if (!m.board_break.off) {
+            if (list.setting("Board Break", on_off(m.board_break.enabled), m.board_break.available && console)) act("board-break");
+            if (list.setting("Board Break deck", m.board_break.deck, m.board_break.available && m.board_break.has_deck && console))
+                act("board-break-deck");
+        }
+        const auto &grind = m.grind_exit;
+        if (list.setting("Grind exit triggers", on_off(grind.enabled), grind.available && console)) act("grind-exits");
+        if (list.setting("Input Mode", grind.toe_heel ? "Toe / Heel" : "Left / Right", grind.available && console)) act("grind-exit-sides");
+        if (grind.toe_heel &&
+            list.setting("Your stance", grind.stance == 2 ? "Goofy" : grind.stance == 1 ? "Regular" : "Not set", grind.available && console))
+            act("grind-exit-stance");
+        if (list.setting("Pop-out strength", std::to_string(grind.strength) + "%", grind.available && console)) act("grind-exit-strength");
+        const auto &wear = m.offline.board_wear;
+        if (list.setting("Board wear", on_off(wear.effective), wear.available && cb.queue_offline_feature)) act("board-wear");
+        if (list.setting("Reset board wear", {}, wear.available && wear.effective && console)) act("board-wear-reset");
+        list.title("CAMERA");
+        const bool camera = d.available && d.camera_available && debugging, edit = d.available && debugging;
+        if (list.setting("First person", on_off(d.first_person), camera)) debug({DebugAction::set_first_person, !d.first_person});
+        if (list.setting("True first person", on_off(d.first_person_arm.stabilize), edit)) debug({DebugAction::set_first_person_stabilize, !d.first_person_arm.stabilize});
+        if (list.setting("Third person on foot", on_off(d.first_person_arm.board_only), edit)) debug({DebugAction::set_first_person_board_only, !d.first_person_arm.board_only});
+        if (list.setting("Freecam", on_off(d.free_camera), camera)) debug({DebugAction::set_free_camera, !d.free_camera});
+        {
+            constexpr std::array<float, 7> speeds{.6f, 3.f, 5.f, 15.f, 60.f, 300.f, 1500.f};
+            const auto text = std::to_string(d.camera_speed);
+            if (const int way = list.adjust("Flight speed", text.substr(0, text.find('.') + 2), (d.free_camera || d.noclip) && d.camera_available && debugging))
+                debug({DebugAction::set_camera_speed, false, stepped(d.camera_speed, speeds, way)});
+        }
+        list.title("BOOSTS");
+        {
+            constexpr std::array<float, 9> forward{1.f, 5.f, 10.f, 25.f, 50.f, 100.f, 150.f, 200.f, 300.f};
+            constexpr std::array<float, 8> up{1.f, 2.f, 3.f, 5.f, 8.f, 12.f, 18.f, 25.f};
+            if (const int way = list.adjust("Forward boost", "+" + whole(d.forward_velocity_speed), debugging))
+                debug({DebugAction::set_forward_velocity_speed, false, stepped(d.forward_velocity_speed, forward, way)});
+            if (const int way = list.adjust("Up boost", "+" + whole(d.up_velocity_speed), debugging))
+                debug({DebugAction::set_up_velocity_speed, false, stepped(d.up_velocity_speed, up, way)});
+            if (const int way = list.adjust("Off-board up boost", "+" + whole(d.offboard_up_velocity_speed), debugging))
+                debug({DebugAction::set_offboard_up_velocity_speed, false, stepped(d.offboard_up_velocity_speed, up, way)});
+        }
+        list.note(!h.notice.empty() ? h.notice : std::string("The buttons for the boosts are on the BINDS tab. Flight speed is for noclip and freecam; close the menu to fly."));
+        list.end();
+        break;
+    }
+    case online_tab: {
+        Column list(ui, hash("online"), a, ImVec2(a.x + column_width, z.y));
+        list.heading("OTHER SKATERS");
+        if (m.steam_offline) {
+            list.note("Multiplayer is off in offline mode.");
+        } else {
+            constexpr std::array<float, 8> shown{50.f, 75.f, 100.f, 150.f, 200.f, 300.f, 500.f, 1000.f};
+            constexpr std::array<float, 8> tags{10.f, 25.f, 50.f, 75.f, 120.f, 200.f, 300.f, 500.f};
+            constexpr std::array<float, 7> reach{5.f, 10.f, 20.f, 40.f, 75.f, 120.f, 200.f};
+            constexpr std::array<float, 6> seconds{1.f, 3.f, 5.f, 8.f, 15.f, 30.f};
+            constexpr std::array<float, 8> lines{1.f, 2.f, 3.f, 4.f, 5.f, 6.f, 7.f, 8.f};
+            if (const int way = list.adjust("Player distance", mp.player_distance >= player_distance_unlimited ? std::string("Everyone") : whole(mp.player_distance, " m"), true))
+                online("player-distance", whole(stepped(mp.player_distance, shown, way)));
+            if (list.setting("Direct connections", on_off(mp.prefer_direct), true)) online("direct-connections", mp.prefer_direct ? "off" : "on");
+            list.title("OUTFITS");
+            constexpr std::array<const char *, 3> shuffle_names{"Nothing", "Everything", "Not installed"}, shuffle_words{"off", "all", "missing"};
+            const std::size_t shuffle = mp.outfit_shuffle < shuffle_names.size() ? static_cast<std::size_t>(mp.outfit_shuffle) : 0;
+            if (list.setting("Shuffle outfits", shuffle_names[shuffle], true)) online("shuffle-outfits", shuffle_words[(shuffle + 1) % shuffle_words.size()]);
+            if (list.setting("Reroll shuffle", "", shuffle != 0)) online("shuffle-outfits", "reroll");
+            list.note("Randomise other players outfits and boards, Everything: every item. Not installed: only the items you don't have installed.");
+            list.title("NAMETAGS");
+            if (list.setting("Nametags", on_off(mp.nametags), true)) online("nametags", mp.nametags ? "off" : "on");
+            if (const int way = list.adjust("Nametag distance", whole(mp.nametag_distance, " m"), true)) online("nametag-distance", whole(stepped(mp.nametag_distance, tags, way)));
+            if (list.setting("Nametag dots", on_off(mp.nametag_dots), true)) online("nametag-dots", mp.nametag_dots ? "off" : "on");
+            if (list.setting("Friends' nametags only", on_off(mp.nametags_friends), true)) online("nametags-friends", mp.nametags_friends ? "off" : "on");
+            list.title("CHAT");
+            if (list.setting("Text chat", on_off(mp.chat_visible), true)) online("chat-visible", mp.chat_visible ? "off" : "on");
+            if (list.setting("Chat bubbles", on_off(mp.chat_bubbles), true)) online("chat-bubbles", mp.chat_bubbles ? "off" : "on");
+            if (list.setting("Own chat bubbles", on_off(mp.chat_bubbles_own), mp.chat_bubbles)) online("chat-bubbles-own", mp.chat_bubbles_own ? "off" : "on");
+            if (const int way = list.adjust("Bubble distance", whole(mp.chat_bubbles_distance, " m"), mp.chat_bubbles))
+                online("chat-bubbles-distance", whole(stepped(mp.chat_bubbles_distance, reach, way)));
+            if (const int way = list.adjust("Bubble time", whole(mp.chat_bubbles_duration, " s"), mp.chat_bubbles))
+                online("chat-bubbles-duration", whole(stepped(mp.chat_bubbles_duration, seconds, way)));
+            if (const int way = list.adjust("Bubble lines", whole(static_cast<float>(mp.chat_bubbles_history)), mp.chat_bubbles))
+                online("chat-bubbles-history", whole(stepped(static_cast<float>(mp.chat_bubbles_history), lines, way)));
+            if (dingosdk::discord_presence::available()) {
+                list.title("DISCORD");
+                if (list.setting("Discord status", on_off(dingosdk::discord_presence::enabled()), true)) dingosdk::discord_presence::set_enabled(!dingosdk::discord_presence::enabled());
+            }
+            if (!mp.identity_tag.empty()) {
+                // Only for players the ReSkate team has given a tag.
+                list.title("YOUR TAG");
+                if (list.setting("Show my tag", on_off(mp.identity_tag_shown), true)) online("mark-tag", mp.identity_tag_shown ? "off" : "on");
+                if (list.setting("Show my items", on_off(mp.identity_items_shown), true)) online("mark-items", mp.identity_items_shown ? "off" : "on");
+            }
+            list.note(h.notice);
+        }
+        list.end();
+        break;
+    }
+    case visuals_tab: {
+        Column list(ui, hash("visuals"), a, ImVec2(a.x + column_width, z.y));
+        list.heading("WHAT YOU SEE AND HEAR");
+        constexpr std::array<const char *, 3> names{"Film grain", "Vignette", "Chromatic aberration"};
+        for (unsigned i = 0; i < names.size(); ++i) {
+            const auto choice = m.graphics.choices.effects[i];
+            const bool on = choice < 0 ? !m.graphics.ready[i] || m.graphics.enabled[i] : choice != 0;
+            if (list.setting(names[i], on_off(on) + (choice < 0 ? " (default)" : ""), m.graphics.available && console)) act("graphics", std::string(graphics_keys[i]));
+        }
+        if (list.setting("Restore default effects", {}, m.graphics.available && console)) act("graphics-reset");
+        if (list.setting("Keyframe smoothing", on_off(m.keyframe_smoothing.enabled), m.keyframe_smoothing.available && console))
+            act("keyframe-smoothing");
+        if (list.setting("Keyframe smoothness", std::to_string(keyframe_smoothness_percent(m.keyframe_smoothing)) + "%",
+                         m.keyframe_smoothing.available && m.keyframe_smoothing.enabled && console))
+            act("keyframe-smoothness");
+        if (list.setting("Challenges", m.progression.challenges_hidden ? "Hidden" : "Shown", m.progression.challenges_enabled && console)) act("challenges");
+        {
+            const bool shuffle = dingosdk::profile_runtime::music_shuffle_enabled();
+            if (list.setting("Shuffle playlists", on_off(shuffle), true)) {
+                dingosdk::profile_runtime::set_music_shuffle_enabled(!shuffle);
+                dingosdk::profile_runtime::set_local_preference("MusicShuffle", !shuffle);
+            }
+        }
+        list.note(!h.notice.empty() ? h.notice : std::string("Hiding challenges keeps your progress."));
+        list.end();
+        break;
+    }
+    default: {
+        // Buttons for ReSkate's own actions. Pressing a row records the next button, combination
+        // of buttons or key; for that long the game does not see them.
+        const auto &binds = m.bindings;
+        const bool available = binds.available && console;
+        const auto recording = hash("bind-recording");
+        const auto save = [&](int action, std::uint32_t combo) {
+            run("bind " + (action >= 10 ? std::string(action_binds[static_cast<std::size_t>(action - 10)].name) : std::string(action == 1 ? "freecamcontroller" : action == 2 ? "freecam"
+                           : action == 3 ? "noclip" : action == 4 ? "forwardvelocity" : action == 5 ? "upvelocity" : action == 6 ? "tptofreecam" : action == 8 ? "voteyes"
+                           : action == 9 ? "voteno" : "offboardupvelocity")) + " " + std::to_string(combo));
+        };
+        if (h.recording_bind) {
+            ControllerInput controller;
+            DingoSDKOverlayReadControllerInput(&controller, true);
+            if (!available || GetTickCount64() >= h.recording_until || ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
+                h.recording_bind = 0, set_typing(h, 0);
+                say(h, "Recording cancelled. Your binding is unchanged.");
+            } else if (const auto combo = h.bind_capture.update(controller, true)) {
+                const int action = std::exchange(h.recording_bind, 0);
+                set_typing(h, 0);
+                save(action, *combo);
+            }
+        }
+        Column list(ui, hash("binds"), a, ImVec2(a.x + column_width, z.y));
+        list.heading("ACTION BINDS");
+        list.note(h.recording_bind ? std::string("Press the button, combination or key to use. Escape cancels.")
+                  : !h.notice.empty() ? h.notice : std::string("Pick an action, then press what should do it. CLEAR takes its button away."));
+        const auto row = [&](int action, const std::string &name, std::uint32_t combo) {
+            const float u2 = ui.u, clear_width = 260 * u2;
+            const auto id = hash("bind", static_cast<std::uint64_t>(action)), clear = hash("bind-clear", static_cast<std::uint64_t>(action));
+            bool drawn{};
+            const float top = list.list.next(list.tall, list.between, drawn);
+            list.list.reveal(id, top, list.tall), list.list.reveal(clear, top, list.tall);
+            const bool mine = h.recording_bind == action, idle = available && !h.recording_bind;
+            if (button(ui, id, ImVec2(list.left, top), ImVec2(list.right - clear_width - 12 * u2, top + list.tall), name, mine ? Look::chosen : Look::tile, idle,
+                       mine ? std::string("Recording...") : controller_combo_label(combo, ui.pad.style), &list.list.box)) {
+                h.recording_bind = action;
+                h.bind_capture = {};
+                h.recording_until = GetTickCount64() + 30000;
+                h.notice.clear();
+                set_typing(h, recording);
+            }
+            if (button(ui, clear, ImVec2(list.right - clear_width, top), ImVec2(list.right, top + list.tall), "CLEAR", Look::plain, idle && combo != 0, {}, &list.list.box))
+                save(action, 0);
+        };
+        row(1, "Freecam controller", binds.freecam_controller_combo);
+        row(2, "Freecam", binds.freecam_combo);
+        row(3, "Noclip", binds.noclip_combo);
+        row(4, "Forward boost", binds.forward_velocity_combo);
+        row(5, "Up boost", binds.up_velocity_combo);
+        row(7, "Off-board up boost", binds.offboard_up_velocity_combo);
+        row(6, "Teleport to freecam", binds.tp_to_freecam_combo);
+        row(8, "Vote yes", binds.vote_yes_combo);
+        row(9, "Vote no", binds.vote_no_combo);
+        for (std::size_t i = 0; i < action_binds.size(); ++i) row(10 + static_cast<int>(i), std::string(action_binds[i].label), binds.action_combos[i]);
+        list.end();
+        break;
+    }
     }
 }
 
@@ -1577,7 +1631,8 @@ void hub_frame(Hub &h, ImDrawList *draw, float u, ImVec2 a, ImVec2 z, float tabs
         int multiplayer_tab = static_cast<int>(h.tab);
         int &open = tools ? h.tools_tab : multiplayer_tab;
         if (tools) {
-            tabs = {{official_tab, "OFFICIAL MAPS"}, {custom_tab, "CUSTOM MAPS"}, {world_tab, "WORLD"}, {parks_tab, "PARKS"},
+            if (h.tools_tab == custom_tab) h.tools_tab = official_tab;
+            tabs = {{official_tab, "MAPS"}, {world_tab, "WORLD"}, {parks_tab, "PARKS"},
                     {player_tab, "PLAYER"}, {online_tab, "ONLINE"}, {visuals_tab, "VISUALS"}, {binds_tab, "BINDS"}};
         } else {
             tabs = {{static_cast<int>(Tab::browser), "SERVER BROWSER"}, {static_cast<int>(Tab::host), "HOST LOBBY"}};

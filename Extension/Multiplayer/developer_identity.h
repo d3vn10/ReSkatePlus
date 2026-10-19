@@ -56,14 +56,14 @@ namespace dingosdk::multiplayer {
 	// server's login token can sign in as it.
 	inline bool official_server(std::uint64_t id) noexcept { return identity_listed(id, IdentityList::official_server); }
 	inline bool blocked_server(std::uint64_t id) noexcept { return identity_listed(id, IdentityList::blocked_server); }
-	inline constexpr std::string_view blocked_server_notice = "This server has been blocked by the ReSkate+ team.";
+	inline constexpr std::string_view blocked_server_notice = "This server has been blocked by the ReSkate team.";
 	// A player the team has stopped from hosting lobbies ("banned_hosts"); they still play on
 	// servers and in other players' lobbies. Their own game does not host, and since that is theirs
 	// to change, everyone else's does the rest: the lobby browser leaves their lobbies out and the
 	// game does not join one or stay in one.
 	inline bool banned_host(std::uint64_t id) noexcept { return identity_listed(id, IdentityList::banned_host); }
-	inline constexpr std::string_view banned_host_notice = "You are banned from hosting ReSkate+ lobbies. You can still join servers and other players' lobbies.";
-	inline constexpr std::string_view banned_host_lobby_notice = "This player has been banned from hosting lobbies by the ReSkate+ team.";
+	inline constexpr std::string_view banned_host_notice = "You are banned from hosting ReSkate lobbies. You can still join servers and other players' lobbies.";
+	inline constexpr std::string_view banned_host_lobby_notice = "This player has been banned from hosting lobbies by the ReSkate team.";
 	// Whether the server browser shows only dedicated servers signed in with a Steam login token
 	// (protocol.h: persistent_server_steam_id), which the backend switches on and off beside the
 	// lists ("server_tokens_required"). Such a server keeps its Steam ID, so a block holds on it.
@@ -74,7 +74,7 @@ namespace dingosdk::multiplayer {
 	// What the API's answer says about that; false when it says nothing. Throws on an answer
 	// that is not JSON.
 	bool parse_server_tokens_required(std::string_view json);
-	inline constexpr std::string_view banned_notice = "You are banned from ReSkate+ multiplayer.";
+	inline constexpr std::string_view banned_notice = "You are banned from ReSkate multiplayer.";
 
 	// The API's answer, {"categories":{"dev":["7656119..."],"homie":[],...},"banned":[],
 	// "official_servers":["8556839..."],"blocked_servers":[],"banned_hosts":[]}, as sorted lists. A category this build does not know

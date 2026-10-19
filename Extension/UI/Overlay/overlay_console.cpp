@@ -438,7 +438,7 @@ void draw_console() {
 
     using namespace dingosdk::overlay::theme;
     namespace skate = dingosdk::skate_theme;
-    // Same scale as the ReSkate+ menu (Settings > Interface > menu size).
+    // Same scale as the ReSkate menu (Settings > Interface > menu size).
     const float k = std::clamp(s.model.menu_scale, dingosdk::min_menu_scale, dingosdk::max_menu_scale);
     const auto P = [k](float value) { return value * k; };
     auto& io = ImGui::GetIO();

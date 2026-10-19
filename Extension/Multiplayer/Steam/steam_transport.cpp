@@ -221,7 +221,7 @@ namespace dingosdk::multiplayer {
 	        }
 	        // The callback only queues transport state. It never touches the game.
 	        if (full && event->m_info.m_eState == k_ESteamNetworkingConnectionState_Connecting && p->close)
-	            p->close(p->sockets, event->m_hConn, 4001, "ReSkate+ callback queue full", false);
+	            p->close(p->sockets, event->m_hConn, 4001, "ReSkate callback queue full", false);
 	    }
 	    SteamNetworkingConfigValue_t callback_option() {
 	        SteamNetworkingConfigValue_t option{};
@@ -429,7 +429,7 @@ namespace dingosdk::multiplayer {
 	        module, "SteamAPI_ISteamNetworkingSockets_InitAuthentication")(p.sockets);
 	    Impl *expected = nullptr;
 	    if (!Impl::callback_owner.compare_exchange_strong(expected, &p) && expected != &p)
-	        throw std::runtime_error("Another ReSkate+ transport already owns callbacks.");
+	        throw std::runtime_error("Another ReSkate transport already owns callbacks.");
 	    p.state.ready = true;
 	    p.state.detail = "Steam ready. Relay authentication may still be connecting.";
 	    return true;
@@ -441,10 +441,10 @@ namespace dingosdk::multiplayer {
 	#ifdef _WIN32
 	    try {
 	        if (launcher::offline_mode())
-	            throw std::runtime_error("Multiplayer is unavailable in offline mode. Start Steam and relaunch ReSkate+.");
+	            throw std::runtime_error("Multiplayer is unavailable in offline mode. Start Steam and relaunch ReSkate.");
 	        const auto module = GetModuleHandleW(L"steam_api64.dll");
 	        if (!module)
-	            throw std::runtime_error("Steam DLL is not loaded. Start ReSkate+ with Steam running.");
+	            throw std::runtime_error("Steam DLL is not loaded. Start ReSkate with Steam running.");
 	        std::wstring path(32768, L'\0');
 	        const auto length = GetModuleFileNameW(module, path.data(), static_cast<DWORD>(path.size()));
 	        if (!length || length >= path.size())
@@ -454,7 +454,7 @@ namespace dingosdk::multiplayer {
 	        const auto user = symbol<int (*)()>(module, "SteamAPI_GetHSteamUser")();
 	        if (!user)
 	            throw std::runtime_error(
-	                "The game has not initialized Steam. Keep Steam online and restart ReSkate+.");
+	                "The game has not initialized Steam. Keep Steam online and restart ReSkate.");
 	        void *utils = symbol<void *(*)()>(module, "SteamAPI_SteamUtils_v010")();
 	        if (!utils || symbol<uint32 (*)(void *)>(module, "SteamAPI_ISteamUtils_GetAppID")(utils) != 3354750)
 	            throw std::runtime_error("Steam app identity does not match skate.");
@@ -734,7 +734,7 @@ namespace dingosdk::multiplayer {
 	            (!p.state.hosting && !p.allowed.contains(id)) || p.links.size() >= p.capacity - 1 ||
 	            existing != p.links.end() ||
 	            event.m_info.m_identityRemote.m_eType != k_ESteamNetworkingIdentityType_SteamID) {
-	            p.close(p.sockets, event.m_hConn, 4002, "ReSkate+ session full or unavailable", false);
+	            p.close(p.sockets, event.m_hConn, 4002, "ReSkate session full or unavailable", false);
 	            continue;
 	        }
 	        if (p.accept(p.sockets, event.m_hConn) != k_EResultOK) {

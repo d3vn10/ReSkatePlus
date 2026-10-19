@@ -154,7 +154,7 @@ void enable_group(SettingsState& state, overlay::OfflineFeatureGroup group) {
         settings_require(!lease.owned || lease.object == snapshot.object,
             std::string(field_specs[snapshot.index].name) + " settings object changed; restore is deferred.");
         settings_require(!lease.owned || snapshot.value == lease.applied || snapshot.value == lease.original,
-            std::string(field_specs[snapshot.index].name) + " changed outside ReSkate+.");
+            std::string(field_specs[snapshot.index].name) + " changed outside ReSkate.");
         settings_require(settings_writable(snapshot.object + field_specs[snapshot.index].offset, 1),
             std::string(field_specs[snapshot.index].name) + " is not writable.");
     }
@@ -203,7 +203,7 @@ void restore_group(SettingsState& state, overlay::OfflineFeatureGroup group) {
         settings_require(!lease.owned || lease.object == snapshot.object,
             std::string(field_specs[snapshot.index].name) + " settings object changed; restore is deferred.");
         settings_require(!lease.owned || snapshot.value == lease.applied || snapshot.value == lease.original,
-            std::string(field_specs[snapshot.index].name) + " changed outside ReSkate+.");
+            std::string(field_specs[snapshot.index].name) + " changed outside ReSkate.");
         settings_require(!lease.owned || snapshot.value == lease.original ||
                 settings_writable(snapshot.object + field_specs[snapshot.index].offset, 1),
             std::string(field_specs[snapshot.index].name) + " is not writable for restoration.");
@@ -217,7 +217,7 @@ void restore_group(SettingsState& state, overlay::OfflineFeatureGroup group) {
             ++state.restores;
         } else {
             settings_require(snapshot.value == lease.original,
-                std::string(field_specs[snapshot.index].name) + " changed outside ReSkate+.");
+                std::string(field_specs[snapshot.index].name) + " changed outside ReSkate.");
         }
         lease = {};
     }
@@ -247,13 +247,13 @@ void restore_variable(SettingsState& state, std::size_t index) {
         state.model.status = abandoned ?
             std::string("Released replaced ") + field_specs[index].name +
                 " identity without a stale write." :
-            std::string(field_specs[index].name) + " has no ReSkate+ override to restore.";
+            std::string(field_specs[index].name) + " has no ReSkate override to restore.";
         return;
     }
     settings_require(lease.object == snapshot.object,
         std::string(field_specs[index].name) + " settings object changed; restore is deferred.");
     settings_require(snapshot.value == lease.applied || snapshot.value == lease.original,
-        std::string(field_specs[index].name) + " changed outside ReSkate+.");
+        std::string(field_specs[index].name) + " changed outside ReSkate.");
     if (snapshot.value == lease.applied) {
         settings_require(settings_writable(snapshot.object + field_specs[index].offset, 1),
             std::string(field_specs[index].name) + " is not writable for restoration.");
@@ -274,7 +274,7 @@ void set_variable(SettingsState& state, std::size_t index, bool enabled) {
     settings_require(!lease.owned || lease.object == snapshot.object,
         std::string(field_specs[index].name) + " settings object changed; restore is deferred.");
     settings_require(!lease.owned || snapshot.value == lease.applied || snapshot.value == lease.original,
-        std::string(field_specs[index].name) + " changed outside ReSkate+.");
+        std::string(field_specs[index].name) + " changed outside ReSkate.");
 
     const auto desired = static_cast<std::uint8_t>(enabled ? 1 : 0);
     if (snapshot.value == desired) {

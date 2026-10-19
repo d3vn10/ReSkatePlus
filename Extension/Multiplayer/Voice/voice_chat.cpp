@@ -40,9 +40,9 @@ struct SteamVoice {
     int (*decode)(void *, const void *, std::uint32_t, void *, std::uint32_t, std::uint32_t *, std::uint32_t){};
     void open() {
         if (user) return;
-        if (launcher::offline_mode()) throw std::runtime_error("Multiplayer is unavailable in offline mode. Start Steam and relaunch ReSkate+.");
+        if (launcher::offline_mode()) throw std::runtime_error("Multiplayer is unavailable in offline mode. Start Steam and relaunch ReSkate.");
         const auto module = GetModuleHandleW(L"steam_api64.dll");
-        if (!module) throw std::runtime_error("Start ReSkate+ through Steam to use voice chat.");
+        if (!module) throw std::runtime_error("Start ReSkate through Steam to use voice chat.");
         std::wstring path(32768, L'\0');
         const auto length = GetModuleFileNameW(module, path.data(), static_cast<DWORD>(path.size()));
         if (!length || length >= path.size()) throw std::runtime_error("Cannot verify Steam voice library.");

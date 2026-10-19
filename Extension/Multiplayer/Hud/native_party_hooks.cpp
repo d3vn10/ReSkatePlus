@@ -435,7 +435,7 @@ thread_local VmScope *current_vm{};
 // The native Spectate command resolves the player's weak reference, copies it
 // and immediately passes the copy on, often outside any action script. Our
 // players' references stay null, so the copy cannot be matched by address or
-// contents. Remember the last ReSkate+ player resolved on this thread instead.
+// contents. Remember the last ReSkate player resolved on this thread instead.
 struct RecentReference { std::uint64_t id{}, at{}; };
 thread_local RecentReference recent_reference{};
 constexpr std::uint64_t recent_reference_ms = 250;
@@ -592,7 +592,7 @@ void adapt_predicate(Address vm, Address resource, std::uint32_t hash) {
             "Cannot publish native social action availability.");
 }
 // friends/expressions/IsUserInServer (0xee062494): IsValid(weak_player(EAId)), false for every
-// ReSkate+ player (no native player). The Social menu's Join and an invite's Accept then take the
+// ReSkate player (no native player). The Social menu's Join and an invite's Accept then take the
 // "another server" path (modals, presence lookups) instead of joining: a session player is on
 // this server. Port 0 is the EAId, port 8 the bool result (analysis/party-re/ui-actions.md 4.3).
 void adapt_in_server(Address vm, Address resource) {
@@ -844,8 +844,8 @@ void install(Address base) {
     // One transaction (one suspension of every game thread) for all sixteen.
     for (const auto &hook : hooks)
         require(hook_queue_enable(reinterpret_cast<void *>(base + hook.rva)) == HookOk,
-                "Cannot enable native party hooks; restart ReSkate+.");
-    require(hook_apply_queued() == HookOk, "Cannot enable native party hooks; restart ReSkate+.");
+                "Cannot enable native party hooks; restart ReSkate.");
+    require(hook_apply_queued() == HookOk, "Cannot enable native party hooks; restart ReSkate.");
     s.installed.store(true, std::memory_order_release);
     profile_runtime::player_info_override.store(&object_owner_info, std::memory_order_release);
     try { install_requests(base); } catch (const std::exception &e) { status(e.what()); }

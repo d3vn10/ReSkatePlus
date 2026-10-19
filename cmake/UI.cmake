@@ -20,7 +20,6 @@ add_library(dingosdk_overlay STATIC
     Extension/UI/Overlay/skate_hud_overlay.cpp
     Extension/UI/Overlay/nametag_overlay.cpp
     Extension/UI/Overlay/chat_emotes.cpp
-    Extension/UI/Overlay/tab_icons.cpp
     Extension/UI/Overlay/chat_rich.cpp
     Extension/UI/Overlay/console_suggestions.cpp
     Extension/UI/Overlay/skate_menu.cpp
@@ -50,6 +49,6 @@ add_library(dingosdk_overlay STATIC
 )
 target_link_libraries(dingosdk_overlay PUBLIC dingosdk_logging dingosdk_profiler dingosdk_imgui dingosdk_hooks dingosdk_console_core dxguid PRIVATE dingosdk_playstation_input shell32 dingosdk_initfs dingosdk_custom_scripts dingosdk_game_archives dingosdk_mods dingosdk_json windowscodecs ole32)
 
-# The window shown from the moment ReSkate+ loads until the game's own window appears.
+# The window shown from the moment ReSkate loads until the game's own window appears.
 add_library(dingosdk_startup_window STATIC Extension/UI/Startup/startup_window.cpp)
 target_link_libraries(dingosdk_startup_window PRIVATE gdi32 user32 msimg32 shell32 ole32 windowscodecs)

@@ -7,6 +7,7 @@
 #include "mod_profiles.h"
 #include "thunderstore.h"
 
+#include "Engine/Vfs/mod_conflicts.h"
 #include "Engine/Vfs/mod_list.h"
 #include "Extension/UI/skate_theme.h"
 
@@ -53,6 +54,7 @@ namespace dingosdk::launcher_gui::detail {
         inline const ImU32 text = rgba(236, 239, 244);
         inline const ImU32 muted = rgba(128, 137, 151);
         inline const ImU32 danger = rgba(255, 92, 92);
+        inline const ImU32 nsfw = rgba(255, 69, 255);
         inline const ImU32 panel = rgba(26, 26, 26, 0.97f);
         // Sampled from skate.'s own menus (HUB screen).
         inline const ImU32 tile = skate_theme::tile;
@@ -200,10 +202,10 @@ namespace dingosdk::launcher_gui::detail {
         int log_level{ 2 };
         std::string arguments;
         bool keep_open_after_launch{};
-        // Off: never replace ReSkatePlus.dll or the launcher (keeps a test build someone handed out).
+        // Off: never replace ReSkate.dll or the launcher (keeps a test build someone handed out).
         bool updates{ true };
         // Off: a crash uploads nothing (RESKATE_CRASH_REPORTING=0 for the launcher and the game).
-        bool crash_reports{};
+        bool crash_reports{ true };
         // On: launches send how long their steps took (RESKATE_TRACING=1 for the launcher and the game).
         bool performance_timings{};
         // On: update to the newest pre-release on GitHub when there is one newer than the latest
@@ -212,6 +214,10 @@ namespace dingosdk::launcher_gui::detail {
         std::string steam_username;   // never the password
         bool steam_remember{ true };
         bool steam_prefer_code{};
+        // The versions of the privacy policy and the terms of service the player agreed to (0: none).
+        std::uint64_t accepted_privacy{}, accepted_terms{};
+        // The version of the home screen's announcement the player hid (0: none): one newer shows.
+        std::uint64_t announcement_hidden{};
     };
 
     inline constexpr std::array<const char*, 7> log_levels{ "trace", "debug", "info", "warning", "error", "critical", "off" };
@@ -261,10 +267,11 @@ namespace dingosdk::launcher_gui::detail {
         Settings& settings() { return settings_; }
         const launcher_app::Session& session() const { return session_; }
         void save();
-        // After settings are closed: the update check again, when an update choice changed.
+        // The update check again when an update choice changed since the last one: as either switch
+        // is flipped, and each frame after (a check already running holds the next one until it ends).
         void check_again_if_update_choices_changed();
-	    // Whether the last update check found a pre-release newer than the latest release.
-	    bool prerelease_available() const { return prerelease_available_; }
+        // Whether the last update check found a pre-release newer than the latest release.
+        bool prerelease_available() const { return prerelease_available_; }
 
         void check();
         // The merge the game would do at startup, run here so its failures can be
@@ -294,7 +301,7 @@ namespace dingosdk::launcher_gui::detail {
         // The update choices the last check was made with: one changed in settings is checked
         // again straight away (save()).
         std::atomic<bool> checked_updates_{ true }, checked_prereleases_{};
-    	std::atomic<bool> prerelease_available_{};
+        std::atomic<bool> prerelease_available_{};
         bool binaries_{ true };
         std::mutex mutex_;
         std::condition_variable answered_;
@@ -351,6 +358,45 @@ namespace dingosdk::launcher_gui::detail {
         }
     };
 
+    // The privacy policy and terms of service, from the ReSkate backend (GET /api/v1/legal/<kind>):
+    // each fetched on a worker the first time it is shown and kept while the launcher runs.
+    // Everything but the worker's hand-over belongs to the UI thread.
+    struct Legal {
+        enum Kind { privacy, terms, count };
+        struct Document {
+            std::string title, updated, markdown;   // updated: YYYY-MM-DD
+            std::uint64_t version{};
+        };
+        struct Slot {
+            std::thread worker;
+            std::atomic<bool> loading{};
+            bool arrived{};                         // worker -> UI, under the mutex
+            Document incoming;
+            std::string incoming_error;
+
+            bool loaded{};
+            std::string error;                      // why the last fetch failed
+            Document document;
+            thunderstore::Readme text;
+        };
+        std::mutex mutex;
+        std::array<Slot, count> slots;
+        int open{ -1 };                               // the Kind shown, or -1 when the window is closed
+
+        // The versions the backend has now (GET /api/v1/legal), looked up once a launch. One newer
+        // than the player agreed to (Settings::accepted_*) puts up the agreement before anything else.
+        std::thread versions_worker;
+        bool versions_started{}, versions_arrived{};   // arrived: worker -> UI, under the mutex
+        std::array<std::uint64_t, count> current{};
+        bool agreement{};                           // the agreement window is up
+
+        ~Legal() {
+            for (auto& slot : slots)
+                if (slot.worker.joinable()) slot.worker.join();
+            if (versions_worker.joinable()) versions_worker.join();
+        }
+    };
+
     // Settings > GRAPHICS, AUDIO, CAMERA, CONTROLS, REPLAY: skate.'s own settings, read from its
     // save each time Settings opens (game_settings.h).
     struct GamePages {
@@ -362,11 +408,35 @@ namespace dingosdk::launcher_gui::detail {
     };
 
     // Panels the main screen can show; one at a time.
+    // The announcement the ReSkate backend has for the home screen (GET
+    // https://api.reskate.dev/api/v1/announcement), read as the launcher starts and every ten minutes,
+    // so it is written in the admin panel and reaches players without a release.
+    struct Announcement {
+        struct Message {
+            std::uint64_t version{};
+            bool important{};
+            std::string title, markdown, link, link_label;   // link: empty, or an https URL
+        };
+        std::thread worker;
+        std::atomic<bool> loading{};
+        std::mutex mutex;
+        bool arrived{};                         // worker -> UI, under the mutex
+        std::optional<Message> incoming;
+        std::optional<Message> shown;           // none: there is nothing to show
+        thunderstore::Readme text;
+        double next_read{};                     // ImGui time of the next read
+        ~Announcement() {
+            if (worker.joinable()) worker.join();
+        }
+    };
+
     struct Ui {
         bool settings{};
+        Announcement announcement;
         GamePages game;
         bool changelog{};
         Changelog notes;
+        Legal legal;
         int settings_tab{};         // GAME, DISPLAY, KEYS, ADVANCED, then the game's own pages
         int binding{};              // 1 = menu key, 2 = console key, while waiting for a press
         std::string key_error;
@@ -501,6 +571,42 @@ namespace dingosdk::launcher_gui::detail {
         int order{};
         std::set<std::string, std::less<>> marked;
         std::string anchor;                  // the last mod ticked: where a Shift-click range starts
+        int place{};                         // typed in a row's "move to position" popup
+        // The installed mods that are official mods (Engine/Vfs/builtin_packs.h), by folder name: found
+        // when the folder is scanned.
+        std::set<std::string, std::less<>> officials;
+        int shown_tab{ -1 };                   // the tab drawn last, so MY MODS reads the folder again when it is opened
+        // The conflicts the player settled (gui_mods.cpp): of each pair, (the mod that loads, the one left out).
+        std::set<std::pair<std::string, std::string>> conflict_choices;
+        bool resolving{};                    // the Resolve conflicts popup is to open
+        std::vector<std::string> resolve_order;   // the load order as the popup opened: its rows keep it
+        // MY MODS rows as drawn: each mod's height in the list, eased toward its place there, so a row
+        // slides to where it goes rather than jumping (gui_mods.cpp).
+        std::map<std::string, float, std::less<>> row_y;
+        std::string drag_name;               // the row being dragged by its handle
+        float drag_grab{};                   // how far below its top the pointer took hold of it
+        // MY MODS: conflicts between the enabled mods as the list stands (mods::ConflictChecker),
+        // checked off the UI thread a moment after each change. The worker hands its result over
+        // in `pending` (under `mutex`); the UI thread takes it from there, so `rows` and what points
+        // into them (`losses`) only change on the UI thread.
+        struct ConflictCheck {
+            std::unique_ptr<mods::ConflictChecker> checker;   // the worker's alone while it runs
+            std::thread worker;
+            std::atomic<bool> running{};
+            double due{ -1 };                     // ImGui time the next check starts; -1 when none is asked
+            std::uint64_t asked{}, checked{};   // which change the latest result is for
+            bool ready{};                       // a result is in
+            std::vector<mods::MergeReport::Conflict> rows;
+            std::vector<std::string> order;     // the mods checked, highest priority first
+            std::map<std::string, mods::ConflictLoss, std::less<>> losses;     // the mods that would be left out
+            std::map<std::string, std::vector<std::string>, std::less<>> beats;   // and whom each winner leaves out
+            struct Result {
+                bool ready{};
+                std::uint64_t asked{};
+                std::vector<mods::MergeReport::Conflict> rows;
+                std::vector<std::string> order;
+            } pending;                          // under mutex
+        } conflicts;
         std::string message;
         bool message_error{};
         std::vector<std::string> confirm_remove;   // folders awaiting "Uninstall" confirmation
@@ -550,14 +656,22 @@ namespace dingosdk::launcher_gui::detail {
         ~ModsPanel() {
             cancel = true;
             if (worker.joinable()) worker.join();
-            if (dump_worker.joinable()) dump_worker.join();
             if (profile_worker.joinable()) profile_worker.join();
+            if (conflicts.worker.joinable()) conflicts.worker.join();
+            if (dump_worker.joinable()) dump_worker.join();
         }
     };
 
     void scan(ModsPanel& panel, const launcher_app::Session& session);
     // Re-reads the Mods folder and the Thunderstore listing.
     void refresh_mods(Launcher& launcher, ModsPanel& panel);
+    // Every frame, from the launcher's start: checks the enabled mods for conflicts in the background
+    // before the Mod Manager is first opened, so its list has the answer ready, and takes in checks as
+    // they finish. (Opening it reads the folder again; the check then reads only what changed.)
+    void prepare_mods(ModsPanel& panel, const launcher_app::Session& session);
+    // Waits (at most ten seconds) for a conflict check under way to finish: it may be reading the mod
+    // files an install or uninstall is about to replace. Off the UI thread where it can be.
+    void wait_for_conflict_check(const ModsPanel& panel);
     void start_install(ModsPanel& panel, const fs::path& source, bool replace);
     // The Windows file (or folder) picker; empty when cancelled. A file picker shows
     // `filter_pattern` ("*.zip") under `filter_name`.
@@ -575,7 +689,7 @@ namespace dingosdk::launcher_gui::detail {
 
     // ---------------------------------------------------------------- Thunderstore (gui_mods_browse.cpp)
 
-    // "1.27 GB", "263 MB", "12 KB": a mod's size, on both pages.
+// "1.27 GB", "263 MB", "12 KB": a mod's size, on both pages.
     std::string size_text(std::uint64_t bytes);
     // Starts a listing fetch when none ran yet, or when `force`.
     void refresh_listing(ModsPanel& panel, double time, bool force = false);
@@ -597,7 +711,7 @@ namespace dingosdk::launcher_gui::detail {
     void pump_icons(ModsPanel& panel);
     // The GET MODS page body, under the page header.
     void browse_page(Launcher& launcher, const Fonts& fonts, ModsPanel& panel, float height, bool installing, Settings& settings);
-    // The official mods (official_mods.h): what every player has, always on, and how each is doing.
+    // The official mods (official_mods.h): each to install, update or turn off, and how it is doing.
     void official_page(const Fonts& fonts, ModsPanel& panel, float height);
     // Everything Thunderstore knows about one package, in a popup over the page.
     void package_overview(const Fonts& fonts, ModsPanel& panel, ImVec2 size, bool installing);
@@ -624,6 +738,13 @@ namespace dingosdk::launcher_gui::detail {
     void steam_offline_window(const Fonts& fonts, ImVec2 size, Ui& ui);
     // What the newest release changed: its notes on GitHub.
     void changelog_window(const Fonts& fonts, ImVec2 size, Ui& ui);
+    // The privacy policy or the terms of service (ui.legal.open), with a switch between them.
+    void legal_window(const Fonts& fonts, ImVec2 size, Ui& ui);
+    // Each frame: the backend's versions of both, looked up once; a newer one than the player
+    // agreed to raises ui.legal.agreement.
+    void check_legal_versions(Ui& ui, const Settings& settings);
+    // "I agree" to the current versions, or quit.
+    void legal_agreement_window(Launcher& launcher, const Fonts& fonts, ImVec2 size, Ui& ui, HWND window);
     void settings_window(Launcher& launcher, const Fonts& fonts, ImVec2 size, Ui& ui, HWND window);
     void mods_window(Launcher& launcher, const Fonts& fonts, ImVec2 size, Ui& ui, ModsPanel& panel, HWND window);
     // Shown instead of launching when the merge left mods out.
