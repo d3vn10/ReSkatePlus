@@ -34,25 +34,35 @@ namespace dingosdk::content_cache {
 		    return value;
 		}
 
-		// Owned items: the presentation message (6) names the owned asset (6.10), the
-		// title (6.2) and description (6.3); the rarity is field 23. First record wins.
-		void add_item(Catalogs& out, const Fields& record) {
-		    const auto presentation = message(record, 6);
-		    if (!presentation) return;
-		    const auto asset = text(*presentation, 10);
-		    if (!asset || lower(asset->substr(0, 4)) != "own_") return;
-		    const auto key = lower(*asset);
-		    if (out.items.contains(key)) return;
-		    if (const auto* flag = protobuf::first(record, 10, Wire::varint); flag && flag->integer == 1)
-		        out.open_items.insert(key);
-		    Json entry = Json::object();
-		    if (const auto description = text(*presentation, 3)) entry["description"] = *description;
-		    if (const auto rarity = text(record, 23)) entry["rarity_id"] = *rarity;
-		    if (const auto title = text(*presentation, 2)) entry["title"] = *title;
-		    if (const auto group = text(*presentation, 5)) entry["group"] = *group;
-		    if (const auto type = text(*presentation, 6)) entry["object_type"] = *type;
-		    out.items[key] = std::move(entry);
-		}
+// Owned items: the presentation message (6) names the owned asset (6.10), the
+// title (6.2) and description (6.3); the rarity is field 23. First record wins.
+// Field 10 set marks an item owned from the start; field 11 names the
+// neighbourhood rank that unlocks it, which some items carry with no rank
+// record listing them as a reward.
+void add_item(Catalogs& out, const Fields& record) {
+    const auto presentation = message(record, 6);
+    if (!presentation) return;
+    const auto asset = text(*presentation, 10);
+    if (!asset || lower(asset->substr(0, 4)) != "own_") return;
+    const auto key = lower(*asset);
+    if (out.items.contains(key)) return;
+    if (const auto* flag = protobuf::first(record, 10, Wire::varint); flag && flag->integer == 1)
+        out.open_items.insert(key);
+    // E.g. Pole Jam S/L and the Stop sign: rank unlocks that add_source never
+    // sees, because no neighbourhood_rank record grants them.
+    if (text(record, 11).value_or("").starts_with("neighbourhood_rank"))
+        out.open_items.insert(key);
+    // Field 24 tags brand collabs (collab_xgames, collab_nike, ...).
+    if (text(record, 24).value_or("").starts_with("collab_"))
+        out.collab_items.insert(key);
+    Json entry = Json::object();
+    if (const auto description = text(*presentation, 3)) entry["description"] = *description;
+    if (const auto rarity = text(record, 23)) entry["rarity_id"] = *rarity;
+    if (const auto title = text(*presentation, 2)) entry["title"] = *title;
+    if (const auto group = text(*presentation, 5)) entry["group"] = *group;
+    if (const auto type = text(*presentation, 6)) entry["object_type"] = *type;
+    out.items[key] = std::move(entry);
+}
 
 		// Music playlists: field 1 names the playlist, repeated field 2 lists tracks
 		// ("Artist - Title"), and field 10 is a message carrying the display name and
@@ -88,61 +98,73 @@ namespace dingosdk::content_cache {
 		        out.music_song_artwork.try_emplace(id, *artwork);
 		}
 
-		// Grant lists: repeated `number` entries, each {1: kind, 2: id}.
-		struct Grant { std::string kind, id; };
-		std::vector<Grant> grants(const Fields& fields, std::uint32_t number) {
-		    std::vector<Grant> out;
-		    for (const auto& field : fields) {
-		        if (field.number != number || field.wire != Wire::bytes) continue;
-		        const auto list = protobuf::parse(field.bytes);
-		        if (!list) continue;
-		        for (const auto& entry : *list) {
-		            if (entry.number != 1 || entry.wire != Wire::bytes) continue;
-		            const auto grant = protobuf::parse(entry.bytes);
-		            if (!grant) continue;
-		            if (auto kind = text(*grant, 1), id = text(*grant, 2); kind && id)
-		                out.push_back({std::move(*kind), std::move(*id)});
-		        }
-		    }
-		    return out;
-		}
-		bool free_offer(const Fields& offer) {
-		    const auto price = message(offer, 4);
-		    const auto costs = price ? grants(*price, 2) : std::vector<Grant>{};
-		    if (costs.empty() || !std::all_of(costs.begin(), costs.end(), [](const Grant& cost) {
-		            return cost.kind == "res" && (cost.id == "influence" || cost.id == "skatepass_currency");
-		        })) return false;
-		    const auto prerequisites = grants(offer, 8);
-		    return std::none_of(prerequisites.begin(), prerequisites.end(), [](const Grant& prerequisite) {
-		        return lower(prerequisite.id).find("premium") != std::string::npos;
-		    });
-		}
-		void add_source(std::set<std::string>& open, const std::string& id, const Fields& record) {
-		    const auto open_grants = [&](std::uint32_t number) {
-		        for (const auto& grant : grants(record, number))
-		            if (grant.kind == "own-create" && lower(grant.id.substr(0, 4)) == "own_") open.insert(lower(grant.id));
-		    };
-		    if (id.ends_with("Price")) {
-		        if (free_offer(record)) open_grants(11);
-		        return;
-		    }
-		    open_grants(8);
-		    const auto kind = text(record, 3).value_or("");
-		    if (kind == "progression-item") open_grants(7);
-		    if (kind.find("-event-") != std::string::npos) open_grants(4);
-		    if (text(record, 4).value_or("").starts_with("neighbourhood_rank")) open_grants(20);
-		}
-		std::vector<std::string> texts(const Fields& fields, std::uint32_t number) {
-		    std::vector<std::string> result;
-		    for (const auto& field : fields)
-		        if (field.number == number && field.wire == Wire::bytes)
-		            if (auto value = text(&field)) result.push_back(std::move(*value));
-		    return result;
-		}
-		std::uint32_t priority(const Fields& fields) {
-		    const auto* field = protobuf::first(fields, 2, Wire::varint);
-		    return field ? static_cast<std::uint32_t>(field->integer) : 0;
-		}
+// Grant lists: repeated `number` entries, each {1: kind, 2: id}.
+struct Grant { std::string kind, id; };
+std::vector<Grant> grants(const Fields& fields, std::uint32_t number) {
+    std::vector<Grant> out;
+    for (const auto& field : fields) {
+        if (field.number != number || field.wire != Wire::bytes) continue;
+        const auto list = protobuf::parse(field.bytes);
+        if (!list) continue;
+        for (const auto& entry : *list) {
+            if (entry.number != 1 || entry.wire != Wire::bytes) continue;
+            const auto grant = protobuf::parse(entry.bytes);
+            if (!grant) continue;
+            if (auto kind = text(*grant, 1), id = text(*grant, 2); kind && id)
+                out.push_back({std::move(*kind), std::move(*id)});
+        }
+    }
+    return out;
+}
+bool free_offer(const Fields& offer) {
+    const auto price = message(offer, 4);
+    const auto costs = price ? grants(*price, 2) : std::vector<Grant>{};
+    if (costs.empty() || !std::all_of(costs.begin(), costs.end(), [](const Grant& cost) {
+            return cost.kind == "res" && (cost.id == "influence" || cost.id == "skatepass_currency");
+        })) return false;
+    const auto prerequisites = grants(offer, 8);
+    return std::none_of(prerequisites.begin(), prerequisites.end(), [](const Grant& prerequisite) {
+        return lower(prerequisite.id).find("premium") != std::string::npos;
+    });
+}
+// Every own-create grant in any of the record's grant lists. Deliberately broad:
+// it does not tell free from paid, so an item named by any offer, store bundle,
+// pack or reward counts as granted and keeps the store's say over it (reserved()).
+// A bytes field that is not a grant list simply parses to no grants.
+void add_granted(std::set<std::string>& granted, const Fields& record) {
+    std::set<std::uint32_t> numbers;
+    for (const auto& field : record)
+        if (field.wire == Wire::bytes) numbers.insert(field.number);
+    for (const auto number : numbers)
+        for (const auto& grant : grants(record, number))
+            if (grant.kind == "own-create" && lower(grant.id.substr(0, 4)) == "own_") granted.insert(lower(grant.id));
+}
+void add_source(std::set<std::string>& open, const std::string& id, const Fields& record) {
+    const auto open_grants = [&](std::uint32_t number) {
+        for (const auto& grant : grants(record, number))
+            if (grant.kind == "own-create" && lower(grant.id.substr(0, 4)) == "own_") open.insert(lower(grant.id));
+    };
+    if (id.ends_with("Price")) {
+        if (free_offer(record)) open_grants(11);
+        return;
+    }
+    open_grants(8);
+    const auto kind = text(record, 3).value_or("");
+    if (kind == "progression-item") open_grants(7);
+    if (kind.find("-event-") != std::string::npos) open_grants(4);
+    if (text(record, 4).value_or("").starts_with("neighbourhood_rank")) open_grants(20);
+}
+std::vector<std::string> texts(const Fields& fields, std::uint32_t number) {
+    std::vector<std::string> result;
+    for (const auto& field : fields)
+        if (field.number == number && field.wire == Wire::bytes)
+            if (auto value = text(&field)) result.push_back(std::move(*value));
+    return result;
+}
+std::uint32_t priority(const Fields& fields) {
+    const auto* field = protobuf::first(fields, 2, Wire::varint);
+    return field ? static_cast<std::uint32_t>(field->integer) : 0;
+}
 
 		// Category service records: id (1), priority (2), sub-categories (5, each with
 		// id 1, priority 2 and presentation 6 holding the title in 1), tags (6) and a
@@ -235,44 +257,51 @@ namespace dingosdk::content_cache {
 		}
 	}
 
-	Catalogs read_catalogs(const std::filesystem::path& folder) {
-	    Catalogs out;
-	    std::vector<std::filesystem::path> bodies;
-	    for (const auto& entry : std::filesystem::directory_iterator(folder))
-	        if (entry.is_regular_file() && entry.path().extension() == L".cache") bodies.push_back(entry.path());
-	    std::sort(bodies.begin(), bodies.end());
-	    std::set<std::string> entitlements;
-	    for (const auto& path : bodies) {
-	        const auto bytes = read_file(path);
-	        // Image bodies (DDS, PNG) and anything else that is not a framed
-	        // record stream is skipped as a whole.
-	        const auto records = protobuf::frames(bytes);
-	        if (!records) continue;
-	        for (const auto record : *records) {
-	            const auto fields = protobuf::parse(record);
-	            if (!fields) continue;
-	            const auto id = text(*fields, 1);
-	            if (!id) continue;
-	            if (text(*fields, 3) == "entitlement") entitlements.insert(*id);
-	            add_item(out, *fields);
-	            add_music_playlist(out, *id, *fields);
-	            add_music_song(out, *id, *fields);
-	            add_challenge(out, *id, *fields);
-	            add_object_category(out, *id, *fields);
-	            add_travel(out, *id, *fields);
-	            add_source(out.open_items, *id, *fields);
-	        }
-	    }
-	    out.entitlements.assign(entitlements.begin(), entitlements.end());
-	    out.available = true;
-	    return out;
-	}
+Catalogs read_catalogs(const std::filesystem::path& folder) {
+    Catalogs out;
+    std::vector<std::filesystem::path> bodies;
+    for (const auto& entry : std::filesystem::directory_iterator(folder))
+        if (entry.is_regular_file() && entry.path().extension() == L".cache") bodies.push_back(entry.path());
+    std::sort(bodies.begin(), bodies.end());
+    std::set<std::string> entitlements;
+    for (const auto& path : bodies) {
+        const auto bytes = read_file(path);
+        // Image bodies (DDS, PNG) and anything else that is not a framed
+        // record stream is skipped as a whole.
+        const auto records = protobuf::frames(bytes);
+        if (!records) continue;
+        for (const auto record : *records) {
+            const auto fields = protobuf::parse(record);
+            if (!fields) continue;
+            const auto id = text(*fields, 1);
+            if (!id) continue;
+            if (text(*fields, 3) == "entitlement") entitlements.insert(*id);
+            add_item(out, *fields);
+            add_music_playlist(out, *id, *fields);
+            add_music_song(out, *id, *fields);
+            add_challenge(out, *id, *fields);
+            add_object_category(out, *id, *fields);
+            add_travel(out, *id, *fields);
+            add_source(out.open_items, *id, *fields);
+            add_granted(out.granted_items, *fields);
+        }
+    }
+    out.entitlements.assign(entitlements.begin(), entitlements.end());
+    out.available = true;
+    return out;
+}
 
-	bool Catalogs::reserved(const std::string& /*key*/) const {
-	    /*if (!items.contains(key) || open_items.contains(key)) return false;
-	    return !key.starts_with("dev_") && key.find("_dev_") == std::string::npos && !key.ends_with("_dev");*/
-	    return false;
-	}
+bool Catalogs::reserved(const std::string& /*key*/) const {
+	/*if (!items.contains(key) || open_items.contains(key)) return false;*/
+    // Build-kit objects nothing offers, sells or grants are taken as everyday
+    // park pieces; brand collabs stay with the store. Many basic objects (A
+    // frames, quarter pipes, bowl pieces, Pole Jam M) have no source record in
+    // the cache, so without this the Object Browser and park editor hid them.
+    // Cosmetics are not covered: unsourced ones include past store and pass items.
+    /*if (key.starts_with("own_bk") && !granted_items.contains(key) && !collab_items.contains(key)) return false;
+    return !key.starts_with("dev_") && key.find("_dev_") == std::string::npos && !key.ends_with("_dev");*/
+	return false;
+}
 
 	const Catalogs& catalogs() {
 	    static const Catalogs value = [] {

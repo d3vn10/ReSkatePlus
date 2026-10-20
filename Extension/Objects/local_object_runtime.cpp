@@ -57,54 +57,64 @@ namespace dingosdk::profile_runtime {
 	    return title;
 	}
 
-	void fill_object_categories(std::uintptr_t result, const profile::Snapshot& snapshot) {
-	    const auto section = snapshot.extensions.value("object_dropper", dingosdk::Json::object());
-	    const auto catalog = section.value("catalog", dingosdk::Json::object());
-	    std::vector<objects::InstalledObject> owned;
-	    for (const auto& [key, info] : cosmetic_runtime().items)
-	        if (info.build_kit && installed_item_owned(snapshot, key, info.hash, true))
-	            owned.push_back({key, info.category, object_title(key, catalog.value(key, dingosdk::Json::object()))});
-	    // Titles come from the cache's category records. Their icons are cdn:/ links
-	    // that cannot load offline, and the browser would draw the link as text.
-	    const auto layout = objects::browser_layout(owned, content_cache::catalogs());
-	    std::vector<ObjectServiceCategory> categories(layout.size());
-	    std::vector<std::vector<ObjectServiceSubcategory>> subcategories(layout.size());
-	    // The DTOs borrow these strings until the native parser has copied them.
-	    std::vector<std::vector<std::string>> icons(layout.size());
-	    for (std::size_t index = 0; index < layout.size(); ++index) {
-	        const auto& group = layout[index];
-	        auto& parent = categories[index]; auto& children = subcategories[index];
-	        parent.id.set(group.id); parent.title.set(group.title);
-	        parent.hash = cosmetic_hash(group.id);
-	        parent.priority = static_cast<std::uint32_t>(index);
-	        children.resize(group.tiles.size());
-	        icons[index].reserve(group.tiles.size());
-	        for (std::size_t item = 0; item < group.tiles.size(); ++item) {
-	            auto& child = children[item];
-	            // Each subcategory produces one selectable tile. Its identity must
-	            // match OwnableData.presentation.category (local_cosmetic_catalog.cpp).
-	            const auto& tile = group.tiles[item];
-	            // "baseitem:<asset key>" resolves to the object's own thumbnail
-	            // from the game data (the DelMarBaseItemAsset Thumbnail chain).
-	            icons[index].push_back("baseitem:" + tile.items.front());
-	            child.id.set(tile.id); child.title.set(tile.title); child.icon.set(icons[index].back());
-	            child.hash = cosmetic_hash(tile.id);
-	            child.priority = static_cast<std::uint32_t>(item);
-	        }
-	        const auto begin = reinterpret_cast<std::uintptr_t>(children.data());
-	        const auto end = begin + children.size() * sizeof(ObjectServiceSubcategory);
-	        parent.subcategories = {begin, end, end};
-	    }
-	    const auto begin = reinterpret_cast<std::uintptr_t>(categories.data());
-	    const std::array<std::uintptr_t, 3> vector{begin, begin + categories.size() * sizeof(ObjectServiceCategory),
-	        begin + categories.size() * sizeof(ObjectServiceCategory)};
-	    std::array<std::uintptr_t, 2> shared{reinterpret_cast<std::uintptr_t>(&vector), 0};
-	    const std::array<std::uintptr_t, 4> predicate{0, 0, 0, reinterpret_cast<std::uintptr_t>(&accept_object_category)};
-	    // The native converter consumes this additional reference, including on an empty list.
-	    std::uintptr_t consumed{};
-	    game::native_data().values.null_reference(&consumed, result & ~std::uintptr_t{4});
-	    object_runtime().functions.parse(shared.data(), &consumed, predicate.data(), predicate.data());
-	}
+void fill_object_categories(std::uintptr_t result, const profile::Snapshot& snapshot) {
+    const auto section = snapshot.extensions.value("object_dropper", dingosdk::Json::object());
+    const auto catalog = section.value("catalog", dingosdk::Json::object());
+    std::vector<objects::InstalledObject> owned;
+    for (const auto& [key, info] : cosmetic_runtime().items)
+        if (info.build_kit && installed_item_owned(snapshot, key, info.hash, true))
+            owned.push_back({key, info.category, object_title(key, catalog.value(key, dingosdk::Json::object()))});
+    // Titles come from the cache's category records. Their icons are cdn:/ links
+    // that cannot load offline, and the browser would draw the link as text, so
+    // each category uses an object thumbnail instead.
+    const auto layout = objects::browser_layout(owned, content_cache::catalogs());
+    std::vector<ObjectServiceCategory> categories(layout.size());
+    std::vector<std::vector<ObjectServiceSubcategory>> subcategories(layout.size());
+    // The DTOs borrow these strings until the native parser has copied them.
+    std::vector<std::vector<std::string>> icons(layout.size());
+    // Sized up front so the borrowed pointers stay valid (no reallocation).
+    std::vector<std::string> category_icons(layout.size());
+    for (std::size_t index = 0; index < layout.size(); ++index) {
+        const auto& group = layout[index];
+        auto& parent = categories[index]; auto& children = subcategories[index];
+        parent.id.set(group.id); parent.title.set(group.title);
+        // The category bar shows its first tile's thumbnail in place of the
+        // cache's offline-only icon. Left unset, every tab drew the game's
+        // empty-icon placeholder. Same "baseitem:" path as the tiles below.
+        if (!group.tiles.empty()) {
+            category_icons[index] = "baseitem:" + group.tiles.front().items.front();
+            parent.icon.set(category_icons[index]);
+        }
+        parent.hash = cosmetic_hash(group.id);
+        parent.priority = static_cast<std::uint32_t>(index);
+        children.resize(group.tiles.size());
+        icons[index].reserve(group.tiles.size());
+        for (std::size_t item = 0; item < group.tiles.size(); ++item) {
+            auto& child = children[item];
+            // Each subcategory produces one selectable tile. Its identity must
+            // match OwnableData.presentation.category (local_cosmetic_catalog.cpp).
+            const auto& tile = group.tiles[item];
+            // "baseitem:<asset key>" resolves to the object's own thumbnail
+            // from the game data (the DelMarBaseItemAsset Thumbnail chain).
+            icons[index].push_back("baseitem:" + tile.items.front());
+            child.id.set(tile.id); child.title.set(tile.title); child.icon.set(icons[index].back());
+            child.hash = cosmetic_hash(tile.id);
+            child.priority = static_cast<std::uint32_t>(item);
+        }
+        const auto begin = reinterpret_cast<std::uintptr_t>(children.data());
+        const auto end = begin + children.size() * sizeof(ObjectServiceSubcategory);
+        parent.subcategories = {begin, end, end};
+    }
+    const auto begin = reinterpret_cast<std::uintptr_t>(categories.data());
+    const std::array<std::uintptr_t, 3> vector{begin, begin + categories.size() * sizeof(ObjectServiceCategory),
+        begin + categories.size() * sizeof(ObjectServiceCategory)};
+    std::array<std::uintptr_t, 2> shared{reinterpret_cast<std::uintptr_t>(&vector), 0};
+    const std::array<std::uintptr_t, 4> predicate{0, 0, 0, reinterpret_cast<std::uintptr_t>(&accept_object_category)};
+    // The native converter consumes this additional reference, including on an empty list.
+    std::uintptr_t consumed{};
+    game::native_data().values.null_reference(&consumed, result & ~std::uintptr_t{4});
+    object_runtime().functions.parse(shared.data(), &consumed, predicate.data(), predicate.data());
+}
 
 	void* object_categories_hook(void* destination, const void* callback, const void* group) {
 	    auto& s = local_runtime(); auto& o = object_runtime(); auto& f = game::native_data().values;
