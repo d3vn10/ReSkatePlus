@@ -180,6 +180,8 @@ namespace dingosdk::launcher_gui::detail {
                 panel.message_error = true;
                 return;
             }
+            for (std::size_t i = 0; i < panel.list.entries.size(); ++i)
+                if (panel.list.entries[i].mod.name == panel.finished_name) panel.selected = static_cast<int>(i);
             panel.message_error = false;
             if (!panel.finished_note.empty()) {
                 panel.message = panel.finished_note;   // Thunderstore installs say what they did and log it themselves
@@ -213,9 +215,10 @@ namespace dingosdk::launcher_gui::detail {
             return total;
         }
 
-        std::string summary(const ModsPanel& panel, const mods::Mod& mod) {
+        // `version` false leaves the version out, for a row that shows it with its update.
+        std::string summary(const ModsPanel& panel, const mods::Mod& mod, bool version = true) {
             std::vector<std::string> parts;
-            if (!mod.version.empty()) parts.push_back("v" + mod.version);
+            if (version && !mod.version.empty()) parts.push_back("v" + mod.version);
             if (const auto size = panel.sizes.find(mod.name); size != panel.sizes.end() && size->second)
                 parts.push_back(size_text(size->second));
             if (!mod.author.empty()) parts.push_back("by " + mod.author);
@@ -305,17 +308,8 @@ namespace dingosdk::launcher_gui::detail {
                 if (panel.tab == 3) default_focus();
             }
 
+            // UPDATE ALL is not here: it sits over the MY MODS list, next to the rows it updates.
             ImGui::Dummy(ImVec2(0, S(8)));
-            if (!pending.empty()) {
-                push_primary_button();
-                if (ImGui::Button(std::format("UPDATE ALL ({})", pending.size()).c_str(), ImVec2(-1, S(34)))) {
-                    std::vector<thunderstore::Package> packages;
-                    for (const auto* package : pending) packages.push_back(*package);
-                    start_store_install(panel, std::move(packages));
-                }
-                pop_primary_button();
-                ImGui::Dummy(ImVec2(0, S(4)));
-            }
             if (ImGui::Button("Install .zip", ImVec2(-1, S(32))))
                 if (const auto path = pick(window, false); !path.empty()) start_install(panel, path, false);
             if (ImGui::Button("Install folder", ImVec2(-1, S(32))))
@@ -498,7 +492,7 @@ namespace dingosdk::launcher_gui::detail {
                 case 3: keep = !mod.levels.empty(); break;
                 case 4: keep = mod.levels.empty() && mod.provides_layout; break;
                 case 5: keep = update_waiting(panel, installed, mod.name); break;
-                case 6: keep = !mod.outdated.empty() || broken(panel, mod.name); break;
+                case 6: keep = !mod.outdated.empty() || panel.list.excluded.contains(mod.name) || broken(panel, mod.name); break;
                 case 7: keep = mod.outdated.empty() && (!conflict_winner(panel, mod.name).empty() || conflict_beats(panel, mod.name)); break;
                 default: break;
                 }
@@ -519,6 +513,11 @@ namespace dingosdk::launcher_gui::detail {
             });
             else if (panel.order == 2)
                 std::stable_sort(view.begin(), view.end(), [&](int a, int b) { return size(a) > size(b); });
+            // Mods with an update waiting come first, whatever the order: they are what the player has
+            // something to do about. Among themselves, and the rest among themselves, the order stands.
+            std::stable_partition(view.begin(), view.end(), [&](int index) {
+                return update_waiting(panel, installed, entries[static_cast<std::size_t>(index)].mod.name);
+            });
             return view;
         }
 
@@ -639,6 +638,62 @@ namespace dingosdk::launcher_gui::detail {
                     if (entries[i].mod.name == open) panel.selected = static_cast<int>(i);
         }
 
+        // The bar over the list while Thunderstore has updates: what they are, what they
+        // cost to download, and UPDATE ALL. It sits right above the rows it updates
+        // (they are listed first), where the eye already is.
+        void updates_bar(const Fonts& fonts, ModsPanel& panel, const thunderstore::Installed& installed,
+            const std::vector<const thunderstore::Package*>& pending) {
+            if (pending.empty()) return;
+            auto* draw = ImGui::GetWindowDrawList();
+            const ImVec2 start = ImGui::GetCursorScreenPos();
+            const float width = ImGui::GetContentRegionAvail().x, tall = S(56);
+            const ImVec2 end(start.x + width, start.y + tall);
+            draw->AddRectFilled(start, end, rgba(20, 34, 54), S(6));
+            draw->AddRect(start, end, rgba(0, 122, 255, 0.55f), S(6));
+            draw->AddRectFilled(start, ImVec2(start.x + S(5), end.y), color::blue, S(6), ImDrawFlags_RoundCornersLeft);
+
+            // Right to left: UPDATE ALL, then the filter that shows only these.
+            const float button = S(150), show = S(130), button_y = start.y + (tall - S(34)) * 0.5f;
+            float next = end.x - S(12) - button;
+            ImGui::SetCursorScreenPos(ImVec2(next, button_y));
+            push_primary_button();
+            const bool update_all = ImGui::Button(std::format("UPDATE ALL ({})", pending.size()).c_str(), ImVec2(button, S(34)));
+            pop_primary_button();
+            std::uint64_t download{};
+            for (const auto* package : pending) download += package->latest().file_size;
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("%s", download ? ("Downloads " + size_text(download) + " from Thunderstore").c_str()
+                    : "Downloads the new versions from Thunderstore");
+            if (update_all) {
+                std::vector<thunderstore::Package> packages;
+                for (const auto* package : pending) packages.push_back(*package);
+                start_store_install(panel, std::move(packages));
+            }
+            next -= S(8) + show;
+            ImGui::SetCursorScreenPos(ImVec2(next, button_y));
+            const bool only = panel.filter == 5;
+            if (ImGui::Button(only ? "Show all" : "Show only these", ImVec2(show, S(34)))) panel.filter = only ? 0 : 5;
+
+            // What is waiting: names with old -> new, as many as fit.
+            const float text_x = start.x + S(20);
+            const ImVec4 clip(text_x, start.y, next - S(14), end.y);
+            auto heading = std::format("{} {} WAITING", pending.size(), pending.size() == 1 ? "UPDATE" : "UPDATES");
+            if (download) heading += "  /  " + size_text(download);
+            draw->AddText(fonts.bold, fonts.bold->FontSize, ImVec2(text_x, start.y + S(9)), color::text, heading.c_str(), nullptr,
+                0, &clip);
+            std::string names;
+            for (const auto* package : pending) {
+                const auto have = installed.find(thunderstore::folder_for(package->full_name));
+                names += (names.empty() ? "" : ",  ") + package->title() +
+                    (have != installed.end() && !have->second.empty() ? " " + have->second + " \xe2\x86\x92 " : " \xe2\x86\x92 ") +
+                    package->latest().number;
+            }
+            draw->AddText(fonts.body, fonts.body->FontSize, ImVec2(text_x, start.y + S(31)), color::muted, names.c_str(), nullptr,
+                0, &clip);
+            ImGui::SetCursorScreenPos(start);
+            ImGui::Dummy(ImVec2(width, tall));
+        }
+
         // Where the table's columns are: from a row's left edge on the left, and the widths of those
         // at its right, which are laid out from the right edge in.
         struct Columns {
@@ -704,6 +759,7 @@ namespace dingosdk::launcher_gui::detail {
                     panel.overview = false;
                 }
             }
+            const float right = start.x + width;
             const auto* package = package_for(panel.store, mod.name);
             const bool update = package && thunderstore::update_available(*package, installed);
             const Columns c;
@@ -716,6 +772,12 @@ namespace dingosdk::launcher_gui::detail {
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip("Tick mods to change several at once.\nShift-click ticks every mod in between.");
 
+            // Right to left: the menu, whether it loads, its place in the load order.
+            const float more = S(30);
+            const float more_x = right - S(12) - more;
+            ImGui::SetCursorScreenPos(ImVec2(more_x, start.y + (tall - more) * 0.5f));
+            if (more_button("##more", more)) menu = true;
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("More");
             // The handle: six dots, brighter while it can be grabbed.
             {
                 const ImVec2 at(start.x + c.grip, start.y);
@@ -831,6 +893,8 @@ namespace dingosdk::launcher_gui::detail {
                 }
                 if (package) {
                     ImVec2 at2(start.x + r.type - S(14) - badge_width(fonts, "NSFW"), at.y);
+                    if (update)
+						at2.x -= S(30) + badge_width(fonts, "UPDATE");
                     if (package->nsfw || std::any_of(package->categories.begin(), package->categories.end(), [](const std::string& category) { return folded(category) == "nsfw"; })) {
                         badge(draw, fonts, at2, "NSFW", color::nsfw, fill == color::tile_grey ? color::text : color::ink);
                     }
@@ -1137,7 +1201,8 @@ namespace dingosdk::launcher_gui::detail {
             ImGui::EndPopup();
         }
 
-        void installed_page(Launcher& launcher, const Fonts& fonts, ModsPanel& panel, const thunderstore::Installed& installed, float height, bool installing, HWND window) {
+        void installed_page(Launcher& launcher, const Fonts& fonts, ModsPanel& panel, const thunderstore::Installed& installed,
+            const std::vector<const thunderstore::Package*>& pending, float height, bool installing, HWND window) {
             auto& entries = panel.list.entries;
             const float top = ImGui::GetCursorPosY();
             {
@@ -1149,7 +1214,7 @@ namespace dingosdk::launcher_gui::detail {
                         !left_out_by_choice(panel, entry.mod.name);
                 });
                 const auto problems = std::count_if(entries.begin(), entries.end(), [&](const auto& entry) {
-                    return !entry.mod.outdated.empty() || (entry.enabled && broken(panel, entry.mod.name));
+                    return !entry.mod.outdated.empty() || (entry.enabled && panel.list.excluded.contains(entry.mod.name));
                 });
                 const auto waiting = std::count_if(entries.begin(), entries.end(),
                     [&](const auto& entry) { return update_waiting(panel, installed, entry.mod.name); });
@@ -1171,6 +1236,10 @@ namespace dingosdk::launcher_gui::detail {
             // ------------------------------------------------ search, filter, order, check, refresh
             const float combo = S(150), check = S(160), refresh = S(96), gap = S(10);
             ImGui::SetNextItemWidth(std::max(S(140), ImGui::GetContentRegionAvail().x - (combo + gap) * 2 - check - gap - refresh - gap));
+            // Ctrl+F jumps to the search, as it does in a browser.
+            if (!installing && ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_F, false) &&
+                !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId))
+                ImGui::SetKeyboardFocusHere();
             ImGui::InputTextWithHint("##installed_search", "Search your mods", panel.search.data(), panel.search.size());
             ImGui::SameLine(0, gap);
             const auto choice = [&](const char* id, const auto& names, int& value) {
@@ -1201,7 +1270,13 @@ namespace dingosdk::launcher_gui::detail {
             const auto view = visible_mods(panel, installed);
             // Dragging, and typing a place, move a mod among the others in the load order: the order the
             // list must be shown in for where it lands to be what it looks like.
-            const bool reorder = panel.order == 0 && !installing;
+            // (Mods moved to the top for their updates are out of that order too.)
+            const bool in_load_order = [&] {
+                for (int at = 0; at < static_cast<int>(view.size()); ++at)
+                    if (view[static_cast<std::size_t>(at)] != at) return false;
+                return true;
+            }();
+            const bool reorder = panel.order == 0 && !installing && view.size() == entries.size() && in_load_order;;
             const auto shown = [&](int at) -> const std::string& {
                 return entries[static_cast<std::size_t>(view[static_cast<std::size_t>(at)])].mod.name;
             };
@@ -1284,7 +1359,8 @@ namespace dingosdk::launcher_gui::detail {
                     panel.list.issue.c_str());
             std::vector<std::string> dropped;
             for (const auto& entry : entries)
-                if (entry.enabled && entry.mod.outdated.empty() && broken(panel, entry.mod.name)) dropped.push_back(entry.mod.title);
+                if (entry.enabled && panel.list.excluded.contains(entry.mod.name) && entry.mod.outdated.empty())
+                    dropped.push_back(entry.mod.title);
             if (!dropped.empty()) {
                 std::string names;
                 for (const auto& title : dropped) names += (names.empty() ? "" : ", ") + title;
@@ -1301,6 +1377,12 @@ namespace dingosdk::launcher_gui::detail {
             }
             ImGui::PopTextWrapPos();
             ImGui::Spacing();
+            ImGui::BeginDisabled(installing);
+            if (!pending.empty()) {
+                updates_bar(fonts, panel, installed, pending);
+                ImGui::Dummy(ImVec2(0, S(2)));
+            }
+            ImGui::EndDisabled();
 
             // ------------------------------------------------ the table
             table_header(fonts);
@@ -2060,7 +2142,7 @@ namespace dingosdk::launcher_gui::detail {
         if (panel.tab == 1) browse_page(launcher, fonts, panel, body, installing, launcher.settings());
         else if (panel.tab == 2) profiles_page(fonts, panel, window, body, installing);
         else if (panel.tab == 3) official_page(fonts, panel, body);
-        else installed_page(launcher, fonts, panel, installed, body, installing, window);
+        else installed_page(launcher, fonts, panel, installed, pending, body, installing, window);
         if (!panel.message.empty()) {
             ImGui::SetCursorPosY(ImGui::GetWindowHeight() - status + S(8));
             ImGui::PushTextWrapPos(0);
