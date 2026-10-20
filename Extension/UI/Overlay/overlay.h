@@ -332,193 +332,194 @@ namespace dingosdk::overlay {
             char* result, std::size_t result_size) = nullptr;
     };
 
-    // Extended callback table for the in-game command console. Keep V1 and V2
-    // unchanged so previously built hosts remain binary compatible.
-    // Internal private action queue, separate from the stable V3 callback ABI and console history.
-    using MultiplayerQueue = bool (*)(const char* action, const char* argument, const char* password,
-        char* result, std::size_t size);
-    void set_multiplayer_queue(MultiplayerQueue) noexcept;
-    // A map the session needs being fetched (Extension/Assets/map_download.h), for its card.
-    struct MapDownloadCard {
-        int stage{};                // 0 none, 1 asking, 2 downloading, 3 installing, 4 applying, 5 joining
-        std::string map, package, author, version, description;
-        std::string have;            // the version installed here, when the host's replaces it
-        std::size_t step{}, steps{}; // applying: the merge's steps done of all
-        std::string step_name;
-        bool server{}, installed{}, moved{}, choice{ true };
-        std::uint64_t received{}, total{};
-        std::uint32_t yes_bind{}, no_bind{};
-    };
-    using MapDownloadFeed = MapDownloadCard(*)();
-    void set_map_download_feed(MapDownloadFeed) noexcept;
-    using MapDownloadAnswer = void (*)(bool download) noexcept;
-    void set_map_download_answer(MapDownloadAnswer) noexcept;
-    // The card's icon: the package's own picture as PNG bytes, or nothing to show a plain tile.
-    // Any thread; decoded here and uploaded when the overlay next draws.
-    void set_map_download_icon(const std::string& png) noexcept;
-    // The pictures for a dedicated server's vote for the next map (Extension/Assets/map_icons.h):
-    // each map's name in the vote and its picture: a mod's icon as PNG bytes, or one of the game's
-    // own maps' as pixels (straight-alpha RGBA, a square of `side`). Neither: it has none. Any thread.
-    struct MapVoteIcon {
-        std::string name, png;
-        std::vector<unsigned char> rgba;
-        unsigned side{};
-    };
-    void set_map_vote_icons(const std::vector<MapVoteIcon>& icons) noexcept;
-    // The menu's map grid (Map > Travel): the levels it shows ask for their pictures, which
-    // Assets/map_icons.cpp finds off the game's thread (MapVoteIcon::name is then the level's asset).
-    struct MenuMapWanted {
-        std::string asset, name;
-    };
-    std::vector<MenuMapWanted> take_menu_map_request() noexcept;
-    void set_menu_map_pictures(const std::vector<MapVoteIcon>& pictures) noexcept;
-    // That vote's popup (map_download_card.cpp), for the runtime, which reads the controller and
-    // holds the game's input while it is up: whether it is, moving the pick, voting for the pick
-    // (the popup then closes), and closing it without a vote. Any thread.
-    // A message the player has to see and say OK to, in the middle of the screen (message_card.cpp):
-    // that they were kicked or banned from a server, and why. One at a time: a new one takes the
-    // place of one still up. For the runtime, which reads the controller and holds the game's input
-    // while it is up, as for the vote below: whether it is, and closing it. Any thread.
-    void show_message(std::string title, std::string text) noexcept;
-    bool message_asking() noexcept;
-    void message_dismiss() noexcept;
-    bool map_vote_asking() noexcept;
-    void map_vote_move(int by) noexcept;
-    void map_vote_take() noexcept;
-    void map_vote_dismiss() noexcept;
-    // The session's text chat, read by the chat panel every frame (thread-safe, cheap).
-    using ChatFeed = MultiplayerChat(*)();
-    void set_chat_feed(ChatFeed) noexcept;
-    // The game's pause menu, as far as ReSkate+'s own pages in it go: whether one of them is the
-    // page on screen, and which (`section` 0: Multiplayer, 1: Mod Options). The overlay draws
-    // everything in such a page itself, its tabs too (hub_page.cpp). Read every presented frame
-    // (thread-safe, cheap).
-    struct HubPage {
-        bool visible{};
-        int section{};
-    };
-    using HubPageFeed = HubPage(*)();
-    void set_hub_page_feed(HubPageFeed) noexcept;
-    // Text the game draws with its debug text natives, where retail draws nothing (the
-    // S.K.A.T.E. throwdown HUD). One frame of lines, positioned in a width x height screen;
-    // color is R, G, B, A bytes (ImGui's IM_COL32 layout). Read every presented frame
-    // (thread-safe, cheap; empty = nothing).
-    struct GameTextLine {
-        float x{}, y{}, scale{ 1 };
-        std::uint32_t color{ 0xffffffffU };
-        bool centered{}; // x is the middle of the line
-        std::string text;
-    };
-    struct GameText {
-        float width{}, height{};
-        std::vector<GameTextLine> lines;
-    };
-    using GameTextFeed = GameText(*)();
-    void set_game_text_feed(GameTextFeed) noexcept;
-    // The S.K.A.T.E. throwdown's HUD as ReSkate+ draws it (skate_hud_overlay.cpp), read from what
-    // the game's own debug HUD lays out each frame: the messages at the top (what to do, the
-    // trick to copy, how an attempt went) and every player's letters. Read every presented
-    // frame; no messages and no players = nothing to draw.
-    struct SkateHudMessage {
-        enum class Kind : std::uint8_t { prompt, trick, success, failure } kind{};
-        std::string text;
-    };
-    struct SkateHudPlayer {
-        std::string name; // empty when the game has none
-        int letters{};    // 0-5 of S.K.A.T.E.
-        bool up{};        // whose turn it is
-        bool out{};       // eliminated
-    };
-    struct SkateHud {
-        std::vector<SkateHudMessage> messages; // top to bottom
-        std::vector<SkateHudPlayer> players;   // in the game's order
-        std::vector<std::string> done_tricks;  // set so far this game, oldest first (none repeat)
-    };
-    using SkateHudFeed = SkateHud(*)();
-    void set_skate_hud_feed(SkateHudFeed) noexcept;
-    // ReSkate+'s own nametags: one per other player, placed over the world with the camera the
-    // client last used. Close ones show a name and distance, far ones a dot, and players off
-    // screen a dot at the screen's edge. Empty = nothing to draw (off, or the game hides its UI).
-    // One line in a player's bubble stack: the text (masked when the chat filter is on), the line
-    // as sent when the filter changed it (same length; emote names are taken back from it), how
-    // far its pop-in has come (0 just arrived, 1 settled) and how opaque it still is (1 down to 0).
-    struct NametagBubble {
-        std::string text, raw;
-        float appear{ 1 }, fade{ 1 };
-        bool hint{}; // grey typing discs, not a chat line. text is ".", "..", or "..." for 1, 2, or 3 discs
-    };
-    struct Nametag {
-        std::array<float, 3> position{}; // above the skater's head, world space
-        std::string name;
-        std::uint32_t color{ 0xffffffffU }; // R, G, B, A bytes (IM_COL32)
-        std::string tag;                  // role badge before the name ("Dev", "ReSkate Admin", "Content Creator", "Centrix", "Homie", "Admin", "Host", "Friend")
-        float distance{};                 // metres from the local skater
-        bool talking{};
-        bool flying_drone{};              // flying the FPV drone: a FLYING DRONE label above the name
-        // Recent chat lines to show as bubbles above the head, oldest first ("" = none).
-        std::vector<NametagBubble> bubbles;
-        bool self{};                      // the local player: bubbles only, never a name or dot
-        bool nameless{};                  // another player whose name is not shown: bubbles only too
-    };
-    struct Nametags {
-        std::array<float, 16> camera{}; // world matrix: right, up, back, position rows
-        float vertical_fov{};
-        bool show_names{ true };          // draw the name, distance and role badge
-        bool show_bubbles{};            // draw chat bubbles above the heads
-        float bubble_distance{ 40.f };    // furthest a player may be and still show a bubble (metres)
-        float name_distance{ 120.f };     // furthest a player's name shows; past it they are a dot
-        bool dots{ true };                // draw those dots, and the ones at the edge for off-screen players
-        std::vector<Nametag> tags;
-    };
-    using NametagFeed = Nametags(*)();
-    void set_nametag_feed(NametagFeed) noexcept;
-    // The skater item grids' favorites, search and filter (item_browser_overlay.cpp): what the host's
-    // grids show now, and what the keys ask of them. The view is read while a grid is open; every
-    // function is thread-safe and only queues work for the client thread.
-    struct ItemBrowserView {
-        bool open{};                // an item grid has the focus
-        std::string search, filter; // the search text and the filter's name
-        unsigned shown{}, total{};  // tiles in the grid that has the focus
-        bool focused_favorite{};    // the highlighted item is a favorite
-        // The mod the highlighted item is from (empty title: the game's own), for its card: its icon
-        // file (UTF-8), how many items it has, and whether it only changes one of the game's.
-        std::string mod_title, mod_author, mod_version, mod_icon;
-        unsigned mod_items{};
-        bool mod_changed{};
-    };
-    struct ItemBrowserHost {
-        ItemBrowserView(*view)() {};
-        void (*toggle_favorite)() {};
-        void (*set_search)(const char* text) {};
-        void (*cycle_filter)() {};
-    };
-    // `host` must stay valid for the life of the process.
-    void set_item_browser(const ItemBrowserHost* host) noexcept;
-    using ParkSurfaceQueue = bool (*)(const EditorSurfaceRequest&);
-    void set_park_surface_queue(ParkSurfaceQueue) noexcept;
-    using ParkPreviewQueue = bool (*)(const EditorPreviewRequest&);
-    void set_park_preview_queue(ParkPreviewQueue) noexcept;
-    using ParkSelectionQueue = bool (*)(const EditorSelectionRequest&);
-    void set_park_selection_queue(ParkSelectionQueue) noexcept;
-    using ParkPasteQueue = bool (*)(const EditorPasteRequest&);
-    void set_park_paste_queue(ParkPasteQueue) noexcept;
-    using ParkObjectSetQueue = bool (*)(const EditorObjectSetRequest&);
-    void set_park_object_set_queue(ParkObjectSetQueue) noexcept;
-    using ParkDeleteQueue = bool (*)(const EditorDeleteRequest&);
-    void set_park_delete_queue(ParkDeleteQueue) noexcept;
-    struct CallbacksV3 {
-        void* user = nullptr;
-        void (*read_model)(void* user, Model& output) = nullptr;
-        bool (*queue_load)(void* user, const char* asset, const char* start_point,
-            const char* lm_level, const char* lm_start_point,
-            char* result, std::size_t result_size) = nullptr;
-        bool (*queue_debug)(void* user, const DebugRequest& request,
-            char* result, std::size_t result_size) = nullptr;
-        bool (*queue_offline_feature)(void* user, const OfflineFeatureRequest& request,
-            char* result, std::size_t result_size) = nullptr;
-        bool (*queue_console_command)(void* user, const char* command,
-            char* result, std::size_t result_size) = nullptr;
-    };
+// Extended callback table for the in-game command console. Keep V1 and V2
+// unchanged so previously built hosts remain binary compatible.
+// Internal private action queue, separate from the stable V3 callback ABI and console history.
+using MultiplayerQueue = bool (*)(const char *action, const char *argument, const char *password,
+                                 char *result, std::size_t size);
+void set_multiplayer_queue(MultiplayerQueue) noexcept;
+// A map the session needs being fetched (Extension/Assets/map_download.h), for its card.
+struct MapDownloadCard {
+    int stage{};                // 0 none, 1 asking, 2 downloading, 3 installing, 4 applying, 5 joining
+    std::string map, package, author, version, description;
+    std::string have;            // the version installed here, when the host's replaces it
+    std::size_t step{}, steps{}; // applying: the merge's steps done of all
+    std::string step_name;
+    bool server{}, installed{}, moved{}, choice{true};
+    std::uint64_t bytes{};       // asking: the package's size; 0 when it is not known
+    std::uint64_t received{}, total{};
+    std::uint32_t yes_bind{}, no_bind{};
+};
+using MapDownloadFeed = MapDownloadCard (*)();
+void set_map_download_feed(MapDownloadFeed) noexcept;
+using MapDownloadAnswer = void (*)(bool download) noexcept;
+void set_map_download_answer(MapDownloadAnswer) noexcept;
+// The card's icon: the package's own picture as PNG bytes, or nothing to show a plain tile.
+// Any thread; decoded here and uploaded when the overlay next draws.
+void set_map_download_icon(const std::string& png) noexcept;
+// The pictures for a dedicated server's vote for the next map (Extension/Assets/map_icons.h):
+// each map's name in the vote and its picture: a mod's icon as PNG bytes, or one of the game's
+// own maps' as pixels (straight-alpha RGBA, a square of `side`). Neither: it has none. Any thread.
+struct MapVoteIcon {
+    std::string name, png;
+    std::vector<unsigned char> rgba;
+    unsigned side{};
+};
+void set_map_vote_icons(const std::vector<MapVoteIcon>& icons) noexcept;
+// The menu's map grid (Map > Travel): the levels it shows ask for their pictures, which
+// Assets/map_icons.cpp finds off the game's thread (MapVoteIcon::name is then the level's asset).
+struct MenuMapWanted {
+    std::string asset, name;
+};
+std::vector<MenuMapWanted> take_menu_map_request() noexcept;
+void set_menu_map_pictures(const std::vector<MapVoteIcon>& pictures) noexcept;
+// That vote's popup (map_download_card.cpp), for the runtime, which reads the controller and
+// holds the game's input while it is up: whether it is, moving the pick, voting for the pick
+// (the popup then closes), and closing it without a vote. Any thread.
+// A message the player has to see and say OK to, in the middle of the screen (message_card.cpp):
+// that they were kicked or banned from a server, and why. One at a time: a new one takes the
+// place of one still up. For the runtime, which reads the controller and holds the game's input
+// while it is up, as for the vote below: whether it is, and closing it. Any thread.
+void show_message(std::string title, std::string text) noexcept;
+bool message_asking() noexcept;
+void message_dismiss() noexcept;
+bool map_vote_asking() noexcept;
+void map_vote_move(int by) noexcept;
+void map_vote_take() noexcept;
+void map_vote_dismiss() noexcept;
+// The session's text chat, read by the chat panel every frame (thread-safe, cheap).
+using ChatFeed = MultiplayerChat (*)();
+void set_chat_feed(ChatFeed) noexcept;
+// The game's pause menu, as far as ReSkate's own pages in it go: whether one of them is the
+// page on screen, and which (`section` 0: Multiplayer, 1: Mod Options). The overlay draws
+// everything in such a page itself, its tabs too (hub_page.cpp). Read every presented frame
+// (thread-safe, cheap).
+struct HubPage {
+    bool visible{};
+    int section{};
+};
+using HubPageFeed = HubPage (*)();
+void set_hub_page_feed(HubPageFeed) noexcept;
+// Text the game draws with its debug text natives, where retail draws nothing (the
+// S.K.A.T.E. throwdown HUD). One frame of lines, positioned in a width x height screen;
+// color is R, G, B, A bytes (ImGui's IM_COL32 layout). Read every presented frame
+// (thread-safe, cheap; empty = nothing).
+struct GameTextLine {
+    float x{}, y{}, scale{1};
+    std::uint32_t color{0xffffffffU};
+    bool centered{}; // x is the middle of the line
+    std::string text;
+};
+struct GameText {
+    float width{}, height{};
+    std::vector<GameTextLine> lines;
+};
+using GameTextFeed = GameText (*)();
+void set_game_text_feed(GameTextFeed) noexcept;
+// The S.K.A.T.E. throwdown's HUD as ReSkate draws it (skate_hud_overlay.cpp), read from what
+// the game's own debug HUD lays out each frame: the messages at the top (what to do, the
+// trick to copy, how an attempt went) and every player's letters. Read every presented
+// frame; no messages and no players = nothing to draw.
+struct SkateHudMessage {
+    enum class Kind : std::uint8_t { prompt, trick, success, failure } kind{};
+    std::string text;
+};
+struct SkateHudPlayer {
+    std::string name; // empty when the game has none
+    int letters{};    // 0-5 of S.K.A.T.E.
+    bool up{};        // whose turn it is
+    bool out{};       // eliminated
+};
+struct SkateHud {
+    std::vector<SkateHudMessage> messages; // top to bottom
+    std::vector<SkateHudPlayer> players;   // in the game's order
+    std::vector<std::string> done_tricks;  // set so far this game, oldest first (none repeat)
+};
+using SkateHudFeed = SkateHud (*)();
+void set_skate_hud_feed(SkateHudFeed) noexcept;
+// ReSkate's own nametags: one per other player, placed over the world with the camera the
+// client last used. Close ones show a name and distance, far ones a dot, and players off
+// screen a dot at the screen's edge. Empty = nothing to draw (off, or the game hides its UI).
+// One line in a player's bubble stack: the text (masked when the chat filter is on), the line
+// as sent when the filter changed it (same length; emote names are taken back from it), how
+// far its pop-in has come (0 just arrived, 1 settled) and how opaque it still is (1 down to 0).
+struct NametagBubble {
+    std::string text, raw;
+    float appear{1}, fade{1};
+    bool hint{}; // grey typing discs, not a chat line. text is ".", "..", or "..." for 1, 2, or 3 discs
+};
+struct Nametag {
+    std::array<float, 3> position{}; // above the skater's head, world space
+    std::string name;
+    std::uint32_t color{0xffffffffU}; // R, G, B, A bytes (IM_COL32)
+    std::string tag;                  // role badge before the name ("Dev", "ReSkate Admin", "Content Creator", "Centrix", "Homie", "Admin", "Host", "Friend")
+    float distance{};                 // metres from the local skater
+    bool talking{};
+    bool flying_drone{};              // flying the FPV drone: a FLYING DRONE label above the name
+    // Recent chat lines to show as bubbles above the head, oldest first ("" = none).
+    std::vector<NametagBubble> bubbles;
+    bool self{};                      // the local player: bubbles only, never a name or dot
+    bool nameless{};                  // another player whose name is not shown: bubbles only too
+};
+struct Nametags {
+    std::array<float, 16> camera{}; // world matrix: right, up, back, position rows
+    float vertical_fov{};
+    bool show_names{true};          // draw the name, distance and role badge
+    bool show_bubbles{};            // draw chat bubbles above the heads
+    float bubble_distance{40.f};    // furthest a player may be and still show a bubble (metres)
+    float name_distance{120.f};     // furthest a player's name shows; past it they are a dot
+    bool dots{true};                // draw those dots, and the ones at the edge for off-screen players
+    std::vector<Nametag> tags;
+};
+using NametagFeed = Nametags (*)();
+void set_nametag_feed(NametagFeed) noexcept;
+// The skater item grids' favorites, search and filter (item_browser_overlay.cpp): what the host's
+// grids show now, and what the keys ask of them. The view is read while a grid is open; every
+// function is thread-safe and only queues work for the client thread.
+struct ItemBrowserView {
+    bool open{};                // an item grid has the focus
+    std::string search, filter; // the search text and the filter's name
+    unsigned shown{}, total{};  // tiles in the grid that has the focus
+    bool focused_favorite{};    // the highlighted item is a favorite
+    // The mod the highlighted item is from (empty title: the game's own), for its card: its icon
+    // file (UTF-8), how many items it has, and whether it only changes one of the game's.
+    std::string mod_title, mod_author, mod_version, mod_icon;
+    unsigned mod_items{};
+    bool mod_changed{};
+};
+struct ItemBrowserHost {
+    ItemBrowserView (*view)(){};
+    void (*toggle_favorite)(){};
+    void (*set_search)(const char *text){};
+    void (*cycle_filter)(){};
+};
+// `host` must stay valid for the life of the process.
+void set_item_browser(const ItemBrowserHost *host) noexcept;
+using ParkSurfaceQueue = bool (*)(const EditorSurfaceRequest &);
+void set_park_surface_queue(ParkSurfaceQueue) noexcept;
+using ParkPreviewQueue = bool (*)(const EditorPreviewRequest &);
+void set_park_preview_queue(ParkPreviewQueue) noexcept;
+using ParkSelectionQueue = bool (*)(const EditorSelectionRequest &);
+void set_park_selection_queue(ParkSelectionQueue) noexcept;
+using ParkPasteQueue = bool (*)(const EditorPasteRequest &);
+void set_park_paste_queue(ParkPasteQueue) noexcept;
+using ParkObjectSetQueue = bool (*)(const EditorObjectSetRequest &);
+void set_park_object_set_queue(ParkObjectSetQueue) noexcept;
+using ParkDeleteQueue = bool (*)(const EditorDeleteRequest &);
+void set_park_delete_queue(ParkDeleteQueue) noexcept;
+struct CallbacksV3 {
+    void* user = nullptr;
+    void (*read_model)(void* user, Model& output) = nullptr;
+    bool (*queue_load)(void* user, const char* asset, const char* start_point,
+                       const char* lm_level, const char* lm_start_point,
+                       char* result, std::size_t result_size) = nullptr;
+    bool (*queue_debug)(void* user, const DebugRequest& request,
+                        char* result, std::size_t result_size) = nullptr;
+    bool (*queue_offline_feature)(void* user, const OfflineFeatureRequest& request,
+                                 char* result, std::size_t result_size) = nullptr;
+    bool (*queue_console_command)(void* user, const char* command,
+                                  char* result, std::size_t result_size) = nullptr;
+};
 
     // Plays one of the game's own menu sounds, by its number in the game's list (ui_sound.h: 3
     // moving the focus, 7 pressing something, 56 changing tab). Any thread.
