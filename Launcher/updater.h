@@ -10,6 +10,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <sstream>
 
 // Remote launcher config: launcher.json in the latest GitHub release. Every download
 // it names is pinned by size and SHA-256; the config only chooses what to fetch.
@@ -80,6 +81,8 @@ std::string http_post(const std::wstring& url, const wchar_t* content_type, std:
 
 // Reports bytes received and the expected total while a download runs.
 using Progress = std::function<void(std::uint64_t received, std::uint64_t total)>;
+
+bool is_newer(const std::string& version);
 
 // True when the file on disk already has the pinned SHA-256.
 bool file_matches(const std::filesystem::path& path, const RemoteFile& file);

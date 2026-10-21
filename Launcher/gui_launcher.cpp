@@ -327,11 +327,11 @@ namespace dingosdk::launcher_gui::detail {
     }
 
     bool Launcher::launcher_outdated(const update::Config& config) const {
-        return !relaunched_ && !config.launcher.url.empty() && !update::file_matches(session_.self, config.launcher);
+        return !relaunched_ && !config.launcher.url.empty() && !update::file_matches(session_.self, config.launcher) && update::is_newer(config.launcher.version);
     }
 
     bool Launcher::runtime_outdated(const update::Config& config) const {
-        return !config.runtime.url.empty() && !update::file_matches(session_.paths.dll, config.runtime);
+        return !config.runtime.url.empty() && !update::file_matches(session_.paths.dll, config.runtime) && update::is_newer(config.runtime.version);
     }
 
     void Launcher::run_check() {

@@ -892,14 +892,16 @@ namespace dingosdk::launcher_gui::detail {
                     tip = "The game could not merge it cleanly, so none of it is used. Open it to see why.";
                 }
                 if (package) {
-                    ImVec2 at2(start.x + r.type - S(14) - badge_width(fonts, "NSFW"), at.y);
+                    ImVec2 at2(start.x + r.type - S(14), at.y);
                     if (update)
 						at2.x -= S(30) + badge_width(fonts, "UPDATE");
                     if (package->nsfw || std::any_of(package->categories.begin(), package->categories.end(), [](const std::string& category) { return folded(category) == "nsfw"; })) {
+                        at2.x -= badge_width(fonts, "NSFW");
                         badge(draw, fonts, at2, "NSFW", color::nsfw, fill == color::tile_grey ? color::text : color::ink);
+                        at2.x -= S(12);
                     }
                     if (package->deprecated) {
-                        at2.x -= S(12) + badge_width(fonts, "DEPRECATED");
+                        at2.x -= badge_width(fonts, "DEPRECATED");
                         badge(draw, fonts, at2, "DEPRECATED", color::tile_grey, color::text);
                     }
                 }

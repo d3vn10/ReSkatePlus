@@ -7,6 +7,7 @@
 #include "launcher_update_config.h"
 #include "text_encoding.h"
 #include "Engine/Core/Platform/path_text.h"
+#include <reskate_version.h>
 
 #include <winhttp.h>
 #include <miniz.h>
@@ -21,6 +22,10 @@
 #include <stdexcept>
 #include <utility>
 #include <vector>
+#include <iostream>
+#include <string>
+#include <sstream>
+#include <tuple>
 
 namespace fs = std::filesystem;
 
@@ -558,10 +563,27 @@ ReleaseNote fetch_release_note(bool /*prereleases*/) {
 
 std::string releases_page() { return "https://github.com/" + utf8(launcher_release_repo) + "/releases"; }
 
+class Version {
+public:
+    std::array<int, 4> digits{ 0, 0, 0, 0 };
+    Version() = default;
+    Version(const std::string& str) {
+        std::stringstream ss(str);
+        std::string segment;
+        int idx = 0;
+        while (std::getline(ss, segment, '.') && idx < 4) {
+            digits[idx++] = std::stoi(segment);
+        }
+    }
+    auto operator<=>(const Version& other) const = default;
+};
+
+bool is_newer(const std::string& version) { return Version(version) > Version(std::string(dingosdk::reskate_version)); }
+
 bool file_matches(const fs::path& path, const RemoteFile& file) {
     std::error_code error;
     return fs::is_regular_file(path, error) && fs::file_size(path, error) == file.size && !error &&
-           launcher::sha256_file(path) == file.sha256;
+        launcher::sha256_file(path) == file.sha256;
 }
 
 fs::path download_verified(const fs::path& target, const RemoteFile& file, const Progress& progress) {

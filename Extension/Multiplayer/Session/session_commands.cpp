@@ -762,7 +762,7 @@ namespace dingosdk::multiplayer {
 				if (argument != "yes" && argument != "no" && !answer) return "vote yes|no|<answer number>";
 				const auto result = answer ? answer_server_poll(s, static_cast<std::size_t>(argument[0] - '1'))
 					: cast_server_vote(s, argument == "yes");
-				if (!result.empty()) add_chat(s, 0, "ReSkate+", result);
+				if (!result.empty()) add_chat(s, 0, "ReSkate", result);
 				return result;
 			}
 			if (action == "server") return "Server commands need a dedicated server session.";
@@ -775,11 +775,11 @@ namespace dingosdk::multiplayer {
 				const auto rest = space == std::string_view::npos ? std::string_view{} : line.substr(space + 1);
 				std::string result;
 				if (verb.empty() || verb == "help" || verb == "?") {
-					for (const auto& c : chat_commands(s)) add_chat(s, 0, "ReSkate+", c.usage + "  " + c.description);
+					for (const auto& c : chat_commands(s)) add_chat(s, 0, "ReSkate", c.usage + "  " + c.description);
 				}
 				else if (verb == "tp") {
 					result = teleport_self(s, rest);
-					if (!result.empty()) add_chat(s, 0, "ReSkate+", result);
+					if (!result.empty()) add_chat(s, 0, "ReSkate", result);
 					return result;
 				}
 				else if (!dedicated_host(s) && verb == "p") {
@@ -853,7 +853,7 @@ namespace dingosdk::multiplayer {
 				s.voice.configure(value);
 				publish(s);
 				const std::string result = value.enabled ? "Voice chat on." : "Voice chat off.";
-				add_chat(s, 0, "ReSkate+", result);
+				add_chat(s, 0, "ReSkate", result);
 				return result;
 			}
 			if (action == "tp") return teleport_self(s, argument);
