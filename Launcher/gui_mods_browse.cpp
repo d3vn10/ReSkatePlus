@@ -198,7 +198,7 @@ namespace dingosdk::launcher_gui::detail {
 			launcher_mods::InstallOptions options;
 			options.folder = ts::folder_for(package.full_name);
 			options.author = package.owner;
-			options.require_content = true;
+			options.require_content = false; // true; !! Plugins can't be downloaded
 			return launcher_mods::install(root, archive, true, [&panel](float fraction) { panel.progress = fraction; },
 				panel.cancel, options);
 		}
