@@ -88,13 +88,14 @@ inline constexpr unsigned max_spawned_parks = 16;
 // back, so a restart keeps it.
 inline constexpr unsigned dedicated_tps = 20;
 // The tools the server can take away from single players (lock, throwdown_locks): noclip with
-// teleporting, No Bail, the boosts, and their own physics tuning.
-inline constexpr std::uint8_t lock_noclip = 1, lock_nobail = 2, lock_boosts = 4, lock_tuning = 8;
-inline constexpr std::uint8_t lock_movement = lock_noclip | lock_nobail | lock_boosts; // what the role's "movement" gives
+// teleporting, No Bail, the boosts, their own physics tuning, and placing objects. "all" is the
+// first four, as throwdown_locks has always read it: objects are only ever locked by name.
+inline constexpr std::uint8_t lock_noclip = 1, lock_nobail = 2, lock_boosts = 4, lock_tuning = 8, lock_objects = 16, lock_ollies = 32;
+inline constexpr std::uint8_t lock_movement = lock_noclip | lock_nobail | lock_boosts | lock_ollies; // what the role's "movement" gives
 inline constexpr std::uint8_t lock_all = lock_movement | lock_tuning;
 struct ServerConfig {
     std::filesystem::path file;
-    std::string name = "ReSkate+ Server";
+    std::string name = "ReSkate server";
     // The map everyone skates, named like the game's `load` command: "San Vansterdam",
     // "Isle of Grom", or a custom map in Mods\ such as "bbcity".
     std::string map = "San Vansterdam";
@@ -156,7 +157,7 @@ struct ServerConfig {
     // The server window (Server/GUI) starts the server as soon as it opens, without waiting
     // for Start to be pressed. The console server always starts at once and does not read it.
     bool autostart{};
-    bool global_bans = false;   // turn away players the ReSkate team has banned (global_bans.h)
+    bool global_bans = true;   // turn away players the ReSkate team has banned (global_bans.h)
     bool activity_log = true;  // console lines for throwdowns, objects and loading
     bool announce_throwdowns = true; // tell everyone in chat when a throwdown drop is placed
     // The tools locked for the players of a throwdown while it runs (lock_* bits); 0: none.
@@ -192,8 +193,6 @@ struct ServerConfig {
     // Scoring fingerprints accepted besides the game's own (a server that runs on a scoring mod
     // everyone installs). Each player's fingerprint is in the console when they are flagged.
     std::vector<std::uint64_t> score_allow;
-	// The protocol the server uses to talk to the game.
-    std::int16_t protocol_idx = 2;
     std::uint16_t port = 27015, query_port = 27016;
     // Fixed for dedicated servers for now (dedicated_tps): a busy one's traffic, in and out,
     // is its players' poses, and at 20 a second that is a third less than at 30. Whatever
@@ -213,9 +212,6 @@ struct ServerConfig {
     // and the trails and fire of costumes and skateboards. Off: nothing of them is relayed and
     // players' games show each other without them.
     bool sync_effects = true;
-    // Players see each other's FPV drones (the marker where a player's drone is). Off: none are
-    // relayed, and players' games neither send theirs nor show anyone's.
-    bool sync_drones = true;
     // Whether players may use noclip (and teleport) / No Bail / the boosts (admins always may).
     bool noclip = true, no_bail = true, boosts = true;
     // Players skate with the game's own physics tuning, not copies they edited.

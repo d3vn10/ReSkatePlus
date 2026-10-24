@@ -11,39 +11,39 @@
 #include <variant>
 #include <vector>
 
-namespace dingosdk::frostbite::ebx
-{
-    enum class FieldType : std::uint8_t {
-        inherited = 0x00,
-        dbObject = 0x01,
-        structure = 0x02,
-        pointer = 0x03,
-        array = 0x04,
-        fixedArray = 0x05,
-        string = 0x06,
-        cString = 0x07,
-        enumeration = 0x08,
-        fileRef = 0x09,
-        boolean = 0x0A,
-        int8 = 0x0B,
-        uint8 = 0x0C,
-        int16 = 0x0D,
-        uint16 = 0x0E,
-        int32 = 0x0F,
-        uint32 = 0x10,
-        uint64 = 0x11,
-        int64 = 0x12,
-        float32 = 0x13,
-        float64 = 0x14,
-        guid = 0x15,
-        sha1 = 0x16,
-        resourceRef = 0x17,
-        function = 0x18,
-        typeRef = 0x19,
-        boxedValueRef = 0x1A,
-        interfaceType = 0x1B,
-        delegate = 0x1C
-    };
+namespace dingosdk::frostbite::ebx {
+
+enum class FieldType : std::uint8_t {
+    inherited = 0x00,
+    dbObject = 0x01,
+    structure = 0x02,
+    pointer = 0x03,
+    array = 0x04,
+    fixedArray = 0x05,
+    string = 0x06,
+    cString = 0x07,
+    enumeration = 0x08,
+    fileRef = 0x09,
+    boolean = 0x0A,
+    int8 = 0x0B,
+    uint8 = 0x0C,
+    int16 = 0x0D,
+    uint16 = 0x0E,
+    int32 = 0x0F,
+    uint32 = 0x10,
+    uint64 = 0x11,
+    int64 = 0x12,
+    float32 = 0x13,
+    float64 = 0x14,
+    guid = 0x15,
+    sha1 = 0x16,
+    resourceRef = 0x17,
+    function = 0x18,
+    typeRef = 0x19,
+    boxedValueRef = 0x1A,
+    interfaceType = 0x1B,
+    delegate = 0x1C
+};
 
     enum class FieldCategory : std::uint8_t {
         none,

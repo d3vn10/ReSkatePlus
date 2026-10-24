@@ -27,25 +27,29 @@
 #include <array>
 
 namespace dingosdk::server {
-    using namespace multiplayer;
+class ServerPlugins;
+using namespace multiplayer;
 
-    // The host side of a ReSkate+ session without a game: admission, the roster,
-    // map changes and relaying every player's poses, outfits, voice, chat and
-    // objects. It follows the protocol the in-game host speaks (session_*.cpp),
-    // minus the host's own skater.
-    class Host {
-    public:
-        using Log = std::function<void(const std::string&)>;
-        Host(ServerConfig& config, SteamTransport& transport, Log log);
-        // Opens the listener and starts a session under the given server identity.
-        bool start(std::string& error);
-        void tick(std::uint64_t now);
-        // A console line, or an admin's request (`admin` = their SteamID64, 0 for the console).
-        std::string command(std::string_view line, std::uint64_t admin = 0);
-        void stop(const std::string& reason);
+// The host side of a ReSkate session without a game: admission, the roster,
+// map changes and relaying every player's poses, outfits, voice, chat and
+// objects. It follows the protocol the in-game host speaks (session_*.cpp),
+// minus the host's own skater.
+class Host {
+  public:
+    using Log = std::function<void(const std::string &)>;
+    Host(ServerConfig &config, SteamTransport &transport, Log log);
+    // Opens the listener and starts a session under the given server identity.
+    bool start(std::string &error);
+    void tick(std::uint64_t now);
+    // A console line, or an admin's request (`admin` = their SteamID64, 0 for the console).
+    std::string command(std::string_view line, std::uint64_t admin = 0);
+    void stop(const std::string &reason);
 
     std::string invite() const;
     std::string map_name() const;
+    // The level players load for the map, as their games name it: a destination's level, after
+    // its "|". What the server's plugins see as reskate.level.current().
+    std::string map_level() const;
     // "maps reload": reads Mods again and says what changed. Also after a map was updated.
     std::string reload_maps();
     // The mod folder of the map in play while anyone is on (an update leaves it alone), or
@@ -75,9 +79,39 @@ namespace dingosdk::server {
     void send_player_chat(std::uint64_t steam_id, std::string_view text);
     void broadcast_player_chat(std::string_view text);
     bool teleport_player(std::uint64_t steam_id, float x, float y, float z);
+    bool is_banned(std::uint64_t id) const;
+    // A player's locks (lock_*, server_config.h), and making them exactly `locks` as an admin's
+    // lock and unlock would (logged, and the player told): the tools that changed.
+    std::uint8_t player_locks(std::uint64_t id) const { return locks_of(id); }
+    std::uint8_t set_locks(std::uint64_t id, std::uint8_t locks, const std::string &source);
     std::optional<std::array<float, 3>> player_position(std::uint64_t steam_id) const;
+    // The role a player has (data/roles.json: given them, or the default), here or not; or none.
+    const Role *player_role(std::uint64_t id) const { return role_of(id); }
+    // Where each player in the world last said their skater was (their latest pose's root), and
+    // how long ago that arrived: what the server's plugins see of the skaters.
+    struct SkaterPose {
+        std::uint64_t id{};
+        Transform root;
+        std::uint64_t age_us{};
+    };
+    std::vector<SkaterPose> skater_poses() const;
     void drop(std::uint64_t id, const std::string &reason, const std::string &detail = {});
     void change_map(std::string_view map); // a level name, level path or destination
+    // The park mods set up (maps.park_mods), for the server's plugins: which fit the map running
+    // now, and which are spawned, with how many objects and minutes left (0: until removed).
+    struct ParkStatus {
+        std::string name, map;
+        bool here{}, spawned{};
+        std::size_t objects{};
+        unsigned minutes_left{};
+    };
+    std::vector<ParkStatus> park_status() const;
+    // One spawned (for `minutes`, 0 until removed) or removed for a server plugin, as "park-mod add"
+    // and "remove" do, with their checks and limits and their "[parks]" lines logged "by plugin
+    // <id>": "" when it is done, else why not.
+    std::string plugin_park(std::string_view plugin, bool spawn, std::string_view name, unsigned minutes);
+    // A plugin message from the server's plugins (server_plugins.h) to one player, or everyone (0).
+    void send_plugin_message(std::uint64_t to, const std::vector<std::uint8_t> &bytes);
 
     enum class VoteKind { map, kick, time, custom, poll, extend };
 
@@ -171,6 +205,7 @@ namespace dingosdk::server {
         // been told they are about to be removed for being away.
         std::uint64_t active_at{};
         bool away_warned{};
+        std::uint64_t present_at{}; // their game's last presence notice counted (PacketKind::present)
         std::uint64_t pose_arrival{};
         std::array<PoseDelivery, max_players> pose_delivery;
         CrowdLimits crowd; // how far the full and half rates reach for them in a crowd
@@ -183,7 +218,6 @@ namespace dingosdk::server {
         OutfitBudget outfit_budget;
         SoundBudget sound_budget;
         EffectBudget effect_budget;
-        EffectBudget drone_budget; // FPV drone markers (drone_beacon.h): a few a second
         // Their poses read this pass, passed on once all of the pass's messages are read
         // (relay_poses), and how many of their effects packets were passed on in it.
         std::vector<Packet> relay_poses;
@@ -191,7 +225,7 @@ namespace dingosdk::server {
         ChatRate chat_rate;
         std::uint64_t typing_notice{}; // last accepted "still typing", so a flood is not relayed
         bool typing{};                 // an "on" was passed along and no "off" since
-        ChatBudget admin_budget, throwdown_budget, party_budget;
+        ChatBudget admin_budget, throwdown_budget, party_budget, plugin_budget;
         SpeedCheck speed;           // how fast their game runs, from their pose timestamps
         bool speeding{};            // flagged: out of linked activities (config speed_check)
         std::uint64_t speed_normal_since{}; // flagged, but measuring normal again since then
@@ -304,6 +338,8 @@ namespace dingosdk::server {
     JoinBackoff join_backoff_; // Steam IDs whose attempts to join keep failing
     std::optional<PasswordKey> password_;
     std::uint64_t id_{}, secret_{}, epoch_{}, map_{}, world_ = 1;
+    // Plugins' server copies (server_plugins.h), from start on.
+    std::shared_ptr<ServerPlugins> plugins_;
     std::uint32_t sequence_{};
     VoicePolicy voice_policy_;
     std::uint32_t object_clears_{};
@@ -430,7 +466,6 @@ namespace dingosdk::server {
     void send_words(Guest &);          // the server's own filtered chat words (server_words.h)
     void send_next_maps(Guest &);      // the maps the vote for the next one will offer
     void roles_changed();              // after any change to the roles or who has them
-    bool is_banned(std::uint64_t id) const;
     void save();
 
     // `detail` is for the log alone: the player is told `reason`.
@@ -464,6 +499,8 @@ namespace dingosdk::server {
     std::string start_poll(Guest *starter, std::string_view text, std::string run = {});
     void cast_vote(Guest &, bool yes);
     void answer_poll(Guest &, std::size_t answer);
+    // Whether a chat command (without its "/") answers the running vote or poll for this player.
+    bool answers_vote(const Guest &, std::string_view line) const;
     std::string end_poll(Guest *by);
     void check_vote(bool expired);
     void cancel_vote(const std::string &why);
@@ -517,6 +554,7 @@ namespace dingosdk::server {
     ObjectState park_objects_; // never reset: its revisions only grow, so no game holds a newer one
     std::uint64_t park_object_ids_{};
     bool by_vote_{}; // a passed custom vote's command is running (as the console)
+    std::string by_plugin_; // a server plugin's park-mod is running (plugin_park): "plugin <id>"
     std::string park_mod_command(std::string_view argument, std::uint64_t admin);
     void publish_parks();
     void remove_parks(std::string_view reason); // all of them, with the reason for the log

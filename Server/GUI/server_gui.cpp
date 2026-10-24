@@ -2558,7 +2558,7 @@ struct SettingsForm {
     bool auto_update{true};
     bool activity_log{true};
 
-	int protocol_idx{2}; // 50,51,52
+	int protocol_idx{3}; // 50,51,52,53
     int port{27015};
     int query_port{27016};
     char steam_token[128]{};
@@ -2779,7 +2779,7 @@ void draw_settings_tab(ServerStatusSnapshot& stats) {
     // Column 2: Network & Ports
     begin_card("card_cfg_network", "NETWORK & PORT BINDINGS", "Steam SDR UDP ports and token");
     ImGui::PushItemWidth(S(360));
-	const char* available_protocols[] = { "50 (2.0.7)", "51 (2.0.8)", "52 (2.1.0)" };
+	const char* available_protocols[] = { "50 (2.0.7)", "51 (2.0.8)", "52 (2.1.0)", "53 (2.1.2)" };
     ImGui::Combo("Packet Protocol", &s_form.protocol_idx, available_protocols, IM_ARRAYSIZE(available_protocols));
     ImGui::InputInt("Game Port (UDP)", &s_form.port);
     ImGui::InputInt("Query Port (UDP)", &s_form.query_port);

@@ -22,10 +22,6 @@
 #include <stdexcept>
 #include <utility>
 #include <vector>
-#include <iostream>
-#include <string>
-#include <sstream>
-#include <tuple>
 
 namespace fs = std::filesystem;
 
@@ -536,9 +532,9 @@ std::vector<ReleaseNote> parse_release_feed(std::string_view feed) {
     return notes;
 }
 
-ReleaseNote fetch_release_note(bool /*prereleases*/) {
+ReleaseNote fetch_release_note(bool prereleases) {
     // The description as it was written, markdown, from GitHub's API.
-    /*try {
+    try {
         const auto release = release_to_use(prereleases).release;
         // (A release made without a title or a description has null there.)
         const auto field = [&](std::string_view key) {
@@ -550,7 +546,7 @@ ReleaseNote fetch_release_note(bool /*prereleases*/) {
     } catch (const std::exception& exception) {
         logging::log(logging::Level::info, logging::Channel::launcher,
             "Latest release's notes not available from GitHub's API ({}); reading the releases feed.", exception.what());
-    }*/
+    }
     // Else what the releases page shows, from its feed: a release published without a
     // description shows its commit's message there, and the feed has no hourly limit.
     const auto url = std::wstring(L"https://github.com/") + L"/Dingo-Shenanigans/ReSkate/releases.atom";

@@ -8,10 +8,10 @@
 #include "Engine/Game/Build/supported_build.h"
 #include "Engine/Core/Log/logging.h"
 #include "Extension/Skater/physics_tuning.h"
-#include "Extension/Skater/drone_beacon.h"
 #include "Engine/Vfs/mod_scoring.h"
 #include "Extension/Multiplayer/Remote/remote_collision.h"
 #include <algorithm>
+#include <atomic>
 #include <stdexcept>
 #include <utility>
 
@@ -220,8 +220,21 @@ namespace dingosdk::multiplayer {
 			if (!dedicated_host(s)) return "That command needs a dedicated server.";
 			auto text = clean_chat_text(typed);
 			if (text.size() < 2 || text.front() != '/') return "Type a command after the /.";
-			const auto now = now_us();
-			switch (s.local_chat_rate.accept(now, text)) {
+    // An answer to the running vote: it shows on the vote card like one given there, and may
+    // repeat the line before it (the same /2 in the next poll; the server counts one per player).
+    std::uint8_t answer{};
+    if (s.vote.id && s.vote.outcome == vote_running) {
+        const std::string_view line = text;
+        if (s.vote.kind == server_vote_poll) {
+            // "/2" or "/vote 2"
+            const auto number = line.starts_with("/vote ") ? line.substr(6) : line.substr(1);
+            if (number.size() == 1 && number[0] >= '1' && static_cast<std::size_t>(number[0] - '0') <= s.vote.answers.size())
+                answer = static_cast<std::uint8_t>(number[0] - '0');
+        } else if (line == "/yes" || line == "/y" || line == "/vote yes" || line == "/vote y") answer = 1;
+        else if (line == "/no" || line == "/n" || line == "/vote no" || line == "/vote n") answer = 2;
+    }
+    const auto now = now_us();
+    switch (s.local_chat_rate.accept(now, text, 0, answer != 0)) {
 			case ChatRate::Verdict::repeated: return "You just sent that.";
 			case ChatRate::Verdict::too_fast: return "Slow down: one message every couple of seconds.";
 			case ChatRate::Verdict::accepted: break;
@@ -229,143 +242,148 @@ namespace dingosdk::multiplayer {
 			auto message = packet(s, PacketKind::chat, now);
 			message.text = std::move(text);
 			if (!send_packet(s, s.host_id, message, true, false)) return "Could not reach the server.";
-			// Party chat: the server relays it to the rest of the party, not back to us.
-			const std::string_view sent = message.text;
-			// An answer to the vote typed in chat shows on the vote card like one given there.
-			if (s.vote.id && s.vote.outcome == vote_running) {
-				if (s.vote.kind == server_vote_poll) {
-					// "/2" or "/vote 2"
-					const auto number = sent.starts_with("/vote ") ? sent.substr(6) : sent.substr(1);
-					if (number.size() == 1 && number[0] >= '1' && static_cast<std::size_t>(number[0] - '0') <= s.vote.answers.size())
-						s.vote_mine = static_cast<std::uint8_t>(number[0] - '0');
-				}
-				else if (sent == "/yes" || sent == "/y" || sent == "/vote yes" || sent == "/vote y") s.vote_mine = 1;
-				else if (sent == "/no" || sent == "/n" || sent == "/vote no" || sent == "/vote n") s.vote_mine = 2;
-			}
-			if (sent.starts_with("/p ") && s.local_party) {
-				const auto local = s.transport.status().local_id;
-				add_chat(s, local, s.transport.name(local), "[Party] " + std::string(sent.substr(3)), true);
-			}
-			return {};
-		}
-		std::string answer_server_poll(Session& s, std::size_t answer) {
-			if (!dedicated_host(s) || !s.vote.id || s.vote.outcome != vote_running || s.vote.kind != server_vote_poll)
-				return "No poll is running.";
-			if (answer >= s.vote.answers.size()) return "The poll has " + std::to_string(s.vote.answers.size()) + " answers.";
-			if (s.vote_mine == answer + 1) return {};
-			// Sent as the chat command, as an answer to a vote is.
-			auto message = packet(s, PacketKind::chat, now_us());
-			message.text = "/" + std::to_string(answer + 1);
-			if (!send_packet(s, s.host_id, message, true, false)) return "Could not reach the server.";
-			s.vote_mine = static_cast<std::uint8_t>(answer + 1);
-			return {};
-		}
-		std::string cast_server_vote(Session& s, bool yes) {
-			if (!dedicated_host(s) || !s.vote.id || s.vote.outcome != vote_running) return "No vote is running.";
-			if (s.vote.kind == server_vote_poll) return "This is a poll: answer it on its card, or with /1, /2...";
-			if (s.vote.target == s.transport.status().local_id) return "You cannot vote on your own kick.";
-			if (s.vote_mine == (yes ? 1 : 2)) return {};
-			// The server takes the answer as the chat command (server_votes.cpp); it is not a chat
-			// line, so the pace kept for those does not hold it back.
-			auto message = packet(s, PacketKind::chat, now_us());
-			message.text = yes ? "/yes" : "/no";
-			if (!send_packet(s, s.host_id, message, true, false)) return "Could not reach the server.";
-			s.vote_mine = yes ? 1 : 2;
-			return {};
-		}
-		std::string send_party_chat(Session& s, std::string_view typed) {
-			if (s.mode != Mode::host && s.mode != Mode::join) return "Chat needs a multiplayer session.";
-			if (!s.local_party) return "You're not in a party.";
-			const auto text = clean_chat_text(typed);
-			if (text.empty()) return "Type a message first.";
-			const auto now = now_us();
-			switch (s.local_chat_rate.accept(now, text)) {
-			case ChatRate::Verdict::repeated: return "You just said that.";
-			case ChatRate::Verdict::too_fast: return "Slow down: one message every couple of seconds.";
-			case ChatRate::Verdict::accepted: break;
-			}
-			const auto local = s.transport.status().local_id;
-			if (s.mode == Mode::host) {
-				host_party_chat(s, local, text, now);
-			}
-			else {
-				// The host relays it to the rest of the party, not back to us.
-				auto message = packet(s, PacketKind::chat, now);
-				message.text = clean_chat_text("/p " + text);
-				if (!send_packet(s, s.host_id, message, true, false)) return "Could not reach the host.";
-			}
-			add_chat(s, local, s.transport.name(local), "[Party] " + text, true);
-			return {};
-		}
-		bool objects_solid(Session& s, std::uint64_t id) {
-			const auto [choice, first] = s.objects_solid.try_emplace(id);
-			// Solid unless this player made that player's objects ghosts (the choice is kept per player).
-			if (first) {
-				choice->second = profile_runtime::local_preference("SolidObjects." + std::to_string(id)).value_or(true);
-				set_network_object_owner_solid(id, choice->second);
-			}
-			return choice->second;
-		}
-		void send_typing(Session& s, bool on) {
-			if (dingosdk::multiplayer::protocol_version < 51) return;
-			if (s.mode != Mode::host && s.mode != Mode::join) return;
-			const auto now = now_us();
-			s.local_typing_until = on ? now + typing_hold_us : 0;
-			auto message = packet(s, PacketKind::typing, now);
-			message.typing = on;
-			broadcast(s, message, true, false, now);
-		}
-		void send_throwdown(Session& s, std::vector<std::uint8_t> message) {
-			if ((s.mode != Mode::host && s.mode != Mode::join) || message.empty() || message.size() > max_throwdown_message) return;
-			const auto now = now_us();
-			auto p = packet(s, PacketKind::throwdown, now);
-			p.throwdown = std::move(message);
-			broadcast(s, p, true, false, now);
-		}
-		// This game's pose to a dedicated server: its differences from a pose of its own the server has
-		// said it holds (pose_batch.h), as the server sends everyone else's.
-		void upload_pose(Session& s, const Packet& packet, std::uint64_t now) {
-			auto& kept = s.own_poses;
-			if (!kept.empty() && kept.back().sequence >= packet.sequence) return;
-			kept.push_back({ packet.sequence, packet.time_us, pose_codec::quantize(packet.pose) });
-			while (kept.size() > 64) kept.pop_front();
-			const auto find = [&](std::uint32_t sequence) -> std::optional<pose_batch::KeptView> {
-				for (auto it = kept.rbegin(); it != kept.rend(); ++it)
-					if (it->sequence == sequence) return pose_batch::KeptView{ it->sequence, it->time_us, &it->pose };
-				return {};
-			};
-			const auto emit = [&](std::span<const std::uint8_t> message, bool reliable) {
-				return s.transport.send(s.host_id, message, reliable, !reliable, TrafficLane::gameplay);
-			};
-			s.pose_upload.begin(s.world, s.map);
-			s.pose_upload.add(packet.source, packet.epoch, *find(packet.sequence), find, false, packet.player_collision, pose_batch::Rate::full, now, emit);
-			s.pose_upload.flush(emit);
-		}
-		void broadcast(Session& s, const Packet& packet, bool reliable, bool fresh, std::uint64_t now,
-			std::uint64_t except) {
-			const auto* source = find_peer(s, packet.source);
-			// One encoding per pose rate (full, 100 ms, 200 ms), each of the same packet with only
-			// the interval it carries changed. Recipients holding the same delta reference share one
-			// patch (DeltaCache).
-			struct Encoded {
-				bool ready{};
-				std::vector<std::uint8_t> raw, wire;
-				DeltaCache deltas;
-			};
-			std::array<Encoded, 3> encoded;
-			// Every recipient's update is built first and all go to Steam in one call. The delta
-			// references a DeltaCache points into stay valid until the senders record the sends.
-			struct Outgoing {
-				Peer* peer{};
-				WireUpdate update;
-				PoseDelivery* delivery{};
-				std::uint32_t interval{};
-			};
-			std::vector<Outgoing> outgoing;
-			unsigned direct_sent{};
-			const bool gameplay = packet.kind == PacketKind::pose || packet.kind == PacketKind::audio ||
-				packet.kind == PacketKind::voice || packet.kind == PacketKind::cosmetics ||
-				packet.kind == PacketKind::effects || packet.kind == PacketKind::drone;
+    if (answer) s.vote_mine = answer;
+    // Party chat: the server relays it to the rest of the party, not back to us.
+    const std::string_view sent = message.text;
+    if (sent.starts_with("/p ") && s.local_party) {
+        const auto local = s.transport.status().local_id;
+        add_chat(s, local, s.transport.name(local), "[Party] " + std::string(sent.substr(3)), true);
+    }
+    return {};
+}
+std::string answer_server_poll(Session &s, std::size_t answer) {
+    if (!dedicated_host(s) || !s.vote.id || s.vote.outcome != vote_running || s.vote.kind != server_vote_poll)
+        return "No poll is running.";
+    if (answer >= s.vote.answers.size()) return "The poll has " + std::to_string(s.vote.answers.size()) + " answers.";
+    if (s.vote_mine == answer + 1) return {};
+    // Sent as the chat command, as an answer to a vote is.
+    auto message = packet(s, PacketKind::chat, now_us());
+    message.text = "/" + std::to_string(answer + 1);
+    if (!send_packet(s, s.host_id, message, true, false)) return "Could not reach the server.";
+    s.vote_mine = static_cast<std::uint8_t>(answer + 1);
+    return {};
+}
+std::string cast_server_vote(Session &s, bool yes) {
+    if (!dedicated_host(s) || !s.vote.id || s.vote.outcome != vote_running) return "No vote is running.";
+    if (s.vote.kind == server_vote_poll) return "This is a poll: answer it on its card, or with /1, /2...";
+    if (s.vote.target == s.transport.status().local_id) return "You cannot vote on your own kick.";
+    if (s.vote_mine == (yes ? 1 : 2)) return {};
+    // The server takes the answer as the chat command (server_votes.cpp); it is not a chat
+    // line, so the pace kept for those does not hold it back.
+    auto message = packet(s, PacketKind::chat, now_us());
+    message.text = yes ? "/yes" : "/no";
+    if (!send_packet(s, s.host_id, message, true, false)) return "Could not reach the server.";
+    s.vote_mine = yes ? 1 : 2;
+    return {};
+}
+std::string send_party_chat(Session &s, std::string_view typed) {
+    if (s.mode != Mode::host && s.mode != Mode::join) return "Chat needs a multiplayer session.";
+    if (!s.local_party) return "You're not in a party.";
+    const auto text = clean_chat_text(typed);
+    if (text.empty()) return "Type a message first.";
+    const auto now = now_us();
+    switch (s.local_chat_rate.accept(now, text)) {
+    case ChatRate::Verdict::repeated: return "You just said that.";
+    case ChatRate::Verdict::too_fast: return "Slow down: one message every couple of seconds.";
+    case ChatRate::Verdict::accepted: break;
+    }
+    const auto local = s.transport.status().local_id;
+    if (s.mode == Mode::host) {
+        host_party_chat(s, local, text, now);
+    } else {
+        // The host relays it to the rest of the party, not back to us.
+        auto message = packet(s, PacketKind::chat, now);
+        message.text = clean_chat_text("/p " + text);
+        if (!send_packet(s, s.host_id, message, true, false)) return "Could not reach the host.";
+    }
+    add_chat(s, local, s.transport.name(local), "[Party] " + text, true);
+    return {};
+}
+bool objects_solid(Session &s, std::uint64_t id) {
+    const auto [choice, first] = s.objects_solid.try_emplace(id);
+    // Solid unless this player made that player's objects ghosts (the choice is kept per player).
+    if (first) {
+        choice->second = profile_runtime::local_preference("SolidObjects." + std::to_string(id)).value_or(true);
+        set_network_object_owner_solid(id, choice->second);
+    }
+    return choice->second;
+}
+void send_typing(Session &s, bool on) {
+    if (s.mode != Mode::host && s.mode != Mode::join) return;
+    const auto now = now_us();
+    s.local_typing_until = on ? now + typing_hold_us : 0;
+    auto message = packet(s, PacketKind::typing, now);
+    message.typing = on;
+    broadcast(s, message, true, false, now);
+}
+namespace {
+std::atomic<std::uint64_t> player_input_at{};
+}
+void note_input() noexcept { player_input_at.store(now_us(), std::memory_order_relaxed); }
+// A dedicated server counts a player away while nothing they do reaches it: their skater's moves,
+// chat, voice or objects. One whose skater stands still while they play (a plugin's drone or
+// camera) says so here.
+void update_presence(Session &s, std::uint64_t now) {
+    if (!dedicated_host(s) || now < s.next_presence) return;
+    const auto input = player_input_at.load(std::memory_order_relaxed);
+    if (!input || input <= s.presence_for) return; // nothing worked since the last notice
+    const auto *host = find_peer(s, s.host_id);
+    if (!host || !host->handshaken) return;
+    if (!send_packet(s, s.host_id, packet(s, PacketKind::present, now), false, true)) return;
+    s.next_presence = now + present_interval_us;
+    s.presence_for = input;
+}
+void send_throwdown(Session &s, std::vector<std::uint8_t> message) {
+    if ((s.mode != Mode::host && s.mode != Mode::join) || message.empty() || message.size() > max_throwdown_message) return;
+    const auto now = now_us();
+    auto p = packet(s, PacketKind::throwdown, now);
+    p.throwdown = std::move(message);
+    broadcast(s, p, true, false, now);
+}
+// This game's pose to a dedicated server: its differences from a pose of its own the server has
+// said it holds (pose_batch.h), as the server sends everyone else's.
+void upload_pose(Session &s, const Packet &packet, std::uint64_t now) {
+    auto &kept = s.own_poses;
+    if (!kept.empty() && kept.back().sequence >= packet.sequence) return;
+    kept.push_back({packet.sequence, packet.time_us, pose_codec::quantize(packet.pose)});
+    while (kept.size() > 64) kept.pop_front();
+    const auto find = [&](std::uint32_t sequence) -> std::optional<pose_batch::KeptView> {
+        for (auto it = kept.rbegin(); it != kept.rend(); ++it)
+            if (it->sequence == sequence) return pose_batch::KeptView{it->sequence, it->time_us, &it->pose};
+        return {};
+    };
+    const auto emit = [&](std::span<const std::uint8_t> message, bool reliable) {
+        return s.transport.send(s.host_id, message, reliable, !reliable, TrafficLane::gameplay);
+    };
+    s.pose_upload.begin(s.world, s.map);
+    s.pose_upload.add(packet.source, packet.epoch, *find(packet.sequence), find, false, packet.player_collision, pose_batch::Rate::full, now, emit);
+    s.pose_upload.flush(emit);
+}
+void broadcast(Session &s, const Packet &packet, bool reliable, bool fresh, std::uint64_t now,
+               std::uint64_t except) {
+    const auto *source = find_peer(s, packet.source);
+    // One encoding per pose rate (full, 100 ms, 200 ms), each of the same packet with only
+    // the interval it carries changed. Recipients holding the same delta reference share one
+    // patch (DeltaCache).
+    struct Encoded {
+        bool ready{};
+        std::vector<std::uint8_t> raw, wire;
+        DeltaCache deltas;
+    };
+    std::array<Encoded, 3> encoded;
+    // Every recipient's update is built first and all go to Steam in one call. The delta
+    // references a DeltaCache points into stay valid until the senders record the sends.
+    struct Outgoing {
+        Peer *peer{};
+        WireUpdate update;
+        PoseDelivery *delivery{};
+        std::uint32_t interval{};
+    };
+    std::vector<Outgoing> outgoing;
+    unsigned direct_sent{};
+    const bool gameplay = packet.kind == PacketKind::pose || packet.kind == PacketKind::audio ||
+                          packet.kind == PacketKind::voice || packet.kind == PacketKind::cosmetics ||
+                          packet.kind == PacketKind::effects;
 			for (auto& p : active_peers(s)) {
 				if (!p.handshaken || p.member.id == except ||
 					(s.mode == Mode::host && gameplay && !p.world_ready) ||
@@ -374,7 +392,7 @@ namespace dingosdk::multiplayer {
 				// Chat and throwdown messages always travel through the host, which relays
 				// them once to everyone else; a direct copy as well would deliver them twice.
 				if ((packet.kind == PacketKind::chat || packet.kind == PacketKind::throwdown || packet.kind == PacketKind::effects ||
-					packet.kind == PacketKind::typing || packet.kind == PacketKind::drone) && s.mode == Mode::join &&
+             packet.kind == PacketKind::typing) && s.mode == Mode::join &&
 					p.member.id != s.host_id)
 					continue;
 				if (packet.kind == PacketKind::voice) {
@@ -582,6 +600,11 @@ namespace dingosdk::multiplayer {
 			set_session_tuning_enforced(enforced);
 			if (enforced && s.host_extras && !dedicated_host(s)) set_host_physics_extras(*s.host_extras);
 			else set_host_physics_extras({});
+    if (competition_stock_physics()) {
+        physics_tuning::prepare();
+        if (world_playing(s,local)) physics_tuning::enforce(s.base,local.entity,{});
+        return;
+    }
 			if (s.mode == Mode::host) {
 				physics_tuning::release(s.base);
 				if (!s.enforce_tuning) {
@@ -773,14 +796,6 @@ namespace dingosdk::multiplayer {
 				auto e = packet(s, PacketKind::effects, now);
 				e.impacts = std::move(impacts);
 				deliver(e, false, true);
-			}
-			// Where this player's FPV drone is, for the marker others see (drone_beacon.h).
-			if (const auto out = drone::beacon::next_outgoing()) {
-				auto d = packet(s, PacketKind::drone, now);
-				d.drone_active = out->active;
-				d.drone_position = out->position;
-				d.drone_rotation = out->rotation;
-				deliver(d, false, true);
 			}
 		}
 	} // namespace session_detail

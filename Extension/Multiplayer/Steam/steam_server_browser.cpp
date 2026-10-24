@@ -164,8 +164,8 @@ namespace dingosdk::multiplayer {
 	    row.code = format_invite({steam_id, secret});
 	    row.name = tidy(row.name, 64);
 	    row.map = tidy(row.map, 128);
-	    if (row.name.empty()) row.name = "ReSkate Server";
-	    return row;
+    if (row.name.empty()) row.name = "ReSkate server";
+    return row;
 	}
 
 	SteamServerBrowser::~SteamServerBrowser() { release(); }

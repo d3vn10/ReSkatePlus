@@ -291,6 +291,17 @@ Catalogs read_catalogs(const std::filesystem::path& folder) {
     return out;
 }
 
+bool Catalogs::is_paid_or_reserved(const std::string& key) const {
+	if (!items.contains(key) || open_items.contains(key)) return false;
+    // Build-kit objects nothing offers, sells or grants are taken as everyday
+    // park pieces; brand collabs stay with the store. Many basic objects (A
+    // frames, quarter pipes, bowl pieces, Pole Jam M) have no source record in
+    // the cache, so without this the Object Browser and park editor hid them.
+    // Cosmetics are not covered: unsourced ones include past store and pass items.
+    if (key.starts_with("own_bk") && !granted_items.contains(key) && !collab_items.contains(key)) return false;
+    return !key.starts_with("dev_") && key.find("_dev_") == std::string::npos && !key.ends_with("_dev");
+}
+
 bool Catalogs::reserved(const std::string& /*key*/) const {
 	/*if (!items.contains(key) || open_items.contains(key)) return false;*/
     // Build-kit objects nothing offers, sells or grants are taken as everyday

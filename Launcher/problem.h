@@ -64,7 +64,7 @@ inline Problem explain(std::string_view raw) {
                 "It is installing the game data this build needs. Wait for it to finish, then press RETRY."};
     if (mentions(raw, "content cache"))
         return {"The one-time game data download failed",
-                "ReSkate downloads the game's catalogues once per build. Check your internet connection and "
+                "ReSkate+ downloads the game's catalogues once per build. Check your internet connection and "
                 "press RETRY."};
     if (mentions(raw, "need different keys"))
         return {"The menu and console share a key",
@@ -73,7 +73,7 @@ inline Problem explain(std::string_view raw) {
     // number win32_failure puts in front of it.
     if (mentions(raw, "failed (740)"))
         return {"Skate.exe is set to always run as administrator",
-                "ReSkate has to start Skate itself, and Windows does not let it start a program marked to "
+                "ReSkate+ has to start Skate itself, and Windows does not let it start a program marked to "
                 "need administrator. Right-click Skate.exe, pick Properties, then Compatibility, and untick "
                 "\"Run this program as an administrator\". Starting ReSkatePlusLauncher.exe as "
                 "administrator works too."};
@@ -95,7 +95,7 @@ inline Problem explain(std::string_view raw) {
     if (mentions(raw, "validated Skate.exe") || mentions(raw, "loaded-image") || mentions(raw, "DOS header") ||
         mentions(raw, "module list") || mentions(raw, "VirtualAllocEx") || mentions(raw, "NtQueryInformationProcess") ||
         mentions(raw, "DingoSDKDebugInitialize") || mentions(raw, "Remote "))
-        return {"ReSkate could not attach to Skate", std::string(attach_advice)};
+        return {"ReSkate+ could not attach to Skate", std::string(attach_advice)};
     // Windows reports a refused write in the user's own language, so these
     // key on the operation names and the path, which are never translated.
     const bool write_failure = mentions(raw, "create_directories") || mentions(raw, "create_directory") ||
@@ -103,7 +103,7 @@ inline Problem explain(std::string_view raw) {
                                mentions(raw, "Cannot publish") || mentions(raw, "Cannot append") ||
                                mentions(raw, "Cannot replace");
     if (write_failure)
-        return {"ReSkate cannot write to its own folder",
+        return {"ReSkate+ cannot write to its own folder",
                 "Move the whole ReSkate+ folder somewhere else, such as C:\\Games\\ReSkatePlus, and start it from "
                 "there. Program Files and OneDrive do not let it write."};
     return {std::string(raw),

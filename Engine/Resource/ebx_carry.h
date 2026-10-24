@@ -11,13 +11,13 @@
 #include <memory>
 #include <string>
 
-namespace dingosdk::frostbite::ebx::detail
-{
-    // Instance and type identity travel by name and guid, because the two documents
-    // number them independently.
-    class Carrier final {
-    public:
-        Carrier(const Document& from, Document& to);
+namespace dingosdk::frostbite::ebx::detail {
+
+// Instance and type identity travel by name and guid, because the two documents
+// number them independently.
+class Carrier final {
+public:
+    Carrier(const Document& from, Document& to);
 
         // The instance `from` index resolves to the existing `to` index instead of
         // being carried, for a copy the caller has matched by content.

@@ -6,6 +6,8 @@
 #include "Engine/Game/Build/20260929/engine.h"
 #include "Engine/Game/Build/20260929/local_player_card.h"
 #include "Extension/Throwdowns/native_throwdowns.h"
+#include "Extension/Throwdowns/native_flag_session.h"
+#include "Extension/Throwdowns/throwdown_kit.h"
 #include "Extension/Multiplayer/Steam/steam_social.h"
 
 namespace dingosdk::profile_runtime {
@@ -210,34 +212,35 @@ namespace dingosdk::profile_runtime {
 	        // In-throwdown / throwdown-host flags. The throwdown Quit action does
 	        // nothing unless the first is set; the second is only for the local
 	        // player's own drop (a joined one is left, not cancelled).
-	        const bool throwdown = multiplayer::local_throwdown_active();
-	        const bool host = multiplayer::local_throwdown_host();
-	        static bool logged_state{};
-	        if (const auto field = n.field(model, handle, 11, UINT32_MAX, false))
-	            n.publish(model, field, s.base + addr::engine::bool_type, &throwdown);
-	        if (const auto field = n.field(model, handle, 12, UINT32_MAX, false))
-	            n.publish(model, field, s.base + addr::engine::bool_type, &host);
-	        if (throwdown != logged_state) {
-	            logged_state = throwdown;
-	            std::array<std::uint8_t, 2> stored{};
-	            const auto record = n.value(model, handle, 0, 0);
-	            if (record) { read(record + 0xfc, stored[0]); read(record + 0xff, stored[1]); }
-	            dingosdk::logging::log(dingosdk::logging::Level::info, dingosdk::logging::Channel::progression,
-	                "Throwdown flags: active={} native-record={} stored={}/{}", throwdown, original != 0, stored[0], stored[1]);
-	        }
-	    }
-	    for (const auto& slot : value.recipes.front().items) {
-	        const unsigned index = slot.slot == 42677725U ? 3 : slot.slot == 782673846U ? 25 : 26;
-	        const auto field = game::native_data().models.field(model, handle, index, 0xffffffffU, false);
-	        const auto hash = cosmetic_hash(slot.asset);
-	        std::uint32_t actual{};
-	        if (!field) return false;
-	        if (read(n.value(model, field, 0, 0), actual) && actual == hash) continue;
-	        n.publish(model, field, s.base + addr::engine::uint32_type, &hash);
-	        if (!read(n.value(model, field, 0, 0), actual) || actual != hash) return false;
-	    }
-	    return true;
-	}
+        const bool plugin_match = throwdowns::kit::match().in_activity;
+        const bool throwdown = multiplayer::local_throwdown_active() || plugin_match;
+        const bool host = multiplayer::local_throwdown_host() || (plugin_match && multiplayer::native_flag::hosting());
+        static bool logged_state{};
+        if (const auto field = n.field(model, handle, 11, UINT32_MAX, false))
+            n.publish(model, field, s.base + addr::engine::bool_type, &throwdown);
+        if (const auto field = n.field(model, handle, 12, UINT32_MAX, false))
+            n.publish(model, field, s.base + addr::engine::bool_type, &host);
+        if (throwdown != logged_state) {
+            logged_state = throwdown;
+            std::array<std::uint8_t, 2> stored{};
+            const auto record = n.value(model, handle, 0, 0);
+            if (record) { read(record + 0xfc, stored[0]); read(record + 0xff, stored[1]); }
+            dingosdk::logging::log(dingosdk::logging::Level::info, dingosdk::logging::Channel::progression,
+                "Throwdown flags: active={} native-record={} stored={}/{}", throwdown, original != 0, stored[0], stored[1]);
+        }
+    }
+    for (const auto& slot : value.recipes.front().items) {
+        const unsigned index = slot.slot == 42677725U ? 3 : slot.slot == 782673846U ? 25 : 26;
+        const auto field = game::native_data().models.field(model, handle, index, 0xffffffffU, false);
+        const auto hash = cosmetic_hash(slot.asset);
+        std::uint32_t actual{};
+        if (!field) return false;
+        if (read(n.value(model, field, 0, 0), actual) && actual == hash) continue;
+        n.publish(model, field, s.base + addr::engine::uint32_type, &hash);
+        if (!read(n.value(model, field, 0, 0), actual) || actual != hash) return false;
+    }
+    return true;
+}
 
 	void update_player_card() {
 	    auto& s = local_runtime(); auto& p = player_card_runtime(); auto& f = p.functions;

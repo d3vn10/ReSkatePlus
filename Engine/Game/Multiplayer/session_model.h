@@ -108,7 +108,7 @@ struct MultiplayerChatLine {
     std::string name, text;
     bool local{};               // sent by this player
     // The sender's role, as their nametag shows it: its colour (IM_COL32 layout, 0 = none)
-    // and a tag shown in a box before the name ("Developer", "ReSkate Admin", "Content Creator", "Centrix", "Homie", "Admin", "Host", "Friend", "Server" or empty).
+    // and a tag shown in a box before the name ("Developer", "Staff", "Content Creator", "Centrix", "Homie", "Admin", "Host", "Friend", "Server" or empty).
     std::uint32_t color{};
     std::string tag;
     // With the chat filter on, `text` is masked and this is the line as sent (same length), so
@@ -179,6 +179,8 @@ struct MultiplayerModel {
     bool object_scaling{true};
     // Host setting: whether guests may use noclip / No Bail (the host and server admins always may).
     bool guest_noclip{true}, guest_no_bail{true}, guest_boosts{true};
+    // Whether this player may ollie: false only while a dedicated server locks it for them.
+    bool guest_ollies{true};
     // Host setting: guests skate with the host's physics tuning (on a dedicated server: the
     // game's own). Guest: what that does here, while enforced.
     bool enforce_tuning{true};

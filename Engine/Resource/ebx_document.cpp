@@ -6,18 +6,18 @@
 #include <stdexcept>
 #include <unordered_map>
 
-namespace dingosdk::frostbite::ebx
-{
-    namespace
-    {
-        constexpr std::uint32_t riff = 0x46464952;
-        constexpr std::uint32_t ebx = 0x45425800;
-        constexpr std::uint32_t ebxs = 0x45425853;
-        constexpr std::uint32_t ebxd = 0x45425844;
-        constexpr std::uint32_t efix = 0x45464958;
-        constexpr std::uint32_t ebxx = 0x45425858;
-        constexpr std::uint32_t refl = 0x5245464C;
-        constexpr std::uint32_t rfl2 = 0x52464C32;
+namespace dingosdk::frostbite::ebx {
+
+namespace {
+
+constexpr std::uint32_t riff = 0x46464952;
+constexpr std::uint32_t ebx = 0x45425800;
+constexpr std::uint32_t ebxs = 0x45425853;
+constexpr std::uint32_t ebxd = 0x45425844;
+constexpr std::uint32_t efix = 0x45464958;
+constexpr std::uint32_t ebxx = 0x45425858;
+constexpr std::uint32_t refl = 0x5245464C;
+constexpr std::uint32_t rfl2 = 0x52464C32;
 
         struct Chunk {
             std::uint32_t id{};
@@ -328,8 +328,7 @@ namespace dingosdk::frostbite::ebx
                     if (found == nameOffsets.end()) throw std::runtime_error("RFL2 field name is missing");
                     document.fields[index].name = string_at(reader, strings + found->second, chunk.end);
                 }
-            }
-            else {
+    } else {
                 const auto strings = reader.position();
                 for (std::size_t index = 0; index < document.types.size(); ++index) {
                     document.types[index].name = string_at(reader, strings + typeNames[index], chunk.end);
@@ -474,8 +473,7 @@ namespace dingosdk::frostbite::ebx
                         if (field.type() == FieldType::structure) {
                             if (field.classRef >= document_.types.size()) throw std::runtime_error("EBX array struct type is invalid");
                             reader_.seek(elementStart + document_.types[field.classRef].size);
-                        }
-                        else if (field.type() == FieldType::pointer || field.type() == FieldType::cString) {
+                } else if (field.type() == FieldType::pointer || field.type() == FieldType::cString) {
                             reader_.seek(align_up(reader_.position(), 8));
                         }
                     }

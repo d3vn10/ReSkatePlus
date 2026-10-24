@@ -429,7 +429,7 @@ void special_page(SkateMenu &menu, const Model &model, const CallbacksV3 &) {
 			dingosdk::overlay::menu::current_identity = multiplayer::IdentityList::homie;
 	}
     int current_id = static_cast<int>(*dingosdk::overlay::menu::current_identity);
-    if (choice(menu, "current-identity", current_id, { "Developer", "Homie", "Content Creator", "Centrix", "Server", "Staff" }, tag)) {
+    if (choice(menu, "current-identity", current_id, { "Developer", "Homie", "Creator", "Centrix", "Server", "Staff" }, tag)) {
         switch (current_id) {
 			case 0: dingosdk::overlay::menu::current_identity = multiplayer::IdentityList::developer; break;
             default:

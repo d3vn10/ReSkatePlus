@@ -168,7 +168,8 @@ namespace dingosdk::overlay::menu::multiplayer_detail {
             field(menu, "Voice range", "How far apart players can be and still hear each other. Past this the host "
                 "stops sending their voice.");
             float range = menu.voice_range_pending.value_or(mp.voice_range);
-            dingosdk::overlay::menu::slider_float("##voice-range", &range, min_voice_range, max_voice_range, "%.0f m", ImGuiSliderFlags_AlwaysClamp | ImGuiSliderFlags_Logarithmic); //::?
+        dingosdk::overlay::menu::slider_float("##voice-range", &range, min_voice_range, max_voice_range, "%.0f m",
+                           ImGuiSliderFlags_AlwaysClamp | ImGuiSliderFlags_Logarithmic);
             if (ImGui::IsItemActive()) menu.voice_range_pending = range;
             if (ImGui::IsItemDeactivatedAfterEdit()) {
                 send_private(menu, "voice-range", std::to_string(static_cast<int>(range)), unused, false);

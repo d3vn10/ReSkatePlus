@@ -625,28 +625,24 @@ namespace dingosdk::launcher_gui {
                         }
                     }
                 }
-                if (hidden || IsIconic(window)) {
-                    Sleep(hidden ? 100 : 50);
-                    continue;
-                }
-                paint();
-            }
-            g_paint = nullptr;
-            g_pad_feed = nullptr;
-            ShowWindow(window, SW_HIDE);
-            if (game) CloseHandle(game);
-            launcher.cancel();
-            // Closing the window with Settings still open must not lose changes.
-            try { launcher.save(); }
-            catch (...) {}
+            if (hidden || IsIconic(window)) { Sleep(hidden ? 100 : 50); continue; }
+            paint();
         }
-        g_renderer = nullptr;
-        renderer.shutdown();
-        ImGui_ImplWin32_Shutdown();
-        ImGui::DestroyContext();
-        DestroyWindow(window);
-        if (com) CoUninitialize();
-        return result;
+        g_paint = nullptr;
+        g_pad_feed = nullptr;
+        ShowWindow(window, SW_HIDE);
+        if (game) CloseHandle(game);
+        launcher.cancel();
+        // Closing the window with Settings still open must not lose changes.
+        try { launcher.save(); } catch (...) {}
     }
+    g_renderer = nullptr;
+    renderer.shutdown();
+    ImGui_ImplWin32_Shutdown();
+    ImGui::DestroyContext();
+    DestroyWindow(window);
+    if (com) CoUninitialize();
+    return result;
+}
 
 } // namespace dingosdk::launcher_gui

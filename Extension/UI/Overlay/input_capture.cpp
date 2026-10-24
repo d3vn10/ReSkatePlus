@@ -2,9 +2,13 @@
 #include "overlay_internal.h"
 #include "input_capture.h"
 #include "held_input.h"
+#include "scripted_pad.h"
+#include "Extension/Throwdowns/throwdown_kit.h"
 #include "Engine/Game/Input/playstation_report.h"
+#include "Engine/Game/Input/owned_menu_input.h"
 #include <hidsdi.h>
 #include <atomic>
+#include <cmath>
 #include <format>
 #include <array>
 #include <cstring>
@@ -15,55 +19,86 @@
 #include <tuple>
 
 namespace dingosdk::overlay::detail {
-    // Window messages do not cover the game's independently polled input devices.
-    // Only the overlay's own Win32 backend and binding reader may bypass these gates.
-    thread_local HRAWINPUT noted_raw_input = nullptr;
-    namespace {
-        std::atomic<unsigned> prompt_xinput{}, prompt_direct{}, prompt_hid{}, prompt_raw{};
-        // A read the game made while a card held its input: counted, by the way it read.
-        void note_prompt_read(std::atomic<unsigned>& count) {
-            if (!overlay_input_access && state().prompt_input_active.load(std::memory_order_relaxed)) count.fetch_add(1, std::memory_order_relaxed);
-        }
-    }
-    PromptReads take_prompt_reads() noexcept {
-        return { prompt_xinput.exchange(0), 0, prompt_direct.exchange(0), prompt_hid.exchange(0), prompt_raw.exchange(0) };
-    }
-	
-    bool block_polled_input() {
-        const auto error = GetLastError();
-        const bool capture = !overlay_input_access && (owns_menu_cursor(state()) || state().freecam_controller_active.load(std::memory_order_relaxed) ||
-            state().prompt_input_active.load(std::memory_order_relaxed));
-        SetLastError(error);
-        return capture;
-    }
+// Window messages do not cover the game's independently polled input devices.
+// Only the overlay's own Win32 backend and binding reader may bypass these gates.
+thread_local HRAWINPUT noted_raw_input = nullptr;
+std::atomic<ULONGLONG> mode_input_paused_until{};
+std::atomic<std::uint16_t> mode_hidden_buttons{}, mode_held_buttons{};
+std::atomic<int> mode_mouse_wheel{};
+std::atomic<bool> challenge_menu_capture{};
+std::atomic<bool> challenge_native_panel{};
+std::atomic<bool> challenge_menu_release{};
+bool suppress_challenge_menu() noexcept {
+    return !overlay_input_access && (challenge_menu_capture.load(std::memory_order_relaxed) || challenge_menu_release.load(std::memory_order_relaxed));
+}
+bool challenge_menu_key(int key) noexcept {
+    return key==VK_ESCAPE && suppress_challenge_menu();
+}
+bool challenge_panel_owns_input() noexcept {
+    return challenge_native_panel.load(std::memory_order_relaxed);
+}
+// Keys kept from the game (hide_game_keys): their presses are dropped from every way it reads the
+// keyboard. Releases pass, so a key the game saw go down still comes up.
+std::array<std::atomic<std::uint64_t>, 4> hidden_keys{};
+bool key_hidden(unsigned key) noexcept {
+    return key < 256 && !overlay_input_access && (hidden_keys[key / 64].load(std::memory_order_relaxed) >> (key % 64) & 1) != 0;
+}
+namespace {
+bool hidden_press(const RAWKEYBOARD& keyboard) noexcept { return !(keyboard.Flags & RI_KEY_BREAK) && key_hidden(keyboard.VKey); }
+// The DirectInput keyboard's scan code (DIK_) of a hidden key.
+bool scan_hidden(DWORD scan) noexcept {
+    const auto key = MapVirtualKeyW(scan, MAPVK_VSC_TO_VK_EX);
+    return key && key_hidden(key);
+}
+}
+namespace {
+std::atomic<unsigned> prompt_xinput{}, prompt_direct{}, prompt_hid{}, prompt_raw{};
+// A read the game made while a card held its input: counted, by the way it read.
+void note_prompt_read(std::atomic<unsigned>& count) {
+    if (!overlay_input_access && state().prompt_input_active.load(std::memory_order_relaxed)) count.fetch_add(1, std::memory_order_relaxed);
+}
+}
+PromptReads take_prompt_reads() noexcept {
+    return {prompt_xinput.exchange(0), 0, prompt_direct.exchange(0), prompt_hid.exchange(0), prompt_raw.exchange(0)};
+}
+bool block_polled_input() {
+    const auto error = GetLastError();
+    const bool capture = !overlay_input_access && (owns_menu_cursor(state()) || state().freecam_controller_active.load(std::memory_order_relaxed) ||
+                                                    state().prompt_input_active.load(std::memory_order_relaxed) ||
+        game::owned_menu_countdown_capture(throwdowns::kit::match().input_lock,challenge_panel_owns_input()) ||
+        GetTickCount64() < mode_input_paused_until.load(std::memory_order_relaxed) ||
+        (mode_hidden_buttons.load(std::memory_order_relaxed) & mode_held_buttons.load(std::memory_order_relaxed)));
+    SetLastError(error);
+    return capture;
+}
 
-    void note_input_record(const RAWINPUT& record) noexcept;
-    HeldInput& held_input() { static auto* value = new HeldInput; return *value; }
+void note_input_record(const RAWINPUT& record) noexcept;
+HeldInput& held_input() { static auto* value = new HeldInput; return *value; }
 
-    struct InputCaptureHooks {
-        Hook hid_attributes, read_file, overlapped, overlapped_ex, completion, completion_ex, close_handle;
-        struct HidRead { HANDLE file; void* buffer; DWORD capacity; PlayStationPad kind; };
-        std::mutex hid_mutex;
-        std::map<HANDLE, PlayStationPad> hid_devices;
-        std::map<OVERLAPPED*, HidRead> hid_reads;
-        Hook register_raw;
-        Hook async_key, key, keyboard, raw_data, raw_buffer, capture, release_capture, cursor, show_cursor, physical_cursor, cursor_position;
-        std::array<Hook, 5> xinput_state, xinput_extended, xinput_keystroke;
-        // Hooks other programs put in front of those, hooked in turn (keep_xinput_capture_first).
-        static constexpr std::size_t front_slots = 8;
-        std::array<Hook, front_slots> xinput_front;
-        std::mutex front_mutex;
-        Hook direct_create;
-        std::array<Hook, 2> device_create;
-        // Mouse/keyboard and A/W devices may have distinct implementations. Slots
-        // describe callable addresses, not the CreateDevice interface index.
-        static constexpr std::size_t device_slots = 8;
-        std::array<Hook, device_slots> device_state, device_data, device_format;
-        struct Format { DWORD size{}; std::vector<DIOBJECTDATAFORMAT> objects; };
-        std::mutex formats_mutex;
-        std::map<void*, Format> formats;
-    };
-    InputCaptureHooks& input_hooks() { static auto* hooks = new InputCaptureHooks; return *hooks; }
+struct InputCaptureHooks {
+    Hook hid_attributes, read_file, overlapped, overlapped_ex, completion, completion_ex, close_handle;
+    struct HidRead { HANDLE file; void* buffer; DWORD capacity; PlayStationPad kind; };
+    std::mutex hid_mutex;
+    std::map<HANDLE, PlayStationPad> hid_devices;
+    std::map<OVERLAPPED*, HidRead> hid_reads;
+    Hook register_raw;
+    Hook async_key, key, keyboard, raw_data, raw_buffer, capture, release_capture, cursor, show_cursor, physical_cursor, cursor_position;
+    std::array<Hook, 5> xinput_state, xinput_extended, xinput_keystroke;
+    // Hooks other programs put in front of those, hooked in turn (keep_xinput_capture_first).
+    static constexpr std::size_t front_slots = 8;
+    std::array<Hook, front_slots> xinput_front;
+    std::mutex front_mutex;
+    Hook direct_create;
+    std::array<Hook, 2> device_create;
+    // Mouse/keyboard and A/W devices may have distinct implementations. Slots
+    // describe callable addresses, not the CreateDevice interface index.
+    static constexpr std::size_t device_slots = 8;
+    std::array<Hook, device_slots> device_state, device_data, device_format;
+    struct Format { DWORD size{}; std::vector<DIOBJECTDATAFORMAT> objects; };
+    std::mutex formats_mutex;
+    std::map<void*, Format> formats;
+};
+InputCaptureHooks& input_hooks() { static auto* hooks = new InputCaptureHooks; return *hooks; }
 
 BOOLEAN __stdcall captured_hid_attributes(HANDLE file, PHIDD_ATTRIBUTES attributes) {
     const auto result = original<decltype(&HidD_GetAttributes)>(input_hooks().hid_attributes)(file, attributes);
@@ -97,7 +132,9 @@ void refresh_bluetooth_crc(std::uint8_t* bytes, DWORD size) noexcept {
     std::memcpy(bytes + size - 4, &crc, sizeof(crc));
 }
 void neutral_hid(const InputCaptureHooks::HidRead& read, DWORD size) {
-    if (!block_polled_input() || !read.buffer || size > read.capacity) return;
+    const bool capture=block_polled_input();
+    const bool menu=suppress_challenge_menu();
+    if ((!capture && !menu) || !read.buffer || size > read.capacity) return;
     auto* bytes = static_cast<std::uint8_t*>(read.buffer);
     // USB or Bluetooth decides where the buttons are in a report with id 1. It is the device's
     // report length that tells them apart, and Windows pads every read to that length, so it
@@ -111,17 +148,22 @@ void neutral_hid(const InputCaptureHooks::HidRead& read, DWORD size) {
         (bytes[0] == 0x31 || (bytes[0] == 1 && !bluetooth));
     const unsigned offset = bytes[0] == 0x31 ? 2 : bytes[0] == 0x11 ? 3 : 1;
     auto* data = bytes + offset;
-    std::fill_n(data, 4, std::uint8_t{128});
-    if (sense_full) {
+    if(!capture) {
+        // Options is the normalized Start bit. Preserve D-pad, face buttons,
+        // sticks and triggers, including the device's sequence counters.
+        data[sense_full?8:5]&=std::uint8_t{0xdf};
+    } else if (sense_full) {
+        std::fill_n(data,4,std::uint8_t{128});
         data[4] = data[5] = 0; // triggers; retain report sequence at +6
         data[7] = 8; data[8] = data[9] = 0;
     } else {
+        std::fill_n(data,4,std::uint8_t{128});
         data[4] = 8; data[5] = 0; data[6] &= 0xfc; // retain DS4 sequence bits
         data[7] = data[8] = 0;
     }
     refresh_bluetooth_crc(bytes, size);
     static std::atomic<bool> reported{};
-    if (!reported.exchange(true)) logging::printf(logging::Level::info, logging::Channel::input,
+    if (capture && !reported.exchange(true)) logging::printf(logging::Level::info, logging::Channel::input,
         "Native PlayStation HID report neutralized; overlay retains its independent input stream. (%s over %s, report 0x%02x of %lu bytes, "
         "the game's buffer %lu.)", read.kind == PlayStationPad::dualsense ? "DualSense" : "DualShock 4",
         bluetooth ? "Bluetooth" : "USB", bytes[0], size, read.capacity);
@@ -289,68 +331,65 @@ BOOL WINAPI captured_close_handle(HANDLE file) {
     return original<decltype(&CloseHandle)>(h.close_handle)(file);
 }
 
-    // Where the jump at an entry point goes, through any stubs on the way: the first address inside
-    // a module, and that module. Null when the entry point is not hooked (or cannot be read).
-    struct Landing { void* at{}; HMODULE module{}; };
-    Landing hook_landing(void* entry) {
-        const auto self = GetCurrentProcess();
-        const auto read = [&](const void* at, void* out, std::size_t size) {
-            SIZE_T got{};
-            return ReadProcessMemory(self, at, out, size, &got) && got == size;
-        };
-        auto* at = static_cast<std::uint8_t*>(entry);
-        for (int hop = 0; hop < 8; ++hop) {
-            std::uint8_t code[16]{};
-            if (!read(at, code, sizeof(code))) return {};
-            std::uint8_t* next{};
-            if (code[0] == 0xe9) {
-                std::int32_t offset; std::memcpy(&offset, code + 1, 4);
-                next = at + 5 + offset;
-            }
-            else if (code[0] == 0xff && code[1] == 0x25) {
-                std::int32_t offset; std::memcpy(&offset, code + 2, 4);
-                if (!read(at + 6 + offset, &next, sizeof(next))) return {};
-            }
-            else if (code[0] == 0x48 && code[1] == 0xb8 && code[10] == 0xff && code[11] == 0xe0) {
-                std::memcpy(&next, code + 2, 8);
-            }
-            else return {};
-            at = next;
-            HMODULE module{};
-            if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                reinterpret_cast<LPCWSTR>(at), &module) && module) return { at, module };
-        }
-        return {};
-    }
-    HMODULE module_of(const void* address) {
+// Where the jump at an entry point goes, through any stubs on the way: the first address inside
+// a module, and that module. Null when the entry point is not hooked (or cannot be read).
+struct Landing { void* at{}; HMODULE module{}; };
+Landing hook_landing(void* entry) {
+    const auto self = GetCurrentProcess();
+    const auto read = [&](const void* at, void* out, std::size_t size) {
+        SIZE_T got{};
+        return ReadProcessMemory(self, at, out, size, &got) && got == size;
+    };
+    auto* at = static_cast<std::uint8_t*>(entry);
+    for (int hop = 0; hop < 8; ++hop) {
+        std::uint8_t code[16]{};
+        if (!read(at, code, sizeof(code))) return {};
+        std::uint8_t* next{};
+        if (code[0] == 0xe9) {
+            std::int32_t offset; std::memcpy(&offset, code + 1, 4);
+            next = at + 5 + offset;
+        } else if (code[0] == 0xff && code[1] == 0x25) {
+            std::int32_t offset; std::memcpy(&offset, code + 2, 4);
+            if (!read(at + 6 + offset, &next, sizeof(next))) return {};
+        } else if (code[0] == 0x48 && code[1] == 0xb8 && code[10] == 0xff && code[11] == 0xe0) {
+            std::memcpy(&next, code + 2, 8);
+        } else return {};
+        at = next;
         HMODULE module{};
-        GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-            reinterpret_cast<LPCWSTR>(address), &module);
-        return module;
+        if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                               reinterpret_cast<LPCWSTR>(at), &module) && module) return {at, module};
     }
-    std::string module_name(HMODULE module) {
-        wchar_t path[MAX_PATH]{};
-        GetModuleFileNameW(module, path, MAX_PATH);
-        const wchar_t* name = path;
-        for (const wchar_t* c = path; *c; ++c) if (*c == L'\\') name = c + 1;
-        std::string text;
-        for (; *name; ++name) text += static_cast<char>(*name);
-        return text;
+    return {};
+}
+HMODULE module_of(const void* address) {
+    HMODULE module{};
+    GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                       reinterpret_cast<LPCWSTR>(address), &module);
+    return module;
+}
+std::string module_name(HMODULE module) {
+    wchar_t path[MAX_PATH]{};
+    GetModuleFileNameW(module, path, MAX_PATH);
+    const wchar_t* name = path;
+    for (const wchar_t* c = path; *c; ++c) if (*c == L'\\') name = c + 1;
+    std::string text;
+    for (; *name; ++name) text += static_cast<char>(*name);
+    return text;
+}
+std::string xinput_entry_owners() {
+    std::string text;
+    const auto& h = input_hooks();
+    const auto owner = [](void* entry) {
+        const auto landing = hook_landing(entry);
+        return landing.module ? module_name(landing.module) : std::string("not hooked");
+    };
+    constexpr std::array names{"xinput1_4", "xinput1_3", "xinput9_1_0", "xinput1_2", "xinput1_1"};
+    for (std::size_t i = 0; i < names.size(); ++i) {
+        if (h.xinput_state[i].target) text += (text.empty() ? "" : ", ") + std::string(names[i]) + " " + owner(h.xinput_state[i].target);
+        if (h.xinput_extended[i].target) text += (text.empty() ? "" : ", ") + std::string(names[i]) + " (extended) " + owner(h.xinput_extended[i].target);
     }
-    std::string xinput_entry_owners() {
-        std::string text;
-        const auto& h = input_hooks();
-        const auto owner = [](void* entry) {
-            const auto landing = hook_landing(entry);
-            return landing.module ? module_name(landing.module) : std::string("not hooked");
-        };
-        constexpr std::array names{ "xinput1_4", "xinput1_3", "xinput9_1_0", "xinput1_2", "xinput1_1" };
-        for (std::size_t i = 0; i < names.size(); ++i) {
-            if (h.xinput_state[i].target) text += (text.empty() ? "" : ", ") + std::string(names[i]) + " " + owner(h.xinput_state[i].target);
-            if (h.xinput_extended[i].target) text += (text.empty() ? "" : ", ") + std::string(names[i]) + " (extended) " + owner(h.xinput_extended[i].target);
-        }
-        return text.empty() ? "none" : text;
-    }
+    return text.empty() ? "none" : text;
+}
 
 // The game's own read only: not ReSkate's (overlay_input_access) and not an inner layer of a
 // read already being answered (Steam's hook going on to XInput runs inside OverlayInputAccess).
@@ -375,9 +414,11 @@ void filter_pad(bool outer, DWORD user, XINPUT_STATE* output) noexcept {
 // holds the game's input does not hold its controller. That hook's own function is hooked
 // then, so the capture is in front of it again.
 void game_pad_read(DWORD user, XINPUT_STATE* output) noexcept;
+void note_xinput(DWORD user, const XINPUT_STATE& state) noexcept;
 template<std::size_t I>
 DWORD WINAPI captured_front(DWORD user, XINPUT_STATE* output) {
     const bool capture = block_polled_input();
+    const bool menu=suppress_challenge_menu();
     const bool outer = overlay_input_access == 0;
     note_prompt_read(prompt_xinput);
     DWORD result;
@@ -385,11 +426,18 @@ DWORD WINAPI captured_front(DWORD user, XINPUT_STATE* output) {
         OverlayInputAccess access;
         result = original<DWORD(WINAPI*)(DWORD, XINPUT_STATE*)>(input_hooks().xinput_front[I])(user, output);
     }
+    if (result == ERROR_SUCCESS && output) note_xinput(user, *output);
+    // Only the game gets a scripted pad (the character room's walk): ReSkate's own reads get the real one.
+    if (outer && output && scripted_pad(user, *output)) return ERROR_SUCCESS;
     if (result == ERROR_SUCCESS && output && capture) {
         output->Gamepad = {};
         output->dwPacketNumber ^= 0x80000000u;
-    } else if (result == ERROR_SUCCESS && output && outer) {
-        game_pad_read(user, output);
+    } else if (result == ERROR_SUCCESS && output) {
+        if (outer) game_pad_read(user, output);
+        if (menu) {
+            output->Gamepad.wButtons=game::owned_menu_buttons(output->Gamepad.wButtons,true);
+            output->dwPacketNumber ^= 0x40000000u;
+        }
     }
     return result;
 }
@@ -420,15 +468,19 @@ void keep_xinput_capture_first() {
 }
 SHORT WINAPI captured_async_key(int key) {
     const auto value = original<SHORT(WINAPI*)(int)>(input_hooks().async_key)(key);
-    return block_polled_input() ? 0 : value;
+    return block_polled_input() || challenge_menu_key(key) || key_hidden(static_cast<unsigned>(key)) ? 0 : value;
 }
 SHORT WINAPI captured_key(int key) {
     const auto value = original<SHORT(WINAPI*)(int)>(input_hooks().key)(key);
-    return block_polled_input() ? 0 : value;
+    return block_polled_input() || challenge_menu_key(key) || key_hidden(static_cast<unsigned>(key)) ? 0 : value;
 }
 BOOL WINAPI captured_keyboard(PBYTE keys) {
     const auto result = original<BOOL(WINAPI*)(PBYTE)>(input_hooks().keyboard)(keys);
     if (result && keys && block_polled_input()) std::memset(keys, 0, 256);
+    else if(result && keys && challenge_menu_key(VK_ESCAPE))keys[VK_ESCAPE]=0;
+    if (result && keys)
+        for (unsigned key = 0; key < 256; ++key)
+            if (key_hidden(key)) keys[key] = 0;
     return result;
 }
 UINT WINAPI captured_raw_data(HRAWINPUT input, UINT command, LPVOID data, PUINT size, UINT header_size) {
@@ -446,7 +498,10 @@ UINT WINAPI captured_raw_data(HRAWINPUT input, UINT command, LPVOID data, PUINT 
         const bool mouse = raw->header.dwType == RIM_TYPEMOUSE && result >= offsetof(RAWINPUT, data) + sizeof(RAWMOUSE);
         const bool keyboard =
             raw->header.dwType == RIM_TYPEKEYBOARD && result >= offsetof(RAWINPUT, data) + sizeof(RAWKEYBOARD);
-        if (!block_polled_input()) {
+        if(keyboard && (challenge_menu_key(raw->data.keyboard.VKey) || hidden_press(raw->data.keyboard))) {
+            raw->data.keyboard={};raw->data.keyboard.VKey=255;
+            raw->data.keyboard.Flags=RI_KEY_BREAK;raw->data.keyboard.Message=WM_KEYUP;
+        } else if (!block_polled_input()) {
             if ((mouse || keyboard) && !overlay_input_access) held_input().seen(*raw);
         } else if ((mouse || keyboard) && held_input().release_only(*raw)) {
             // A key or button the game holds still comes up; presses stay blocked.
@@ -475,9 +530,41 @@ struct LastInput {
     std::atomic<std::uint32_t> message{}, message_key{}; // the game window's last input message
 };
 LastInput& last_input() { static auto* value = new LastInput; return *value; }
+std::atomic<ULONGLONG> controls_at{};
+namespace {
+struct PadSeen {
+    bool known{};
+    std::uint32_t buttons{};
+    std::array<float, 6> axes{};
+};
+}
+void note_controls() noexcept { controls_at.store(GetTickCount64(), std::memory_order_relaxed); }
+// A controller counts as worked when a button changes, or a stick or trigger moves an eighth of
+// its travel from where it was last worked: one left resting off centre, or a little noise, does not.
+void note_pad(std::size_t slot, std::uint32_t buttons, const std::array<float, 6>& axes) noexcept {
+    static std::mutex mutex;
+    static std::array<PadSeen, 6> seen{};
+    if (slot >= seen.size()) return;
+    bool moved{};
+    {
+        std::lock_guard lock(mutex);
+        auto& was = seen[slot];
+        moved = was.known && was.buttons != buttons;
+        for (std::size_t i = 0; i < axes.size() && was.known; ++i) moved = moved || std::abs(axes[i] - was.axes[i]) > 0.125f;
+        if (!was.known || moved) was = {true, buttons, axes};
+    }
+    if (moved) note_controls();
+}
+void note_xinput(DWORD user, const XINPUT_STATE& state) noexcept {
+    const auto& g = state.Gamepad;
+    const auto stick = [](SHORT v) { return static_cast<float>(v) / 32768.0f; };
+    note_pad(user, g.wButtons, {stick(g.sThumbLX), stick(g.sThumbLY), stick(g.sThumbRX), stick(g.sThumbRY),
+                                g.bLeftTrigger / 255.0f, g.bRightTrigger / 255.0f});
+}
 void note_input_record(const RAWINPUT& record) noexcept {
     auto& last = last_input();
     if (record.header.dwType == RIM_TYPEKEYBOARD) {
+        note_controls();
         last.key.store(record.data.keyboard.VKey | (std::uint32_t{record.data.keyboard.MakeCode} << 16),
                        std::memory_order_relaxed);
         last.key_device.store(record.header.hDevice, std::memory_order_relaxed);
@@ -489,6 +576,10 @@ void note_input_record(const RAWINPUT& record) noexcept {
         last.mouse_buttons.store(record.data.mouse.usButtonFlags, std::memory_order_relaxed);
         last.mouse_device.store(record.header.hDevice, std::memory_order_relaxed);
         last.mouse_at.store(GetTickCount64(), std::memory_order_relaxed);
+        note_controls();
+        if ((record.data.mouse.usButtonFlags & RI_MOUSE_WHEEL) &&
+            GetTickCount64() < mode_input_paused_until.load(std::memory_order_relaxed))
+            mode_mouse_wheel.fetch_add(static_cast<SHORT>(record.data.mouse.usButtonData) / WHEEL_DELTA, std::memory_order_relaxed);
     }
 }
 std::string input_device_name(HANDLE device) {
@@ -505,6 +596,8 @@ void note_input_message(UINT message, WPARAM wp) noexcept {
     last.message.store(message, std::memory_order_relaxed);
     last.message_key.store(static_cast<std::uint32_t>(wp), std::memory_order_relaxed);
     last.message_at.store(GetTickCount64(), std::memory_order_relaxed);
+    // (Windows sends a mouse move message without the mouse moving, as a window comes or goes under it.)
+    if (message != WM_MOUSEMOVE) note_controls();
 }
 // What the game last read from the keyboard and mouse, within the 3 s before now.
 std::string recent_input() {
@@ -551,6 +644,10 @@ UINT WINAPI captured_raw_buffer(PRAWINPUT data, PUINT size, UINT header_size) {
             const bool mouse = record->header.dwType == RIM_TYPEMOUSE && bytes >= offsetof(RAWINPUT, data) + sizeof(RAWMOUSE);
             const bool keyboard =
                 record->header.dwType == RIM_TYPEKEYBOARD && bytes >= offsetof(RAWINPUT, data) + sizeof(RAWKEYBOARD);
+            if(keyboard && (challenge_menu_key(record->data.keyboard.VKey) || hidden_press(record->data.keyboard))) {
+                record->data.keyboard={};record->data.keyboard.VKey=255;
+                record->data.keyboard.Flags=RI_KEY_BREAK;record->data.keyboard.Message=WM_KEYUP;
+            }
             if (!capture) {
                 if ((mouse || keyboard) && !overlay_input_access) held_input().seen(*record);
             } else if ((mouse || keyboard) && held_input().release_only(*record)) {
@@ -789,18 +886,28 @@ DWORD WINAPI captured_xinput(DWORD user, XINPUT_STATE* output) {
     const bool game_poll = !overlay_input_access;
     const bool capture = block_polled_input();
     note_prompt_read(prompt_xinput);
+    const auto hidden = overlay_input_access ? std::uint16_t{} : static_cast<std::uint16_t>(
+        mode_hidden_buttons.load(std::memory_order_relaxed) |
+        (suppress_challenge_menu()?XINPUT_GAMEPAD_START:0));
     DWORD result;
     { // XInput exports can forward through another hooked XInput export.
         OverlayInputAccess access;
         result = original<DWORD(WINAPI*)(DWORD, XINPUT_STATE*)>(hook)(user, output);
     }
+    if (result == ERROR_SUCCESS && output) note_xinput(user, *output);
+    // Only the game gets a scripted pad (the character room's walk): ReSkate's own reads get the real one.
+    if (game_poll && output && scripted_pad(user, *output)) return ERROR_SUCCESS;
     if (result == ERROR_SUCCESS && output && capture) {
         output->Gamepad = {};
         // The game must notice a neutral state even if the physical packet did
         // not change between opening the menu and its next controller poll.
         output->dwPacketNumber ^= 0x80000000u;
-    } else if (result == ERROR_SUCCESS && output && game_poll) {
-        game_pad_read(user, output);
+    } else if (result == ERROR_SUCCESS && output) {
+        if (game_poll) game_pad_read(user, output);
+        if (hidden) {
+            output->Gamepad.wButtons &= static_cast<WORD>(~hidden);
+            output->dwPacketNumber ^= 0x40000000u;
+        }
     }
     return result;
 }
@@ -809,301 +916,338 @@ DWORD WINAPI captured_keystroke(DWORD user, DWORD reserved, PXINPUT_KEYSTROKE ou
     const auto result = original<DWORD(WINAPI*)(DWORD, DWORD, PXINPUT_KEYSTROKE)>(
         input_hooks().xinput_keystroke[I])(user, reserved, output);
     if (result == ERROR_SUCCESS && output && block_polled_input()) { *output = {}; return ERROR_EMPTY; }
+    if(result==ERROR_SUCCESS && output && suppress_challenge_menu() && output->VirtualKey==VK_PAD_START) {
+        *output={};return ERROR_EMPTY;
+    }
     // VK_PAD_DPAD_DOWN 0x5811, LEFT 0x5812, RIGHT 0x5813 (UP 0x5810 stays), while Dark Pop hides the D-pad.
     if (result == ERROR_SUCCESS && output && !overlay_input_access && output->VirtualKey >= 0x5811 && output->VirtualKey <= 0x5813 &&
         dark_pop_hiding((output->Flags & XINPUT_KEYSTROKE_KEYUP) == 0)) { *output = {}; return ERROR_EMPTY; }
     return result;
 }
 
-    template<std::size_t I>
-    HRESULT STDMETHODCALLTYPE captured_device_format(void* device, const DIDATAFORMAT* format) {
-        const auto result = original<HRESULT(STDMETHODCALLTYPE*)(void*, const DIDATAFORMAT*)>(
-            input_hooks().device_format[I])(device, format);
-        if (SUCCEEDED(result) && format && format->dwSize == sizeof(DIDATAFORMAT) &&
-            format->dwObjSize == sizeof(DIOBJECTDATAFORMAT) && format->dwNumObjs <= 1024 &&
-            (!format->dwNumObjs || format->rgodf)) {
-            InputCaptureHooks::Format copy;
-            copy.size = format->dwDataSize;
-            for (DWORD i = 0; i < format->dwNumObjs; ++i) copy.objects.push_back(format->rgodf[i]);
-            std::lock_guard lock(input_hooks().formats_mutex);
-            input_hooks().formats[device] = std::move(copy);
-        }
-        return result;
+template<std::size_t I>
+HRESULT STDMETHODCALLTYPE captured_device_format(void* device, const DIDATAFORMAT* format) {
+    const auto result = original<HRESULT(STDMETHODCALLTYPE*)(void*, const DIDATAFORMAT*)>(
+        input_hooks().device_format[I])(device, format);
+    if (SUCCEEDED(result) && format && format->dwSize == sizeof(DIDATAFORMAT) &&
+        format->dwObjSize == sizeof(DIOBJECTDATAFORMAT) && format->dwNumObjs <= 1024 &&
+        (!format->dwNumObjs || format->rgodf)) {
+        InputCaptureHooks::Format copy;
+        copy.size = format->dwDataSize;
+        for (DWORD i = 0; i < format->dwNumObjs; ++i) copy.objects.push_back(format->rgodf[i]);
+        std::lock_guard lock(input_hooks().formats_mutex);
+        input_hooks().formats[device] = std::move(copy);
     }
-    template<std::size_t I>
-    HRESULT STDMETHODCALLTYPE captured_device_state(void* device, DWORD size, LPVOID data) {
-        const auto result = original<HRESULT(STDMETHODCALLTYPE*)(void*, DWORD, LPVOID)>(
-            input_hooks().device_state[I])(device, size, data);
-        note_prompt_read(prompt_direct);
-        if (SUCCEEDED(result) && data && block_polled_input()) {
-            std::memset(data, 0, size);
-            std::lock_guard lock(input_hooks().formats_mutex);
-            const auto found = input_hooks().formats.find(device);
-            if (found != input_hooks().formats.end() && found->second.size == size) {
-                for (const auto& object : found->second.objects) {
-                    if (object.dwOfs > size || size - object.dwOfs < 4) continue;
-                    DWORD neutral = 0;
-                    if (object.dwType & DIDFT_POV) neutral = 0xffffffffu;
-                    else if (object.dwType & DIDFT_ABSAXIS) {
-                        neutral = 32767; // Standard DirectInput axis midpoint if range lookup fails.
-                        DIPROPRANGE range{};
-                        range.diph = { sizeof(range), sizeof(range.diph), object.dwOfs, DIPH_BYOFFSET };
-                        auto** vtable = *reinterpret_cast<void***>(device);
-                        using GetProperty = HRESULT(STDMETHODCALLTYPE*)(void*, REFGUID, LPDIPROPHEADER);
-                        if (SUCCEEDED(reinterpret_cast<GetProperty>(vtable[5])(device, DIPROP_RANGE, &range.diph)))
-                            neutral = static_cast<DWORD>((static_cast<std::int64_t>(range.lMin) + range.lMax) / 2);
-                    }
-                    else continue;
-                    std::memcpy(static_cast<std::byte*>(data) + object.dwOfs, &neutral, 4);
-                }
+    return result;
+}
+template<std::size_t I>
+HRESULT STDMETHODCALLTYPE captured_device_state(void* device, DWORD size, LPVOID data) {
+    const auto result = original<HRESULT(STDMETHODCALLTYPE*)(void*, DWORD, LPVOID)>(
+        input_hooks().device_state[I])(device, size, data);
+    note_prompt_read(prompt_direct);
+    if (SUCCEEDED(result) && data && block_polled_input()) {
+        std::memset(data, 0, size);
+        std::lock_guard lock(input_hooks().formats_mutex);
+        const auto found = input_hooks().formats.find(device);
+        if (found != input_hooks().formats.end() && found->second.size == size) {
+            for (const auto& object : found->second.objects) {
+                if (object.dwOfs > size || size - object.dwOfs < 4) continue;
+                DWORD neutral = 0;
+                if (object.dwType & DIDFT_POV) neutral = 0xffffffffu;
+                else if (object.dwType & DIDFT_ABSAXIS) {
+                    neutral = 32767; // Standard DirectInput axis midpoint if range lookup fails.
+                    DIPROPRANGE range{};
+                    range.diph = {sizeof(range), sizeof(range.diph), object.dwOfs, DIPH_BYOFFSET};
+                    auto** vtable = *reinterpret_cast<void***>(device);
+                    using GetProperty = HRESULT(STDMETHODCALLTYPE*)(void*, REFGUID, LPDIPROPHEADER);
+                    if (SUCCEEDED(reinterpret_cast<GetProperty>(vtable[5])(device, DIPROP_RANGE, &range.diph)))
+                        neutral = static_cast<DWORD>((static_cast<std::int64_t>(range.lMin) + range.lMax) / 2);
+                } else continue;
+                std::memcpy(static_cast<std::byte*>(data) + object.dwOfs, &neutral, 4);
             }
-            else if (size == sizeof(DIJOYSTATE) || size == sizeof(DIJOYSTATE2)) {
-                // A zeroed DirectInput axis is full travel, not the center. Some
-                // controllers use the standard joystick layout without a format
-                // record we can inspect; keep those pads neutral while captured.
-                auto* bytes = static_cast<std::byte*>(data);
-                const DWORD center = 32767;
-                const DWORD released_pov = 0xffffffffu;
-                for (std::size_t offset = 0; offset < 8 * sizeof(DWORD); offset += sizeof(DWORD))
-                    std::memcpy(bytes + offset, &center, sizeof(center));
-                for (std::size_t offset = 8 * sizeof(DWORD); offset < 12 * sizeof(DWORD); offset += sizeof(DWORD))
-                    std::memcpy(bytes + offset, &released_pov, sizeof(released_pov));
-            }
+        } else if (size == sizeof(DIJOYSTATE) || size == sizeof(DIJOYSTATE2)) {
+            // A zeroed DirectInput axis is full travel, not the center. Some
+            // controllers use the standard joystick layout without a format
+            // record we can inspect; keep those pads neutral while captured.
+            auto* bytes = static_cast<std::byte*>(data);
+            const DWORD center = 32767;
+            const DWORD released_pov = 0xffffffffu;
+            for (std::size_t offset = 0; offset < 8 * sizeof(DWORD); offset += sizeof(DWORD))
+                std::memcpy(bytes + offset, &center, sizeof(center));
+            for (std::size_t offset = 8 * sizeof(DWORD); offset < 12 * sizeof(DWORD); offset += sizeof(DWORD))
+                std::memcpy(bytes + offset, &released_pov, sizeof(released_pov));
         }
-        return result;
+    } else if (SUCCEEDED(result) && data && size == 256) {
+        if (challenge_menu_key(VK_ESCAPE)) static_cast<std::uint8_t*>(data)[DIK_ESCAPE] = 0;
+        for (DWORD scan = 1; scan < 256; ++scan)
+            if (scan_hidden(scan)) static_cast<std::uint8_t*>(data)[scan] = 0;
     }
-    template<std::size_t I>
-    HRESULT STDMETHODCALLTYPE captured_device_data(void* device, DWORD size, LPDIDEVICEOBJECTDATA data, LPDWORD count, DWORD flags) {
-        const bool capture = block_polled_input();
-        const auto result = original<HRESULT(STDMETHODCALLTYPE*)(void*, DWORD, LPDIDEVICEOBJECTDATA, LPDWORD, DWORD)>(
-            input_hooks().device_data[I])(device, size, data, count, capture ? flags & ~DIGDD_PEEK : flags);
-        if (SUCCEEDED(result) && capture && count) *count = 0;
-        return result;
+    return result;
+}
+template<std::size_t I>
+HRESULT STDMETHODCALLTYPE captured_device_data(void* device, DWORD size, LPDIDEVICEOBJECTDATA data, LPDWORD count, DWORD flags) {
+    const bool capture = block_polled_input();
+    const auto result = original<HRESULT(STDMETHODCALLTYPE*)(void*, DWORD, LPDIDEVICEOBJECTDATA, LPDWORD, DWORD)>(
+        input_hooks().device_data[I])(device, size, data, count, capture ? flags & ~DIGDD_PEEK : flags);
+    if (SUCCEEDED(result) && capture && count) *count = 0;
+    else if (SUCCEEDED(result) && data && count && size == sizeof(DIDEVICEOBJECTDATA)) {
+        std::lock_guard lock(input_hooks().formats_mutex);
+        const auto format = input_hooks().formats.find(device);
+        if (format != input_hooks().formats.end() && format->second.size == 256) {
+            const bool escape = challenge_menu_key(VK_ESCAPE);
+            DWORD kept{};
+            for (DWORD i = 0; i < *count; ++i)
+                if (!(escape && data[i].dwOfs == DIK_ESCAPE) && !((data[i].dwData & 0x80) && scan_hidden(data[i].dwOfs))) data[kept++] = data[i];
+            *count = kept;
+        }
     }
-    bool install_device_capture(void* device) {
-        auto** table = *reinterpret_cast<void***>(device);
+    return result;
+}
+bool install_device_capture(void* device) {
+    auto** table = *reinterpret_cast<void***>(device);
+    auto& hooks = input_hooks();
+    const auto states = []<std::size_t... I>(std::index_sequence<I...>) {
+        return std::array{reinterpret_cast<void*>(captured_device_state<I>)...};
+    }(std::make_index_sequence<InputCaptureHooks::device_slots>{});
+    const auto data = []<std::size_t... I>(std::index_sequence<I...>) {
+        return std::array{reinterpret_cast<void*>(captured_device_data<I>)...};
+    }(std::make_index_sequence<InputCaptureHooks::device_slots>{});
+    const auto formats = []<std::size_t... I>(std::index_sequence<I...>) {
+        return std::array{reinterpret_cast<void*>(captured_device_format<I>)...};
+    }(std::make_index_sequence<InputCaptureHooks::device_slots>{});
+    const auto add = [&](auto& family, void* target, const auto& detours) {
+        for (const auto& hook : family) if (hook.target == target) return true;
+        for (std::size_t slot = 0; slot < family.size(); ++slot)
+            if (!family[slot].target) return install(family[slot], target, detours[slot]);
+        return false;
+    };
+    // Keep installing independent methods if one fails. Report the exact gap.
+    const bool state_ready = add(hooks.device_state, table[9], states);
+    const bool data_ready = add(hooks.device_data, table[10], data);
+    const bool format_ready = add(hooks.device_format, table[11], formats);
+    if (!state_ready || !data_ready || !format_ready)
+        logging::log(logging::Level::warning, logging::Channel::input,
+            "DirectInput capture incomplete: state={}, buffered={}, format={}; mouse input may reach the game while the menu is open.",
+            state_ready, data_ready, format_ready);
+    std::lock_guard formats_lock(hooks.formats_mutex);
+    hooks.formats.erase(device); // COM addresses can be reused after Release.
+    return state_ready && data_ready && format_ready;
+}
+
+template<std::size_t I>
+HRESULT STDMETHODCALLTYPE captured_device_create(void* owner, REFGUID guid, void** output, LPUNKNOWN outer) {
+    const auto result = original<HRESULT(STDMETHODCALLTYPE*)(void*, REFGUID, void**, LPUNKNOWN)>(
+        input_hooks().device_create[I])(owner, guid, output, outer);
+    if (SUCCEEDED(result) && output && *output) {
+        std::lock_guard lock(state().hook_mutex);
+        install_device_capture(*output);
+    }
+    return result;
+}
+
+bool prepare_standard_devices(HMODULE direct) {
+    using Create = HRESULT(WINAPI*)(HINSTANCE, DWORD, REFIID, void**, IUnknown*);
+    const auto create = reinterpret_cast<Create>(GetProcAddress(direct, "DirectInput8Create"));
+    if (!create) return false;
+    bool ready = true;
+    std::array<void*, 2> create_targets{};
+    std::size_t create_count{};
+    for (const auto& iid : {IID_IDirectInput8A, IID_IDirectInput8W}) {
+        ComPtr<IUnknown> owner;
+        if (FAILED(create(GetModuleHandleW(nullptr), DIRECTINPUT_VERSION, iid,
+            reinterpret_cast<void**>(owner.GetAddressOf()), nullptr))) { ready = false; continue; }
+        auto** table = *reinterpret_cast<void***>(owner.Get());
+        create_targets[create_count++] = table[3];
+        using CreateDevice = HRESULT(STDMETHODCALLTYPE*)(void*, REFGUID, void**, IUnknown*);
+        for (const auto& guid : {GUID_SysMouse, GUID_SysKeyboard}) {
+            ComPtr<IUnknown> device;
+            if (FAILED(reinterpret_cast<CreateDevice>(table[3])(owner.Get(), guid,
+                reinterpret_cast<void**>(device.GetAddressOf()), nullptr))) { ready = false; continue; }
+            // No Acquire or cooperative-level change: these temporary objects
+            // identify shared implementations before the game starts workers.
+            if (!install_device_capture(device.Get())) ready = false;
+        }
+    }
+    auto& family = input_hooks().device_create;
+    const std::array detours{reinterpret_cast<void*>(captured_device_create<0>),
+        reinterpret_cast<void*>(captured_device_create<1>)};
+    for (std::size_t i = 0; i < create_count; ++i) {
+        if (std::any_of(family.begin(), family.end(), [&](const auto& hook) { return hook.target == create_targets[i]; })) continue;
+        const auto slot = std::find_if(family.begin(), family.end(), [](const auto& hook) { return !hook.target; });
+        if (slot == family.end() || !install(*slot, create_targets[i], detours[slot - family.begin()])) ready = false;
+    }
+    return ready;
+}
+
+HRESULT WINAPI captured_direct_create(HINSTANCE instance, DWORD version, REFIID iid, LPVOID* output, LPUNKNOWN outer) {
+    const auto result = original<HRESULT(WINAPI*)(HINSTANCE, DWORD, REFIID, LPVOID*, LPUNKNOWN)>(
+        input_hooks().direct_create)(instance, version, iid, output, outer);
+    if (SUCCEEDED(result) && output && *output) {
+        auto** table = *reinterpret_cast<void***>(*output);
+        std::lock_guard lock(state().hook_mutex);
         auto& hooks = input_hooks();
-        const auto states = []<std::size_t... I>(std::index_sequence<I...>) {
-            return std::array{ reinterpret_cast<void*>(captured_device_state<I>)... };
-        }(std::make_index_sequence<InputCaptureHooks::device_slots>{});
-        const auto data = []<std::size_t... I>(std::index_sequence<I...>) {
-            return std::array{ reinterpret_cast<void*>(captured_device_data<I>)... };
-        }(std::make_index_sequence<InputCaptureHooks::device_slots>{});
-        const auto formats = []<std::size_t... I>(std::index_sequence<I...>) {
-            return std::array{ reinterpret_cast<void*>(captured_device_format<I>)... };
-        }(std::make_index_sequence<InputCaptureHooks::device_slots>{});
-        const auto add = [&](auto& family, void* target, const auto& detours) {
-            for (const auto& hook : family) if (hook.target == target) return true;
-            for (std::size_t slot = 0; slot < family.size(); ++slot)
-                if (!family[slot].target) return install(family[slot], target, detours[slot]);
-            return false;
-        };
-        // Keep installing independent methods if one fails. Report the exact gap.
-        const bool state_ready = add(hooks.device_state, table[9], states);
-        const bool data_ready = add(hooks.device_data, table[10], data);
-        const bool format_ready = add(hooks.device_format, table[11], formats);
-        if (!state_ready || !data_ready || !format_ready)
-            logging::log(logging::Level::warning, logging::Channel::input,
-                "DirectInput capture incomplete: state={}, buffered={}, format={}; mouse input may reach the game while the menu is open.",
-                state_ready, data_ready, format_ready);
-        std::lock_guard formats_lock(hooks.formats_mutex);
-        hooks.formats.erase(device); // COM addresses can be reused after Release.
-        return state_ready && data_ready && format_ready;
+        // A/W implementations sometimes share their callable address.
+        for (const auto& hook : hooks.device_create) if (hook.target == table[3]) return result;
+        if (!hooks.device_create[0].target)
+            install(hooks.device_create[0], table[3], reinterpret_cast<void*>(captured_device_create<0>));
+        else install(hooks.device_create[1], table[3], reinterpret_cast<void*>(captured_device_create<1>));
     }
+    return result;
+}
 
-    template<std::size_t I>
-    HRESULT STDMETHODCALLTYPE captured_device_create(void* owner, REFGUID guid, void** output, LPUNKNOWN outer) {
-        const auto result = original<HRESULT(STDMETHODCALLTYPE*)(void*, REFGUID, void**, LPUNKNOWN)>(
-            input_hooks().device_create[I])(owner, guid, output, outer);
-        if (SUCCEEDED(result) && output && *output) {
-            std::lock_guard lock(state().hook_mutex);
-            install_device_capture(*output);
-        }
-        return result;
+namespace {
+// `owns_pointer` is asked only when the packet moves a cursor Windows is not moving.
+template<class OwnsPointer> void note_packet(const RAWMOUSE& mouse, OwnsPointer&& owns_pointer) {
+    auto& s = state();
+    const bool relative = !(mouse.usFlags & MOUSE_MOVE_ABSOLUTE);
+    if (relative) {
+        s.raw_mouse_x.fetch_add(mouse.lLastX);
+        s.raw_mouse_y.fetch_add(mouse.lLastY);
+        s.look_mouse_x.fetch_add(mouse.lLastX);
+        s.look_mouse_y.fetch_add(mouse.lLastY);
     }
-
-    bool prepare_standard_devices(HMODULE direct) {
-        using Create = HRESULT(WINAPI*)(HINSTANCE, DWORD, REFIID, void**, IUnknown*);
-        const auto create = reinterpret_cast<Create>(GetProcAddress(direct, "DirectInput8Create"));
-        if (!create) return false;
-        bool ready = true;
-        std::array<void*, 2> create_targets{};
-        std::size_t create_count{};
-        for (const auto& iid : { IID_IDirectInput8A, IID_IDirectInput8W }) {
-            ComPtr<IUnknown> owner;
-            if (FAILED(create(GetModuleHandleW(nullptr), DIRECTINPUT_VERSION, iid,
-                reinterpret_cast<void**>(owner.GetAddressOf()), nullptr))) {
-                ready = false; 
-				continue;
-            }
-            auto** table = *reinterpret_cast<void***>(owner.Get());
-            create_targets[create_count++] = table[3];
-            using CreateDevice = HRESULT(STDMETHODCALLTYPE*)(void*, REFGUID, void**, IUnknown*);
-            for (const auto& guid : { GUID_SysMouse, GUID_SysKeyboard }) {
-                ComPtr<IUnknown> device;
-                if (FAILED(reinterpret_cast<CreateDevice>(table[3])(owner.Get(), guid,
-                    reinterpret_cast<void**>(device.GetAddressOf()), nullptr))) {
-                    ready = false; 
-					continue;
-                }
-                // No Acquire or cooperative-level change: these temporary objects
-                // identify shared implementations before the game starts workers.
-                if (!install_device_capture(device.Get())) ready = false;
-            }
-        }
-        auto& family = input_hooks().device_create;
-        const std::array detours{ reinterpret_cast<void*>(captured_device_create<0>),
-            reinterpret_cast<void*>(captured_device_create<1>) };
-        for (std::size_t i = 0; i < create_count; ++i) {
-            if (std::any_of(family.begin(), family.end(), [&](const auto& hook) { return hook.target == create_targets[i]; })) continue;
-            const auto slot = std::find_if(family.begin(), family.end(), [](const auto& hook) { return !hook.target; });
-            if (slot == family.end() || !install(*slot, create_targets[i], detours[slot - family.begin()])) ready = false;
-        }
-        return ready;
+    if (mouse.usButtonFlags & RI_MOUSE_WHEEL) s.look_wheel_raw.fetch_add(static_cast<SHORT>(mouse.usButtonData));
+    auto buttons = s.raw_mouse_buttons.load();
+    const auto flags = mouse.usButtonFlags;
+    if (flags & RI_MOUSE_LEFT_BUTTON_DOWN) buttons |= 1u;
+    if (flags & RI_MOUSE_LEFT_BUTTON_UP) buttons &= ~1u;
+    if (flags & RI_MOUSE_RIGHT_BUTTON_DOWN) buttons |= 2u;
+    if (flags & RI_MOUSE_RIGHT_BUTTON_UP) buttons &= ~2u;
+    if (flags & RI_MOUSE_MIDDLE_BUTTON_DOWN) buttons |= 4u;
+    if (flags & RI_MOUSE_MIDDLE_BUTTON_UP) buttons &= ~4u;
+    s.raw_mouse_buttons.store(buttons);
+    s.raw_mouse_time.store(GetTickCount64());
+    // Windows is not moving the cursor (RIDEV_NOLEGACY): move it for the
+    // overlay so its pointer and the editor's hover keep working.
+    if (relative && (mouse.lLastX || mouse.lLastY) && s.mouse_legacy_blocked.load() && owns_pointer()) {
+        OverlayInputAccess access;
+        POINT cursor{};
+        if (GetCursorPos(&cursor)) SetCursorPos(cursor.x + mouse.lLastX, cursor.y + mouse.lLastY);
     }
+}
+} // namespace
 
-    HRESULT WINAPI captured_direct_create(HINSTANCE instance, DWORD version, REFIID iid, LPVOID* output, LPUNKNOWN outer) {
-        const auto result = original<HRESULT(WINAPI*)(HINSTANCE, DWORD, REFIID, LPVOID*, LPUNKNOWN)>(
-            input_hooks().direct_create)(instance, version, iid, output, outer);
-        if (SUCCEEDED(result) && output && *output) {
-            auto** table = *reinterpret_cast<void***>(*output);
-            std::lock_guard lock(state().hook_mutex);
-            auto& hooks = input_hooks();
-            // A/W implementations sometimes share their callable address.
-            for (const auto& hook : hooks.device_create) if (hook.target == table[3]) return result;
-            if (!hooks.device_create[0].target)
-                install(hooks.device_create[0], table[3], reinterpret_cast<void*>(captured_device_create<0>));
-            else install(hooks.device_create[1], table[3], reinterpret_cast<void*>(captured_device_create<1>));
-        }
-        return result;
-    }
+void note_raw_mouse_packet(const RAWMOUSE& mouse) {
+    note_packet(mouse, [] { return owns_menu_cursor(state()); });
+}
 
-    namespace {
-        // `owns_pointer` is asked only when the packet moves a cursor Windows is not moving.
-        template<class OwnsPointer> void note_packet(const RAWMOUSE& mouse, OwnsPointer&& owns_pointer) {
-            auto& s = state();
-            const bool relative = !(mouse.usFlags & MOUSE_MOVE_ABSOLUTE);
-            if (relative) {
-                s.raw_mouse_x.fetch_add(mouse.lLastX);
-                s.raw_mouse_y.fetch_add(mouse.lLastY);
-            }
-            auto buttons = s.raw_mouse_buttons.load();
-            const auto flags = mouse.usButtonFlags;
-            if (flags & RI_MOUSE_LEFT_BUTTON_DOWN) buttons |= 1u;
-            if (flags & RI_MOUSE_LEFT_BUTTON_UP) buttons &= ~1u;
-            if (flags & RI_MOUSE_RIGHT_BUTTON_DOWN) buttons |= 2u;
-            if (flags & RI_MOUSE_RIGHT_BUTTON_UP) buttons &= ~2u;
-            if (flags & RI_MOUSE_MIDDLE_BUTTON_DOWN) buttons |= 4u;
-            if (flags & RI_MOUSE_MIDDLE_BUTTON_UP) buttons &= ~4u;
-            s.raw_mouse_buttons.store(buttons);
-            s.raw_mouse_time.store(GetTickCount64());
-            // Windows is not moving the cursor (RIDEV_NOLEGACY): move it for the
-            // overlay so its pointer and the editor's hover keep working.
-            if (relative && (mouse.lLastX || mouse.lLastY) && s.mouse_legacy_blocked.load() && owns_pointer()) {
-                OverlayInputAccess access;
-                POINT cursor{};
-                if (GetCursorPos(&cursor)) SetCursorPos(cursor.x + mouse.lLastX, cursor.y + mouse.lLastY);
-            }
-        }
-    } // namespace
+void note_raw_mouse_packet(const RAWMOUSE& mouse, bool overlay_owns_pointer) {
+    note_packet(mouse, [overlay_owns_pointer] { return overlay_owns_pointer; });
+}
 
-    void note_raw_mouse_packet(const RAWMOUSE& mouse) {
-        note_packet(mouse, [] { return owns_menu_cursor(state()); });
-    }
+void sync_raw_mouse_registration() {
+    sync_raw_mouse_registration(owns_menu_cursor(state()));
+}
 
-    void note_raw_mouse_packet(const RAWMOUSE& mouse, bool overlay_owns_pointer) {
-        note_packet(mouse, [overlay_owns_pointer] { return overlay_owns_pointer; });
-    }
+void sync_raw_mouse_registration(bool overlay_owns_pointer) {
+    try {
+        auto& mouse = raw_mouse();
+        std::lock_guard lock(mouse.mutex);
+        const bool overlay = overlay_owns_pointer;
+        if (overlay == mouse.overridden) return;
+        mouse.overridden = overlay;
+        // Only a registration that actually blocks the cursor needs replacing.
+        if (!mouse.known || !(mouse.game.dwFlags & cursor_blocking_flags)) return;
+        apply_raw_mouse(mouse, overlay);
+    } catch (...) {}
+}
 
-    void sync_raw_mouse_registration() {
-        sync_raw_mouse_registration(owns_menu_cursor(state()));
-    }
-
-    void sync_raw_mouse_registration(bool overlay_owns_pointer) {
-        try {
-            auto& mouse = raw_mouse();
-            std::lock_guard lock(mouse.mutex);
-            const bool overlay = overlay_owns_pointer;
-            if (overlay == mouse.overridden) return;
-            mouse.overridden = overlay;
-            // Only a registration that actually blocks the cursor needs replacing.
-            if (!mouse.known || !(mouse.game.dwFlags & cursor_blocking_flags)) return;
-            apply_raw_mouse(mouse, overlay);
-        }
-        catch (...) {}
-    }
-
-    bool install_input_capture() {
-        auto& h = input_hooks();
-        const auto hid = LoadLibraryExW(L"hid.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
-        const auto kernel = GetModuleHandleW(L"kernel32.dll");
-        if (!hid || !install(h.hid_attributes, reinterpret_cast<void*>(GetProcAddress(hid, "HidD_GetAttributes")),
+bool install_input_capture() {
+    auto& h = input_hooks();
+    const auto hid = LoadLibraryExW(L"hid.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+    const auto kernel = GetModuleHandleW(L"kernel32.dll");
+    if (!hid || !install(h.hid_attributes, reinterpret_cast<void*>(GetProcAddress(hid, "HidD_GetAttributes")),
             reinterpret_cast<void*>(captured_hid_attributes))) return false;
-        const auto kernel_hook = [&](Hook& hook, const char* name, void* detour) {
-            return install(hook, reinterpret_cast<void*>(GetProcAddress(kernel, name)), detour);
+    const auto kernel_hook = [&](Hook& hook, const char* name, void* detour) {
+        return install(hook, reinterpret_cast<void*>(GetProcAddress(kernel, name)), detour);
+    };
+    if (!kernel_hook(h.read_file, "ReadFile", reinterpret_cast<void*>(captured_read_file)) ||
+        !kernel_hook(h.overlapped, "GetOverlappedResult", reinterpret_cast<void*>(captured_overlapped)) ||
+        !kernel_hook(h.overlapped_ex, "GetOverlappedResultEx", reinterpret_cast<void*>(captured_overlapped_ex)) ||
+        !kernel_hook(h.completion, "GetQueuedCompletionStatus", reinterpret_cast<void*>(captured_completion)) ||
+        !kernel_hook(h.completion_ex, "GetQueuedCompletionStatusEx", reinterpret_cast<void*>(captured_completion_ex)) ||
+        !kernel_hook(h.close_handle, "CloseHandle", reinterpret_cast<void*>(captured_close_handle))) return false;
+    const auto user32 = GetModuleHandleW(L"user32.dll");
+    const auto add = [&](Hook& hook, const char* name, void* detour) {
+        const bool okay = install(hook, reinterpret_cast<void*>(GetProcAddress(user32, name)), detour);
+        if (!okay) dingosdk::logging::write(dingosdk::logging::Level::warning, dingosdk::logging::Channel::input, name);
+        return okay;
+    };
+    add(h.register_raw, "RegisterRawInputDevices", reinterpret_cast<void*>(captured_register_raw));
+    if (!add(h.async_key, "GetAsyncKeyState", reinterpret_cast<void*>(captured_async_key)) ||
+        !add(h.key, "GetKeyState", reinterpret_cast<void*>(captured_key)) ||
+        !add(h.keyboard, "GetKeyboardState", reinterpret_cast<void*>(captured_keyboard)) ||
+        !add(h.raw_data, "GetRawInputData", reinterpret_cast<void*>(captured_raw_data)) ||
+        !add(h.raw_buffer, "GetRawInputBuffer", reinterpret_cast<void*>(captured_raw_buffer)) ||
+        !add(h.capture, "SetCapture", reinterpret_cast<void*>(captured_capture)) ||
+        !add(h.release_capture, "ReleaseCapture", reinterpret_cast<void*>(captured_release_capture)) ||
+        !add(h.cursor, "SetCursor", reinterpret_cast<void*>(captured_cursor)) ||
+        !add(h.cursor_position, "GetCursorPos", reinterpret_cast<void*>(captured_cursor_position)) ||
+        !add(h.show_cursor, "ShowCursor", reinterpret_cast<void*>(captured_show_cursor))) return false;
+    // Some Windows builds alias both cursor-position exports to one function,
+    // which is already intercepted by the overlay's SetCursorPos hook.
+    const auto physical = GetProcAddress(user32, "SetPhysicalCursorPos");
+    if (physical && physical != GetProcAddress(user32, "SetCursorPos") &&
+        !add(h.physical_cursor, "SetPhysicalCursorPos", reinterpret_cast<void*>(captured_physical_cursor))) return false;
+    const std::array<void*, 5> states{reinterpret_cast<void*>(captured_xinput<0>), reinterpret_cast<void*>(captured_xinput<1>),
+        reinterpret_cast<void*>(captured_xinput<2>), reinterpret_cast<void*>(captured_xinput<3>), reinterpret_cast<void*>(captured_xinput<4>)};
+    const std::array<void*, 5> extended{reinterpret_cast<void*>(captured_xinput<0, true>), reinterpret_cast<void*>(captured_xinput<1, true>),
+        reinterpret_cast<void*>(captured_xinput<2, true>), reinterpret_cast<void*>(captured_xinput<3, true>), reinterpret_cast<void*>(captured_xinput<4, true>)};
+    const std::array<void*, 5> strokes{reinterpret_cast<void*>(captured_keystroke<0>), reinterpret_cast<void*>(captured_keystroke<1>),
+        reinterpret_cast<void*>(captured_keystroke<2>), reinterpret_cast<void*>(captured_keystroke<3>), reinterpret_cast<void*>(captured_keystroke<4>)};
+    const std::array names{L"xinput1_4.dll", L"xinput1_3.dll", L"xinput9_1_0.dll", L"xinput1_2.dll", L"xinput1_1.dll"};
+    std::vector<void*> seen;
+    for (std::size_t i = 0; i < names.size(); ++i) {
+        const auto module = LoadLibraryExW(names[i], nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+        if (!module) continue;
+        const auto hook_export = [&](Hook& hook, const char* name, void* detour) {
+            const auto target = reinterpret_cast<void*>(GetProcAddress(module, name));
+            if (!target || std::find(seen.begin(), seen.end(), target) != seen.end()) return true;
+            if (!install(hook, target, detour)) { dingosdk::logging::printf(dingosdk::logging::Level::error, dingosdk::logging::Channel::input, "XInput input hook failed: module=%zu target=%p", i, target); return false; }
+            seen.push_back(target); return true;
         };
-        if (!kernel_hook(h.read_file, "ReadFile", reinterpret_cast<void*>(captured_read_file)) ||
-            !kernel_hook(h.overlapped, "GetOverlappedResult", reinterpret_cast<void*>(captured_overlapped)) ||
-            !kernel_hook(h.overlapped_ex, "GetOverlappedResultEx", reinterpret_cast<void*>(captured_overlapped_ex)) ||
-            !kernel_hook(h.completion, "GetQueuedCompletionStatus", reinterpret_cast<void*>(captured_completion)) ||
-            !kernel_hook(h.completion_ex, "GetQueuedCompletionStatusEx", reinterpret_cast<void*>(captured_completion_ex)) ||
-            !kernel_hook(h.close_handle, "CloseHandle", reinterpret_cast<void*>(captured_close_handle))) return false;
-        const auto user32 = GetModuleHandleW(L"user32.dll");
-        const auto add = [&](Hook& hook, const char* name, void* detour) {
-            const bool okay = install(hook, reinterpret_cast<void*>(GetProcAddress(user32, name)), detour);
-            if (!okay) dingosdk::logging::write(dingosdk::logging::Level::warning, dingosdk::logging::Channel::input, name);
-            return okay;
-        };
-        add(h.register_raw, "RegisterRawInputDevices", reinterpret_cast<void*>(captured_register_raw));
-        if (!add(h.async_key, "GetAsyncKeyState", reinterpret_cast<void*>(captured_async_key)) ||
-            !add(h.key, "GetKeyState", reinterpret_cast<void*>(captured_key)) ||
-            !add(h.keyboard, "GetKeyboardState", reinterpret_cast<void*>(captured_keyboard)) ||
-            !add(h.raw_data, "GetRawInputData", reinterpret_cast<void*>(captured_raw_data)) ||
-            !add(h.raw_buffer, "GetRawInputBuffer", reinterpret_cast<void*>(captured_raw_buffer)) ||
-            !add(h.capture, "SetCapture", reinterpret_cast<void*>(captured_capture)) ||
-            !add(h.release_capture, "ReleaseCapture", reinterpret_cast<void*>(captured_release_capture)) ||
-            !add(h.cursor, "SetCursor", reinterpret_cast<void*>(captured_cursor)) ||
-            !add(h.cursor_position, "GetCursorPos", reinterpret_cast<void*>(captured_cursor_position)) ||
-            !add(h.show_cursor, "ShowCursor", reinterpret_cast<void*>(captured_show_cursor))) return false;
-        // Some Windows builds alias both cursor-position exports to one function,
-        // which is already intercepted by the overlay's SetCursorPos hook.
-        const auto physical = GetProcAddress(user32, "SetPhysicalCursorPos");
-        if (physical && physical != GetProcAddress(user32, "SetCursorPos") &&
-            !add(h.physical_cursor, "SetPhysicalCursorPos", reinterpret_cast<void*>(captured_physical_cursor))) return false;
-        const std::array<void*, 5> states{ reinterpret_cast<void*>(captured_xinput<0>), reinterpret_cast<void*>(captured_xinput<1>),
-            reinterpret_cast<void*>(captured_xinput<2>), reinterpret_cast<void*>(captured_xinput<3>), reinterpret_cast<void*>(captured_xinput<4>) };
-        const std::array<void*, 5> extended{ reinterpret_cast<void*>(captured_xinput<0, true>), reinterpret_cast<void*>(captured_xinput<1, true>),
-            reinterpret_cast<void*>(captured_xinput<2, true>), reinterpret_cast<void*>(captured_xinput<3, true>), reinterpret_cast<void*>(captured_xinput<4, true>) };
-        const std::array<void*, 5> strokes{ reinterpret_cast<void*>(captured_keystroke<0>), reinterpret_cast<void*>(captured_keystroke<1>),
-            reinterpret_cast<void*>(captured_keystroke<2>), reinterpret_cast<void*>(captured_keystroke<3>), reinterpret_cast<void*>(captured_keystroke<4>) };
-        const std::array names{ L"xinput1_4.dll", L"xinput1_3.dll", L"xinput9_1_0.dll", L"xinput1_2.dll", L"xinput1_1.dll" };
-        std::vector<void*> seen;
-        for (std::size_t i = 0; i < names.size(); ++i) {
-            const auto module = LoadLibraryExW(names[i], nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
-            if (!module) continue;
-            const auto hook_export = [&](Hook& hook, const char* name, void* detour) {
-                const auto target = reinterpret_cast<void*>(GetProcAddress(module, name));
-                if (!target || std::find(seen.begin(), seen.end(), target) != seen.end()) return true;
-                if (!install(hook, target, detour)) { dingosdk::logging::printf(dingosdk::logging::Level::error, dingosdk::logging::Channel::input, "XInput input hook failed: module=%zu target=%p", i, target); return false; }
-                seen.push_back(target); return true;
-            };
-            if (!hook_export(h.xinput_state[i], "XInputGetState", states[i]) ||
-                !hook_export(h.xinput_extended[i], MAKEINTRESOURCEA(100), extended[i]) ||
-                !hook_export(h.xinput_keystroke[i], "XInputGetKeystroke", strokes[i])) return false;
-        }
-        const auto direct = LoadLibraryExW(L"dinput8.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
-        if (direct) {
-            if (prepare_standard_devices(direct))
-                logging::write(logging::Level::info, logging::Channel::input, "DirectInput mouse/keyboard capture prepared before game startup.");
-            else logging::write(logging::Level::warning, logging::Channel::input,
-                "DirectInput startup preparation incomplete; device creation will retry the missing hooks.");
-            if (!install(h.direct_create, reinterpret_cast<void*>(GetProcAddress(direct, "DirectInput8Create")),
-                reinterpret_cast<void*>(captured_direct_create))) return false;
-        }
-        dingosdk::logging::write(dingosdk::logging::Level::info, dingosdk::logging::Channel::input, "Menu input capture installed: keyboard, raw input, XInput, DirectInput, PlayStation HID and cursor ownership.");
-        return true;
+        if (!hook_export(h.xinput_state[i], "XInputGetState", states[i]) ||
+            !hook_export(h.xinput_extended[i], MAKEINTRESOURCEA(100), extended[i]) ||
+            !hook_export(h.xinput_keystroke[i], "XInputGetKeystroke", strokes[i])) return false;
     }
+    const auto direct = LoadLibraryExW(L"dinput8.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+    if (direct) {
+        if (prepare_standard_devices(direct))
+            logging::write(logging::Level::info, logging::Channel::input, "DirectInput mouse/keyboard capture prepared before game startup.");
+        else logging::write(logging::Level::warning, logging::Channel::input,
+            "DirectInput startup preparation incomplete; device creation will retry the missing hooks.");
+        if (!install(h.direct_create, reinterpret_cast<void*>(GetProcAddress(direct, "DirectInput8Create")),
+            reinterpret_cast<void*>(captured_direct_create))) return false;
+    }
+    dingosdk::logging::write(dingosdk::logging::Level::info, dingosdk::logging::Channel::input, "Menu input capture installed: keyboard, raw input, XInput, DirectInput, PlayStation HID and cursor ownership.");
+    return true;
+}
 
+}
+
+namespace dingosdk::overlay {
+// A plugin's overlay dialog is up: it owns the cursor and the pad. (The old name stays until
+// every caller uses this one.)
+void set_plugin_dialog_active(bool active) noexcept { detail::state().plugin_dialog_visible.store(active); }
+bool interface_open() noexcept { return detail::interactive_visible(detail::state()); }
+void hide_game_buttons(std::uint16_t buttons) noexcept { detail::mode_hidden_buttons.store(buttons, std::memory_order_relaxed); }
+void capture_challenge_menu_input(bool active,bool native_panel,bool opening_key_down) noexcept {
+    detail::challenge_menu_release.store(game::owned_menu_release_latch(
+        detail::challenge_menu_release.load(std::memory_order_relaxed),active,opening_key_down),std::memory_order_relaxed);
+    detail::challenge_menu_capture.store(active,std::memory_order_relaxed);
+    detail::challenge_native_panel.store(native_panel,std::memory_order_relaxed);
+}
+void hide_game_keys(std::span<const std::uint8_t> keys) noexcept {
+    std::array<std::uint64_t, 4> bits{};
+    for (const auto key : keys) bits[key / 64] |= std::uint64_t{1} << (key % 64);
+    for (std::size_t i = 0; i < bits.size(); ++i) detail::hidden_keys[i].store(bits[i], std::memory_order_relaxed);
+}
+void hold_game_buttons(std::uint16_t held) noexcept { detail::mode_held_buttons.store(held, std::memory_order_relaxed); }
+void pause_game_input(bool paused) noexcept {
+    detail::mode_input_paused_until.store(paused ? GetTickCount64() + 500 : 0, std::memory_order_relaxed);
+}
+bool key_down(int virtual_key) noexcept { detail::OverlayInputAccess access; return (GetAsyncKeyState(virtual_key) & 0x8000) != 0; }
+int take_mouse_wheel() noexcept { return detail::mode_mouse_wheel.exchange(0, std::memory_order_relaxed); }
 }
 
 // Dark Pop: the local skater is in the air with the D-pad hide on; renewed every physics step (see DarkPopHide).

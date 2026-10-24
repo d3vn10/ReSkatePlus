@@ -13,68 +13,68 @@
 #include <stdexcept>
 
 namespace dingosdk::server {
-    namespace {
-        std::string placement_text(ObjectPlacement policy) {
-            return policy == ObjectPlacement::everyone ? "everyone" : policy == ObjectPlacement::host_only ? "admins" : "nobody";
+namespace {
+std::string placement_text(ObjectPlacement policy) {
+    return policy == ObjectPlacement::everyone ? "everyone" : policy == ObjectPlacement::host_only ? "admins" : "nobody";
+}
+// The config file as it is written: sections, and the settings in each, in the order an owner
+// reads them (a Json object alone would put them in alphabetical order).
+struct Layout {
+    std::vector<std::string> names;
+    std::vector<Layout> members;
+    Json value;
+    bool leaf{};
+    Layout &section(std::string name) {
+        names.push_back(std::move(name));
+        return members.emplace_back();
+    }
+    void set(std::string name, Json json) {
+        names.push_back(std::move(name));
+        auto &member = members.emplace_back();
+        member.value = std::move(json);
+        member.leaf = true;
+    }
+};
+void write(std::string &out, const Layout &layout, std::size_t depth) {
+    const std::string inner(2 * (depth + 1), ' ');
+    out += "{\n";
+    for (std::size_t i = 0; i < layout.names.size(); ++i) {
+        out += inner + Json(layout.names[i]).dump() + ": ";
+        if (layout.members[i].leaf) {
+            // A list or an object of its own spans lines: each goes in by this setting's depth.
+            for (const char c : layout.members[i].value.dump(2)) {
+                out += c;
+                if (c == '\n') out += inner;
+            }
+        } else {
+            write(out, layout.members[i], depth + 1);
         }
-        // The config file as it is written: sections, and the settings in each, in the order an owner
-        // reads them (a Json object alone would put them in alphabetical order).
-        struct Layout {
-            std::vector<std::string> names;
-            std::vector<Layout> members;
-            Json value;
-            bool leaf{};
-            Layout& section(std::string name) {
-                names.push_back(std::move(name));
-                return members.emplace_back();
-            }
-            void set(std::string name, Json json) {
-                names.push_back(std::move(name));
-                auto& member = members.emplace_back();
-                member.value = std::move(json);
-                member.leaf = true;
-            }
-        };
-        void write(std::string& out, const Layout& layout, std::size_t depth) {
-            const std::string inner(2 * (depth + 1), ' ');
-            out += "{\n";
-            for (std::size_t i = 0; i < layout.names.size(); ++i) {
-                out += inner + Json(layout.names[i]).dump() + ": ";
-                if (layout.members[i].leaf) {
-                    // A list or an object of its own spans lines: each goes in by this setting's depth.
-                    for (const char c : layout.members[i].value.dump(2)) {
-                        out += c;
-                        if (c == '\n') out += inner;
-                    }
-                } else {
-                    write(out, layout.members[i], depth + 1);
-                }
-                out += i + 1 < layout.names.size() ? ",\n" : "\n";
-            }
-            out += std::string(2 * depth, ' ') + "}";
-        }
-        Layout layout(const ServerConfig& c) {
-            // SteamID64s are written as strings: JSON readers often lose 64-bit precision.
-            const auto ids = [](const std::vector<std::uint64_t>& list) {
-                auto out = Json::array();
-                for (const auto id : list) out.push_back(std::to_string(id));
-                return out;
-                };
-            Layout root;
-            auto& server = root.section("server");
-            server.set("name", c.name);
-            server.set("password", c.password);
-            server.set("welcome_message", c.welcome);
-            server.set("chat_color", c.chat_color);
-            server.set("chat_text_color", c.chat_text_color);
-            server.set("listed", c.listed);
-            server.set("max_players", c.max_players);
-            server.set("port", static_cast<unsigned>(c.port));
-            server.set("query_port", static_cast<unsigned>(c.query_port));
-            server.set("steam_token", c.steam_token);
-            server.set("auto_update", c.auto_update);
+        out += i + 1 < layout.names.size() ? ",\n" : "\n";
+    }
+    out += std::string(2 * depth, ' ') + "}";
+}
+Layout layout(const ServerConfig &c) {
+    // SteamID64s are written as strings: JSON readers often lose 64-bit precision.
+    const auto ids = [](const std::vector<std::uint64_t> &list) {
+        auto out = Json::array();
+        for (const auto id : list) out.push_back(std::to_string(id));
+        return out;
+    };
+    Layout root;
+    auto &server = root.section("server");
+    server.set("name", c.name);
+    server.set("password", c.password);
+    server.set("welcome_message", c.welcome);
+    server.set("chat_color", c.chat_color);
+    server.set("chat_text_color", c.chat_text_color);
+    server.set("listed", c.listed);
+    server.set("max_players", c.max_players);
+    server.set("port", static_cast<unsigned>(c.port));
+    server.set("query_port", static_cast<unsigned>(c.query_port));
+    server.set("steam_token", c.steam_token);
+    server.set("auto_update", c.auto_update);
     server.set("autostart", c.autostart);
-            server.set("activity_log", c.activity_log);
+    server.set("activity_log", c.activity_log);
 
     auto &access = root.section("access");
     access.set("reserved_players_slots", ids(c.reserved));
@@ -130,10 +130,9 @@ namespace dingosdk::server {
     players.set("object_limit", c.object_limit);
     players.set("allow_object_scaling", c.object_scaling);
     players.set("sync_effects", c.sync_effects);
-    players.set("sync_drones", c.sync_drones);
     players.set("announce_throwdowns", c.announce_throwdowns);
     auto locks = Json::array();
-    for (const auto bit : {lock_noclip, lock_nobail, lock_boosts, lock_tuning})
+    for (const auto bit : {lock_noclip, lock_nobail, lock_boosts, lock_tuning, lock_ollies})
         if (c.throwdown_locks & bit) locks.push_back(lock_tools_text(bit));
     players.set("throwdown_locks", std::move(locks));
 
@@ -148,32 +147,32 @@ namespace dingosdk::server {
     anti_cheat.set("bone_scale_limit", c.bone_scale_limit);
     anti_cheat.set("bone_reach_limit", c.bone_reach_limit);
 
-            auto& network = root.section("network");
-            network.set("use_steam_relay", c.use_steam_relay);
-            network.set("send_rate", c.send_rate);
-            network.set("crowd_budget", c.crowd_budget);
-            network.set("pack_ms", c.pack_ms);
-            network.set("threads", c.threads);
-            network.set("finger_distance", c.finger_distance);
-            auto& distances = network.section("distances");
-            distances.set("full_rate_return", c.distances.full_rate_return);
-            distances.set("half_rate_start", c.distances.half_rate_start);
-            distances.set("half_rate_return", c.distances.half_rate_return);
-            distances.set("low_rate_start", c.distances.low_rate_start);
-            network.set("steam_debug", c.steam_debug);
+    auto &network = root.section("network");
+    network.set("use_steam_relay", c.use_steam_relay);
+    network.set("send_rate", c.send_rate);
+    network.set("crowd_budget", c.crowd_budget);
+    network.set("pack_ms", c.pack_ms);
+    network.set("threads", c.threads);
+    network.set("finger_distance", c.finger_distance);
+    auto &distances = network.section("distances");
+    distances.set("full_rate_return", c.distances.full_rate_return);
+    distances.set("half_rate_start", c.distances.half_rate_start);
+    distances.set("half_rate_return", c.distances.half_rate_return);
+    distances.set("low_rate_start", c.distances.low_rate_start);
+    network.set("steam_debug", c.steam_debug);
 
-            auto& votes = root.section("votes");
-            const auto vote = [&](const char* name, const VoteSetting& v) {
-                auto& item = votes.section(name);
-                item.set("enabled", v.enabled);
-                item.set("percent", v.percent);
-                item.set("seconds", v.seconds);
-                item.set("cooldown_seconds", v.cooldown);
-                item.set("min_players", v.min_players);
-                };
-            vote("map", c.votes.map);
-            vote("kick", c.votes.kick);
-            vote("time_of_day", c.votes.time);
+    auto &votes = root.section("votes");
+    const auto vote = [&](const char *name, const VoteSetting &v) {
+        auto &item = votes.section(name);
+        item.set("enabled", v.enabled);
+        item.set("percent", v.percent);
+        item.set("seconds", v.seconds);
+        item.set("cooldown_seconds", v.cooldown);
+        item.set("min_players", v.min_players);
+    };
+    vote("map", c.votes.map);
+    vote("kick", c.votes.kick);
+    vote("time_of_day", c.votes.time);
     vote("extend_map", c.votes.extend);
     votes.set("seconds", c.votes.seconds);
     votes.set("cooldown_seconds", c.votes.cooldown);
@@ -384,7 +383,6 @@ ServerConfig load_config(const std::filesystem::path &file, std::vector<std::str
     c.object_limit = get("players", "object_limit", c.object_limit);
     c.object_scaling = get("players", "allow_object_scaling", c.object_scaling);
     c.sync_effects = get("players", "sync_effects", c.sync_effects);
-    c.sync_drones = get("players", "sync_drones", c.sync_drones);
     c.announce_throwdowns = get("players", "announce_throwdowns", c.announce_throwdowns);
     if (const auto *locks = find("players", "throwdown_locks", {}); locks && locks->is_array())
         for (const auto &value : *locks)
@@ -405,42 +403,42 @@ ServerConfig load_config(const std::filesystem::path &file, std::vector<std::str
     c.bone_scale_limit = get("anti_cheat", "bone_scale_limit", c.bone_scale_limit);
     c.bone_reach_limit = get("anti_cheat", "bone_reach_limit", c.bone_reach_limit);
 
-        c.use_steam_relay = get("network", "use_steam_relay", c.use_steam_relay);
-        c.send_rate = get("network", "send_rate", c.send_rate);
-        c.crowd_budget = get("network", "crowd_budget", c.crowd_budget);
-        c.pack_ms = get("network", "pack_ms", c.pack_ms);
-        c.threads = get("network", "threads", c.threads);
-        c.finger_distance = get("network", "finger_distance", c.finger_distance);
-        if (const auto* d = find("network", "distances"); d && d->is_object()) {
-            c.distances.full_rate_return = d->value("full_rate_return", c.distances.full_rate_return);
-            c.distances.half_rate_start = d->value("half_rate_start", c.distances.half_rate_start);
-            c.distances.half_rate_return = d->value("half_rate_return", c.distances.half_rate_return);
-            c.distances.low_rate_start = d->value("low_rate_start", c.distances.low_rate_start);
-        }
-        c.steam_debug = get("network", "steam_debug", c.steam_debug);
+    c.use_steam_relay = get("network", "use_steam_relay", c.use_steam_relay);
+    c.send_rate = get("network", "send_rate", c.send_rate);
+    c.crowd_budget = get("network", "crowd_budget", c.crowd_budget);
+    c.pack_ms = get("network", "pack_ms", c.pack_ms);
+    c.threads = get("network", "threads", c.threads);
+    c.finger_distance = get("network", "finger_distance", c.finger_distance);
+    if (const auto *d = find("network", "distances"); d && d->is_object()) {
+        c.distances.full_rate_return = d->value("full_rate_return", c.distances.full_rate_return);
+        c.distances.half_rate_start = d->value("half_rate_start", c.distances.half_rate_start);
+        c.distances.half_rate_return = d->value("half_rate_return", c.distances.half_rate_return);
+        c.distances.low_rate_start = d->value("low_rate_start", c.distances.low_rate_start);
+    }
+    c.steam_debug = get("network", "steam_debug", c.steam_debug);
 
-        // Votes were a section from the start.
-        const Json no_votes = Json::object();
-        const auto& votes = root.contains("votes") && root.at("votes").is_object() ? root.at("votes") : no_votes;
-        // A vote's own run time, cooldown and player minimum; 0 for the first two is "the votes'".
-        const auto vote_limits = [](const Json& item, VoteSetting& v) {
-            v.seconds = item.value("seconds", v.seconds);
-            if (v.seconds) v.seconds = std::clamp(v.seconds, 10U, 300U);
-            v.cooldown = std::min(item.value("cooldown_seconds", v.cooldown), 3600U);
-            v.min_players = std::clamp(item.value("min_players", v.min_players), 1U, static_cast<unsigned>(multiplayer::max_players - 1));
-            };
-        const auto read_vote = [&](const char* key, VoteSetting& v) {
-            if (!votes.contains(key) || !votes.at(key).is_object()) return missing.push_back(std::string("votes.") + key);
-            const auto& item = votes.at(key);
-            for (const char* added : { "seconds", "cooldown_seconds", "min_players" })
-                if (!item.contains(added)) missing.push_back(std::string("votes.") + key + "." + added);
-            v.enabled = item.value("enabled", v.enabled);
-            v.percent = std::clamp(item.value("percent", v.percent), 1U, 100U);
-            vote_limits(item, v);
-            };
-        read_vote("map", c.votes.map);
-        read_vote("kick", c.votes.kick);
-        read_vote("time_of_day", c.votes.time);
+    // Votes were a section from the start.
+    const Json no_votes = Json::object();
+    const auto &votes = root.contains("votes") && root.at("votes").is_object() ? root.at("votes") : no_votes;
+    // A vote's own run time, cooldown and player minimum; 0 for the first two is "the votes'".
+    const auto vote_limits = [](const Json &item, VoteSetting &v) {
+        v.seconds = item.value("seconds", v.seconds);
+        if (v.seconds) v.seconds = std::clamp(v.seconds, 10U, 300U);
+        v.cooldown = std::min(item.value("cooldown_seconds", v.cooldown), 3600U);
+        v.min_players = std::clamp(item.value("min_players", v.min_players), 1U, static_cast<unsigned>(multiplayer::max_players - 1));
+    };
+    const auto read_vote = [&](const char *key, VoteSetting &v) {
+        if (!votes.contains(key) || !votes.at(key).is_object()) return missing.push_back(std::string("votes.") + key);
+        const auto &item = votes.at(key);
+        for (const char *added : {"seconds", "cooldown_seconds", "min_players"})
+            if (!item.contains(added)) missing.push_back(std::string("votes.") + key + "." + added);
+        v.enabled = item.value("enabled", v.enabled);
+        v.percent = std::clamp(item.value("percent", v.percent), 1U, 100U);
+        vote_limits(item, v);
+    };
+    read_vote("map", c.votes.map);
+    read_vote("kick", c.votes.kick);
+    read_vote("time_of_day", c.votes.time);
     read_vote("extend_map", c.votes.extend);
     for (const char *key : {"seconds", "cooldown_seconds", "kick_minutes", "starter_votes_yes", "polls", "poll_seconds", "custom"})
         if (!votes.contains(key)) missing.push_back(std::string("votes.") + key);
@@ -583,7 +581,7 @@ std::string roles_error(const Roles &roles) {
         for (std::size_t j = 0; j < i; ++j)
             if (roles.list[j].name == role.name) return where + "listed twice.";
         if (!role.tag.empty() && !valid_role_tag(role.tag)) return where + "its tag is at most 16 bytes of plain text.";
-        // What the game itself calls the server, a lobby's host, friends and the ReSkate+ team.
+        // What the game itself calls the server, a lobby's host, friends and the ReSkate team.
         for (const std::string_view taken : {"server", "reskate", "reskateadmin", "dev", "developer", "contentcreator", "centrix", "staff", "homie", "host", "friend"})
             if (plain(role.tag) == taken) return where + "the tag \"" + role.tag + "\" is one the game uses itself.";
         if (!parse_colour(role.color)) return where + "color must be a colour like #FF74C6.";
@@ -718,6 +716,8 @@ std::optional<std::uint8_t> parse_lock_tools(std::string_view text) {
         else if (lower == "nobail") tools |= lock_nobail;
         else if (lower == "boosts") tools |= lock_boosts;
         else if (lower == "tuning") tools |= lock_tuning;
+        else if (lower == "ollies") tools |= lock_ollies;
+        else if (lower == "objects") tools |= lock_objects;
         else if (lower == "all") tools |= lock_all;
         else return std::nullopt;
     }
@@ -727,7 +727,8 @@ std::optional<std::uint8_t> parse_lock_tools(std::string_view text) {
 std::string lock_tools_text(std::uint8_t tools) {
     std::string text;
     for (const auto &[bit, name] : {std::pair{lock_noclip, "noclip"}, std::pair{lock_nobail, "nobail"},
-                                    std::pair{lock_boosts, "boosts"}, std::pair{lock_tuning, "tuning"}})
+                                    std::pair{lock_boosts, "boosts"}, std::pair{lock_tuning, "tuning"},
+                                    std::pair{lock_ollies, "ollies"}, std::pair{lock_objects, "objects"}})
         if (tools & bit) text += (text.empty() ? "" : ", ") + std::string(name);
     return text.empty() ? "none" : text;
 }
@@ -800,7 +801,7 @@ bool custom_command_name_free(std::string_view name) noexcept {
          {"help", "party", "p", "w", "whisper", "tell", "poll", "vote", "yes", "y", "no", "n", "tp",
           "activity-log", "admin", "admins", "afk-kick", "kick-time", "role", "roles", "announce", "announce-throwdowns", "announce-to", "announcements",
           "ban", "bans", "board-check", "bone-scale", "boosts", "boosts-allow", "chat-color", "chat-colour", "clear-objects", "crowd",
-          "distances", "drones", "effects", "kick", "layer", "layer-sync", "layers", "listed", "map", "map-pool", "maps", "msg",
+          "distances", "effects", "kick", "layer", "layer-sync", "layers", "listed", "map", "map-pool", "maps", "msg",
           "msg-admins", "msg-party", "name", "net", "nobail", "nobail-allow", "noclip", "noclip-allow", "object-limit",
           "object-placement", "object-scaling", "objects", "park", "park-mod", "parties", "party-size", "password", "placement",
           "players", "rate", "reserved", "rotation", "say", "score-allow", "score-check", "speed-check", "status", "teleport",

@@ -159,6 +159,7 @@ namespace dingosdk::multiplayer::session_detail {
 	    view.guest_noclip = s.guest_noclip;
 	    view.guest_no_bail = s.guest_no_bail;
 	    view.guest_boosts = s.guest_boosts;
+    view.guest_ollies = s.guest_ollies;
 	    view.enforce_tuning = s.enforce_tuning;
 	    view.tuning_status = s.mode == Mode::join && s.enforce_tuning ? physics_tuning::status() : std::string{};
 	    view.force_world_layers = s.force_world_layers;
@@ -674,9 +675,9 @@ namespace dingosdk::multiplayer::session_detail {
 	std::pair<std::uint32_t, std::string> mark_role(IdentityList list) {
 	    switch (list) {
 	    case IdentityList::developer: return {nametag_developer, "Developer"};
-	    case IdentityList::content_creator: return {nametag_creator, "Content Creator"};
+	    case IdentityList::content_creator: return {nametag_creator, "Creator"};
 	    case IdentityList::centrix: return {nametag_centrix, "Centrix"};
-	    case IdentityList::staff: return {nametag_staff, "ReSkate Admin"};
+	    case IdentityList::staff: return {nametag_staff, "Staff"};
 	    default: return {nametag_homie, "Homie"};
 	    }
 	}

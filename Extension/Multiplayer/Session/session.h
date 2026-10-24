@@ -1,8 +1,10 @@
 #pragma once
 #include "Engine/Game/Multiplayer/session_model.h"
+#include <array>
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace dingosdk::multiplayer {
@@ -23,6 +25,9 @@ using MapLoader = MapLoadResult (*)(std::string_view map, bool submitted, std::s
 void tick(std::uintptr_t base, std::uintptr_t client, bool gameplay_ready, std::string_view map,
           MapLoader loader = nullptr);
 MultiplayerModel model();
+// The player worked the game's controls just now (overlay.h controls_touched_at). While they do, a
+// dedicated server is told they are at their game (PacketKind::present). Any thread.
+void note_player_input() noexcept;
 std::string take_leave_notice(); // why the session just ended over a missing map, once; client thread
 // What the host or server said as it put the player out of the session (kicked, banned, away too
 // long, a mod or a cheat it does not allow), or refused to let them in for it; once. Client thread.
@@ -70,4 +75,12 @@ unsigned next_maps_serial() noexcept;
 void set_map_package_lookup(MapPackageLookup lookup) noexcept;
 // The session's chat lines for the overlay. Thread-safe and cheap: callable every frame.
 MultiplayerChat chat();
+// A chat line only this player sees, from a plugin: shown under the plugin's name with a
+// "Plugin" tag, so it can't pass for a player or the server. Client thread; "" when shown,
+// otherwise why not (no session).
+std::string plugin_chat(std::string_view plugin, std::string_view text, std::uint32_t text_color = 0);
+// A lobby host's plugins (their server copies): drops a player from the session (they cannot
+// rejoin it), or moves their skater. "" when done, otherwise why not. Client thread.
+std::string host_kick(std::uint64_t player, std::string_view why);
+std::string host_teleport(std::uint64_t player, const std::array<float, 3>& at);
 } // namespace dingosdk::multiplayer

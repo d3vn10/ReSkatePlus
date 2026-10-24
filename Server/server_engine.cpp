@@ -245,7 +245,7 @@ void ServerEngine::start_server_async() {
 
 void ServerEngine::run_startup() {
     try {
-        log("Booting ReSkate+ dedicated server session...", LogLevel::info);
+        log("Booting ReSkate dedicated server session...", LogLevel::info);
 
         // Reload latest config before starting
         try {

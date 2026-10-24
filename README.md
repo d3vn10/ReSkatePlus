@@ -160,6 +160,29 @@ accepts `park random` from its console or an admin.
 | The game's own settings and saves | `%LOCALAPPDATA%\ReSkate\Game\` (kept apart from the normal game) |
 | Launcher settings | `ReSkatePlusLauncher.settings.json` beside the launcher |
 
+### Troubleshooting
+
+**My antivirus says ReSkate is a virus.** It is a false alarm. ReSkate has to load itself into the game as
+it starts, and antivirus programs distrust anything that does that, most of all new programs they have not
+seen much of yet. Only download ReSkate from this page's
+[Releases](https://github.com/Dingo-Shenanigans/ReSkate/releases). If your antivirus removed a file, you can
+bring it back: Windows Security → Protection history → find ReSkate → Restore. An error about SHA-256 right
+after an update usually means the antivirus took the new file.
+
+**The launcher says it cannot run from Steam's skate. folder.** Move `ReSkateLauncher.exe` and `ReSkate.dll`
+into a new, empty folder of their own and run the launcher from there (see [Getting started](#getting-started)).
+
+**The ReSkate menu (Insert) doesn't open.** ReSkate isn't running. On Windows, always start the game with
+**PLAY** in the ReSkate launcher: pressing Play on skate. in Steam starts the normal game, without ReSkate.
+On Linux and macOS, use the launch option in [Linux (Proton)](#linux-proton) or
+[MACOS-SETUP.md](MACOS-SETUP.md).
+
+**The game crashes.** Turn your mods off and try again first: many crashes come from mods. If it still
+crashes, [open an issue](https://github.com/Dingo-Shenanigans/ReSkate/issues/new/choose) with your ReSkate
+version, when it happened and what you were doing, and attach `logs\ReSkate.log`. With **Send crash reports**
+on (it is by default), the crash details have already been sent; see
+[Crash reports and privacy](#crash-reports-and-privacy) for what is sent and how to turn it off.
+
 ## Mods
 
 - Install mods from the launcher's **MODS** page: browse Thunderstore, or drag a `.zip` or folder onto the
@@ -274,7 +297,7 @@ Useful launcher flags:
 | `--log-trace` | the same as `--log-level=trace`; an explicit `--log-level` wins |
 | `-wconsole` | also show the log live in a console window while the game runs |
 | `--menu-key=0x2D`, `--console-key=0xC0` | menu and console keys (virtual-key codes) |
-| `-map <name>` | load that map as soon as the game is up, e.g. `-map "San Vansterdam"`; the name is a map's name, short name or asset path, or the start of one |
+| `-map <name>` | load that map as soon as the game is up, e.g. `-map "San Vansterdam"`; the name is a map's name, short name or asset path, or the start of one. Over the start map chosen in Settings > GAME |
 | `--no-loose-files` | ignore loose Lua and config files beside the game |
 | `--gpu-diagnostics` | record extra detail when the graphics driver crashes (DRED) |
 
@@ -323,13 +346,16 @@ The source tree loosely follows Frostbite's own layout.
 | `assets/`, `config/` | files built into the binaries: launcher art, emotes, default profile settings |
 | `cmake/` | the build, split by area |
 
-### Supporting a New Game Build
+### The supported game build
 
-Feature code never contains addresses. Everything tied to one `Skate.exe` lives in
-`Engine/Game/Build/<build>/` and in the pins of
-[supported_build.h](Engine/Game/Build/supported_build.h): file hashes, the Steam depot and manifest, and
-the content cache. A new game build means a new table and new pins. Most hooks and patches check the
-bytes they expect before touching them, so code from the wrong build is refused rather than patched.
+ReSkate supports one `Skate.exe`, build 20260929, and stays on it: it does not follow newer Steam
+builds. The launcher downloads that build, pinned in
+[supported_build.h](Engine/Game/Build/supported_build.h) by file hashes, the Steam depot and manifest, and
+the content cache.
+
+Feature code never contains addresses. Everything tied to the game's code lives in
+`Engine/Game/Build/20260929/`. Most hooks and patches check the bytes they expect before touching them,
+so a different `Skate.exe` is refused rather than patched.
 
 ## Crash Reports and Privacy
 
@@ -346,13 +372,13 @@ long frames. Nothing about your account is included. Turning crash reports off t
 To turn crash reports off, untick **Send crash reports** in the launcher's Settings (ADVANCED), or set the
 environment variable `RESKATE_CRASH_REPORTING=0`.
 
-ReSkate+ also keeps the game off EA's online services: the game's own crash reports, telemetry and
+ReSkate also keeps the game off EA's online services: the game's own crash reports, telemetry and
 remote configuration requests are turned off and blocked. Fast-travel artwork still comes from EA's
 image CDN (`dingo-dev-assets.akamaized.net`), which only downloads images.
 
 ## Third-Party Code
 
-ReSkate+ uses Dear ImGui, Microsoft Detours, RapidJSON, spdlog, SQLite, LZ4, Zstandard, miniz, bcdec and
+ReSkate uses Dear ImGui, Microsoft Detours, RapidJSON, spdlog, SQLite, LZ4, Zstandard, miniz, bcdec and
 Valve's networking headers, and the Montserrat and Permanent Marker fonts. Versions, licenses and local
 patches are in [External/README.md](External/README.md). Every release ships their license files in
 `licenses/`.

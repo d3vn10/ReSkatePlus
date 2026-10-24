@@ -17,8 +17,8 @@ namespace dingosdk::mods::detail {
 		// A stamp written last, once the patch is complete, records what it was built
 		// from and every file it holds.
 
-		constexpr const wchar_t* stamp_name = stamp_file;
-		constexpr char stamp_header[] = "ReSkate Merge 1";
+constexpr const wchar_t* stamp_name = stamp_file;
+constexpr char stamp_header[] = "ReSkate merge 1";
 
 		std::string utf8(const fs::path& path) {
 			const auto text = path.generic_u8string();
@@ -83,7 +83,7 @@ namespace dingosdk::mods::detail {
 			if (error) throw std::runtime_error("Cannot list " + path_utf8(mod->directory));
 			std::ranges::sort(files);
 			for (const auto& file : files)
-				describe(utf8(fs::relative(file, mod->directory, error)), file);
+            describe(utf8(file.lexically_relative(mod->directory)), file);
 			for (const auto& toc : modFiles.at(mod).tocs) tocs.insert(lower(toc));
 		}
 		for (const auto& toc : tocs) {
@@ -160,34 +160,34 @@ namespace dingosdk::mods::detail {
 		}
 	}
 
-	void write_stamp(const fs::path& output, const std::string& fingerprint, const MergeReport& report) {
-		std::string text = std::string(stamp_header) + "\nfingerprint " + fingerprint + '\n';
-		text += "superbundles " + std::to_string(report.superbundles) + '\n';
-		text += "archives " + std::to_string(report.archives) + '\n';
-		text += "bundles " + std::to_string(report.mergedBundles) + '\n';
-		text += "assets " + std::to_string(report.mergedAssets) + '\n';
-		std::error_code error;
-		for (fs::recursive_directory_iterator it(output, error), end; it != end && !error; it.increment(error)) {
-			if (!it->is_regular_file(error) || error) { error.clear(); continue; }
-			const auto size = fs::file_size(it->path(), error);
-			if (error) throw std::runtime_error("Cannot size " + path_utf8(it->path()));
-			text += "file " + std::to_string(size) + ' ' + utf8(fs::relative(it->path(), output, error)) + '\n';
-		}
-		if (error) throw std::runtime_error("Cannot list " + path_utf8(output));
-		for (auto note : report.notes) {
-			std::ranges::replace(note, '\n', ' ');
-			std::ranges::replace(note, '\r', ' ');
-			text += "note " + note + '\n';
-		}
-		// Mod folder names never contain '|', so it separates the mod from the text.
-		for (const auto& [mod, problems] : report.problems) {
-			for (auto problem : problems) {
-				std::ranges::replace(problem, '\n', ' ');
-				std::ranges::replace(problem, '\r', ' ');
-				text += "problem " + mod + '|' + problem + '\n';
-			}
-		}
-		write_file(output / stamp_name, std::as_bytes(std::span(text)));
-	}
+void write_stamp(const fs::path& output, const std::string& fingerprint, const MergeReport& report) {
+    std::string text = std::string(stamp_header) + "\nfingerprint " + fingerprint + '\n';
+    text += "superbundles " + std::to_string(report.superbundles) + '\n';
+    text += "archives " + std::to_string(report.archives) + '\n';
+    text += "bundles " + std::to_string(report.mergedBundles) + '\n';
+    text += "assets " + std::to_string(report.mergedAssets) + '\n';
+    std::error_code error;
+    for (fs::recursive_directory_iterator it(output, error), end; it != end && !error; it.increment(error)) {
+        if (!it->is_regular_file(error) || error) { error.clear(); continue; }
+        const auto size = fs::file_size(it->path(), error);
+        if (error) throw std::runtime_error("Cannot size " + path_utf8(it->path()));
+        text += "file " + std::to_string(size) + ' ' + utf8(it->path().lexically_relative(output)) + '\n';
+    }
+    if (error) throw std::runtime_error("Cannot list " + path_utf8(output));
+    for (auto note : report.notes) {
+        std::ranges::replace(note, '\n', ' ');
+        std::ranges::replace(note, '\r', ' ');
+        text += "note " + note + '\n';
+    }
+    // Mod folder names never contain '|', so it separates the mod from the text.
+    for (const auto& [mod, problems] : report.problems) {
+        for (auto problem : problems) {
+            std::ranges::replace(problem, '\n', ' ');
+            std::ranges::replace(problem, '\r', ' ');
+            text += "problem " + mod + '|' + problem + '\n';
+        }
+    }
+    write_file(output / stamp_name, std::as_bytes(std::span(text)));
+}
 
 } // namespace dingosdk::mods::detail

@@ -138,7 +138,7 @@ void SteamLobbies::update_host(bool ready, unsigned players, std::string_view ma
             api_->open();
             if (host_name_.empty()) host_name_ = api_->name();
             if (!safe_text(host_name_, 128))
-                host_name_ = "ReSkate Session";
+                host_name_ = "ReSkate session";
             creating_ = {api_->create(capacity_), now, false};
             require(creating_.call != 0, "Steam could not create a lobby.");
             state_.hosting = "Creating a public Steam lobby...";

@@ -37,7 +37,11 @@ namespace dingosdk::overlay::detail {
             dingosdk::overlay::notify(NoticeLevel::info,
                 dingosdk::reskate_release_build ? "ReSkate+ v" + std::string(dingosdk::reskate_version) + " loaded"
                 : "ReSkate+ v" + std::string(dingosdk::reskate_version) + " [DEV] loaded",
-                "Press " + name(keys.menu) + " for the menu and " + name(keys.console) + " for the console.");
+            "Press " + name(keys.menu) + " for the menu and " + name(keys.console) + " for the console." +
+                (dingosdk::reskate_modified_build
+                    ? " Modified build: " + std::string(dingosdk::reskate_mod_id) + " " + std::string(dingosdk::reskate_mod_version) +
+                          ". If the game crashes, the report says so."
+                    : std::string()));
         }
         std::lock_guard lock(notices_mutex);
         if (notices.empty()) return;
