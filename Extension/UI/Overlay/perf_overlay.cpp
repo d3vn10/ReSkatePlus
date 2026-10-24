@@ -95,8 +95,8 @@ void draw_perf_hud() {
     text(bold, std::format("CPU  {:.0f}% of {} cores   client thread {:.0f}%", m.process_cpu_percent, m.cores, client_cpu), skate::white);
     // A ReSkate+ thread using most of a core is never expected: name it.
     for (const auto& thread : m.threads)
-        if (thread.label == "ReSkate Worker" && thread.cpu_percent >= 50)
-            text(bold, std::format("ReSkate Worker {} at {:.0f}%", thread.id, thread.cpu_percent), skate::danger);
+        if (thread.label == "ReSkate worker" && thread.cpu_percent >= 50)
+            text(bold, std::format("ReSkate worker {} at {:.0f}%", thread.id, thread.cpu_percent), skate::danger);
     if (!m.zones.empty()) {
         const auto& top = m.zones.front();
         text(font, std::format("busiest: {} {:.2f} ms/s", top.name, top.milliseconds_per_second), skate::grey_text);
@@ -125,7 +125,7 @@ void draw_perf_window() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0f);
     bool open = true;
-    if (ImGui::Begin("ReSkate Profiler###ReSkateProfiler", &open, ImGuiWindowFlags_NoCollapse)) {
+    if (ImGui::Begin("ReSkate profiler###ReSkateProfiler", &open, ImGuiWindowFlags_NoCollapse)) {
         const auto summary = profiler::summary();
         const auto& m = *summary;
         std::array<float, 240> buffer{};

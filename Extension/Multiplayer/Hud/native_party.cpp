@@ -143,7 +143,7 @@ Handle player_record(Address manager, const PartyPlayer &player, std::uint32_t p
     put(info, 0xf0, std::uint32_t{player.local ? 0U : party ? 1U : online ? 4U : 5U});
     put(info, 0xcc, std::uint32_t{friend_record ? (party ? 3U : 2U) : 1U});
     put(info, 0xd8, std::uint32_t{online ? 0U : 2U});
-    // Player network (EadpPlayerNetwork): every ReSkate+ player is on Steam; left at 0 the
+    // Player network (EadpPlayerNetwork): every ReSkate player is on Steam; left at 0 the
     // UI shows the EA logo beside the name.
     put(info, 0xf4, std::uint32_t{4});
     const auto card_part = [&](std::uint32_t hash) {
@@ -511,6 +511,15 @@ std::uint64_t native_party_player_info(std::uintptr_t manager, std::size_t slot)
 std::string native_party_status() {
     auto &s = state(); std::lock_guard lock(s.status_mutex);
     return s.status + " Map party markers: " + std::to_string(s.map_count.load()) + ".";
+}
+std::uint64_t native_party_player_info_by_id(std::uintptr_t manager, std::uint64_t id) noexcept {
+    try {
+        const auto published=state().published.load(std::memory_order_acquire);
+        if(!published || published->manager!=manager)return 0;
+        const auto record=published->record(id);
+        if(record && game::native_data().models.value(manager,record->handle,0,0))return record->handle;
+    } catch(...) {}
+    return 0;
 }
 void set_native_party_map_markers(bool enabled) noexcept { state().map_markers.store(enabled, std::memory_order_release); }
 bool native_party_map_markers() noexcept { return state().map_markers.load(std::memory_order_acquire); }

@@ -11,11 +11,6 @@
 #include <map>
 #include <set>
 
-namespace dingosdk::texture_handle_limit {
-    Use simulated_use;
-    Use use() noexcept { return simulated_use; }
-}
-
 namespace dingosdk {
     bool read_local_camera_transform(std::uintptr_t, std::uintptr_t, std::array<float, 16>&) noexcept { return false; }
     ParksModel simulated_parks;

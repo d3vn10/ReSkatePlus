@@ -111,7 +111,7 @@ void told(const char* text) {
                 std::lock_guard lock(mutex);
                 track.available = true;
                 track.spotify = true;
-                track.app = "ReSkate Device";
+                track.app = "ReSkate device";
                 track.can_next = track.can_previous = track.can_pause = track.can_play = true;
                 track.artist = parts[2];
                 track.title = parts[3];

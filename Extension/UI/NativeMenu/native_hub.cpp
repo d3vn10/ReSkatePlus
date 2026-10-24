@@ -6,7 +6,7 @@
 #include <optional>
 
 // The pause menu's Hub page lists live-service tiles in two native TileLists.
-// ReSkate+ has no store, skate.Pass, bounties, missions or crew bounties, so
+// ReSkate has no store, skate.Pass, bounties, missions or crew bounties, so
 // those tiles go; News and Rip Score (profile) stay. The Hub resolves a press
 // by the tile's position, so a tile with a kept tile after it is hidden in
 // place (an empty gap with no action) rather than removed; trailing ones are
@@ -107,7 +107,7 @@ void remove_hub_tiles(const Context &c) {
     for (const auto &root : c.roots({tile_list_schema})) {
         const auto list = c.field(root.model, tile_items);
         unsigned count{}, stride{};
-        const auto bytes = c.array(list, 32, count, stride);
+        c.array(list, 32, count, stride);
         std::vector<bool> unwanted(count);
         unsigned last_kept = 0; // one past the last tile that stays
         for (unsigned i = 0; i < count; ++i) {
@@ -127,6 +127,12 @@ void remove_hub_tiles(const Context &c) {
             current_entry < static_cast<std::int32_t>(count) && unwanted[static_cast<unsigned>(current_entry)])
             c.set(entry, first_kept);
         if (last_kept < count && std::any_of(unwanted.begin() + last_kept, unwanted.end(), [](bool u) { return u; })) {
+            // Hiding an earlier tile clears its inline navigation CString,
+            // delegate, content and style refs. The earlier row snapshot would
+            // borrow released values and undo those edits when republished.
+            unsigned live_count{},live_stride{};
+            const auto bytes=c.array(list,32,live_count,live_stride);
+            require(live_count==count && live_stride==stride,"Native Hub rows changed while hiding tiles.");
             std::vector<std::byte> kept(bytes.begin(), bytes.begin() + std::size_t{last_kept} * stride);
             c.array(list, kept, last_kept);
         }
@@ -187,7 +193,7 @@ void align_hub_column(const Context &c) {
 
 // Runs every frame while the pause menu is open, so the removed tiles never
 // get a frame on screen when the Hub is rebuilt. Never lets the Hub disturb
-// ReSkate+'s own tabs: a failure is logged once and retried later.
+// ReSkate's own tabs: a failure is logged once and retried later.
 void update_hub(const Context &c) {
     static std::uint64_t next_update{};
     static std::string last_error;

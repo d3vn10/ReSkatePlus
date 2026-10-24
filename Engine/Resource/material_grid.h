@@ -48,21 +48,11 @@ namespace dingosdk::frostbite::material_grid {
         // grid as it was, when the edit is not a copy of this base with additions.
         SlotMap add(const ebx::Document& edit);
 
-        [[nodiscard]] std::size_t base_slots() const noexcept {
-            return baseSlots_;
-        }
-        [[nodiscard]] std::size_t slots() const noexcept {
-            return slots_;
-        }
-        [[nodiscard]] std::size_t added_slots() const noexcept {
-            return slots_ - baseSlots_;
-        }
-        [[nodiscard]] std::size_t carried_instances() const noexcept {
-            return carried_;
-        }
-        [[nodiscard]] std::size_t reused_instances() const noexcept {
-            return reused_;
-        }
+    [[nodiscard]] std::size_t base_slots() const noexcept { return baseSlots_; }
+    [[nodiscard]] std::size_t slots() const noexcept { return slots_; }
+    [[nodiscard]] std::size_t added_slots() const noexcept { return slots_ - baseSlots_; }
+    [[nodiscard]] std::size_t carried_instances() const noexcept { return carried_; }
+    [[nodiscard]] std::size_t reused_instances() const noexcept { return reused_; }
 
         // The combined grid, identity (file and root guid, name) unchanged.
         [[nodiscard]] ebx::Document result() const;

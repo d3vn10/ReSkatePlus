@@ -82,7 +82,7 @@ inline constexpr std::uintptr_t party_client = engine::client_game_manager;
 
 // Party requests (analysis/party-re/native-core.md 2.3): the natives behind the Social menu's and
 // player card's party buttons. Each fills an async handle and answers through a script delegate
-// (last argument); without a native (Blaze) group they fail, so ReSkate+ answers them itself.
+// (last argument); without a native (Blaze) group they fail, so ReSkate answers them itself.
 inline constexpr std::uintptr_t request_invite = 0x84be30;      // (Handle*, const u64* eaid, Delegate*)
 inline constexpr std::uintptr_t request_join_group = 0x7797a0;  // (Handle*, u64 group, i32 reason (1 direct, 2 invite), Delegate*)
 inline constexpr std::uintptr_t request_join_player = 0x77a0e0; // (Handle*, const u64* eaid, Delegate*)
@@ -109,6 +109,8 @@ inline constexpr std::uintptr_t voice_unavailable = 0x848e60;
 // dispatcher = event_dispatcher(&buffer16); if dispatcher+0x28: event_post(dispatcher, type object,
 // payload*, options* {f32 0, u32 1, u32 0}, 0).
 inline constexpr std::uintptr_t current_context = 0x18b6ae0, event_dispatcher = 0x4b257a0, event_post = 0x4b30ab0;
+// The dispatcher's byte that says it accepts events.
+inline constexpr std::uintptr_t dispatcher_live = 0x28;
 // Their type objects: GroupJoinNotification {u64 EAId}, GroupLeaveNotification {u64 EAId, i32 reason
 // (0 left, 1 kicked, 2 location access)}, GroupLeaderChangedNotification {u64 new leader},
 // GameInviteUpdated {String GameId, String GameInviteId, u64 inviter, i32 1, bool matchmaking}.

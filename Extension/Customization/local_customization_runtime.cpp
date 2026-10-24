@@ -76,17 +76,21 @@ namespace dingosdk::profile_runtime {
         std::mutex reserved_hash_mutex;
         std::set<std::uint32_t> reserved_hashes;
     }
-    bool reserved_cosmetic(std::string_view /*asset*/) {
-        /*const auto& catalogs = content_cache::catalogs();
+	bool is_paid_or_reserved(std::string_view asset){
+		const auto& catalogs = content_cache::catalogs();
         if (!catalogs.available || asset.empty()) return false;
         std::string folded(asset);
         for (auto& letter : folded) if (letter >= 'A' && letter <= 'Z') letter = static_cast<char>(letter + ('a' - 'A'));
-        return catalogs.reserved(folded);*/
-        return false;
-    }
+        return catalogs.is_paid_or_reserved(folded);
+	}
+    bool reserved_cosmetic(std::string_view /*asset*/) {
+		return false;
+	}
+	bool is_paid_or_reserved_hash(std::uint32_t hash) {
+		std::lock_guard lock(reserved_hash_mutex);
+        return hash && reserved_hashes.contains(hash);
+	}
     bool reserved_cosmetic_hash(std::uint32_t /*hash*/) {
-        /*std::lock_guard lock(reserved_hash_mutex);
-        return hash && reserved_hashes.contains(hash);*/
         return false;
     }
     bool installed_item_owned(const profile::Snapshot& snapshot, std::string_view key, std::uint32_t /*hash*/, bool build_kit) {

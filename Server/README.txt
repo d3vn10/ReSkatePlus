@@ -1,4 +1,4 @@
-ReSkate Dedicated Server
+ReSkate dedicated server
 ========================
 
 A headless ReSkate lobby that runs on its own, without the game. Players find it
@@ -67,7 +67,7 @@ server's ping and players can join a little faster.
 The server signs in to Steam anonymously and gets a new Steam ID, and so a new
 join code, every time it starts. The browser always finds it by name.
 
-Players and the server need the same ReSkate packet protocol.
+Players and the server need the same ReSkate version.
 
 Updates
 -------
@@ -204,7 +204,9 @@ allow_parties      Let players form parties (default true): invite each other
 party_size         Most players in one party, 2-8 (default 8).
 afk_kick_minutes   Remove a player who has been away this many minutes, 1-1440
                    (default 0: never). Away is not moving, speaking, typing
-                   in chat or changing their objects. They are warned in chat
+                   in chat, changing their objects or using the game's
+                   controls (a player flying a plugin's drone is not away,
+                   though their skater stands still). They are warned in chat
                    a minute before and can join again at once. Admins are
                    never removed for it. Console: afk-kick <minutes>|off.
 kick_minutes       How long a player kicked by an admin is kept out: 1-1440
@@ -510,7 +512,7 @@ A role is:
   name         1 to 24 of a-z, 0-9, - and _.
   tag          The word shown before the player's name in the game, up to 16
                characters ("" for none). Not one the game uses itself (Server,
-               Host, Friend, Developer, Staff...).
+               Host, Friend, Dev, ReSkate Admin...).
   color        The tag's colour, like "#FF74C6".
   rank         0 to 1000. Nobody kicks, bans or changes the role of a player
                whose rank is theirs or higher, or gives out a role whose rank

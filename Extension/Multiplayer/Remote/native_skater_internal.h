@@ -19,45 +19,50 @@
 
 // Remote actor state shared by native_skater.cpp and native_skater_spawn.cpp.
 namespace dingosdk::multiplayer::native_skater_detail {
-	namespace entities = addr::skater_entities;
-	namespace native = addr::native_skater;
-	
-	struct Unavailable : std::runtime_error {
-	    using std::runtime_error::runtime_error;
-	};
-	void require(bool value, const char *reason);
-	bool readable(std::uintptr_t address, void *out, std::size_t size);
-	template <class T>
-	T read(std::uintptr_t object, std::uintptr_t offset = 0,
-	       const std::source_location &location = std::source_location::current()) {
-	    T value{};
-	    if (object < 0x10000 || object > memory::highest_user_address ||
-	        offset > memory::highest_user_address - object ||
-	        !readable(object + offset, &value, sizeof(value)))
-	        throw Unavailable(
-	            std::format("Native skater read failed: object={:#x}, offset={:#x}, bytes={}, line={}.", object,
-	                        offset, sizeof(value), location.line()));
-	    return value;
-	}
-	std::uintptr_t ptr(std::uintptr_t object, std::uintptr_t offset = 0,
-	                   const std::source_location &location = std::source_location::current());
-	bool write(std::uintptr_t address, const void *data, std::size_t size);
-	struct alignas(16) NativeBone {
-	    std::array<float, 4> scale, rotation, position;
-	};
-	static_assert(sizeof(NativeBone) == 0x30);
-	using AnimationUpdate = void (*)(std::uintptr_t, std::uintptr_t);
-	using DestroyEntity = void (*)(std::uintptr_t, std::uintptr_t);
-	using RenderPose = bool (*)(std::uintptr_t, std::uintptr_t);
-	struct HookState {
-	    std::uintptr_t base{};
-	    DWORD engine_thread{};
-	    bool hooks{}, install_attempted{};
-	    AnimationUpdate original_animation{};
-	    DestroyEntity original_destroy{};
-	    RenderPose original_render_pose{};
-	    std::atomic<EntityDestroyed> destroyed_listener{};
-	    std::atomic<AnimationEvaluated> evaluated_listener{};
+namespace entities = addr::skater_entities;
+namespace native = addr::native_skater;
+struct Unavailable : std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
+void require(bool value, const char *reason);
+bool readable(std::uintptr_t address, void *out, std::size_t size);
+template <class T>
+T read(std::uintptr_t object, std::uintptr_t offset = 0,
+       const std::source_location &location = std::source_location::current()) {
+    T value{};
+    if (object < 0x10000 || object > memory::highest_user_address ||
+        offset > memory::highest_user_address - object ||
+        !readable(object + offset, &value, sizeof(value)))
+        throw Unavailable(
+            std::format("Native skater read failed: object={:#x}, offset={:#x}, bytes={}, line={}.", object,
+                        offset, sizeof(value), location.line()));
+    return value;
+}
+std::uintptr_t ptr(std::uintptr_t object, std::uintptr_t offset = 0,
+                   const std::source_location &location = std::source_location::current());
+bool write(std::uintptr_t address, const void *data, std::size_t size);
+struct alignas(16) NativeBone {
+    std::array<float, 4> scale, rotation, position;
+};
+static_assert(sizeof(NativeBone) == 0x30);
+using AnimationUpdate = void (*)(std::uintptr_t, std::uintptr_t);
+using DestroyEntity = void (*)(std::uintptr_t, std::uintptr_t);
+using RenderPose = bool (*)(std::uintptr_t, std::uintptr_t);
+struct HookState {
+    std::uintptr_t base{};
+    DWORD engine_thread{};
+    bool hooks{}, install_attempted{};
+    AnimationUpdate original_animation{};
+    DestroyEntity original_destroy{};
+    RenderPose original_render_pose{};
+    std::atomic<EntityDestroyed> destroyed_listener{};
+    std::atomic<AnimationEvaluated> evaluated_listener{};
+    std::atomic<LocalPoseFilter> pose_filter{};
+    std::atomic<LocalSentPoseFilter> sent_pose_filter{};
+    // A pose override of the local skater (Extension/Skater/skater_animation.cpp), after the one above.
+    std::atomic<AnimationEvaluated> override_listener{};
+    std::atomic<RenderPosePublished> override_render_listener{};
+    std::atomic<BoardPosePublished> override_board_listener{};
 	    std::atomic<RenderPosePublished> render_listener{};
 	};
 	// Keys the per-entity hooks match, one contiguous array per kind in slot order.

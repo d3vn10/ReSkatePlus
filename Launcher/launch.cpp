@@ -4,14 +4,12 @@
 #include "Engine/Vfs/initfs.h"
 #include "Engine/Vfs/content_cache_install.h"
 #include "Engine/Vfs/world_layer_scan.h"
-#include "Engine/Game/Build/supported_build.h"
-
 #include "launch.h"
 #include "mod_manager.h"
-#include "official_mods.h"
 #include "text_encoding.h"
 #include "Engine/Game/Build/addresses.h"
 #include "Engine/Game/Build/20260929/runtime.h"
+#include "Engine/Game/Build/20260929/game_data_files.h"
 
 #include <Windows.h>
 #include <Psapi.h>
@@ -483,9 +481,7 @@ namespace dingosdk::launcher_app {
             logging::Channel::launcher, "File logging is unavailable; debugger output remains active.");
         logging::write(logging::Level::info, logging::Channel::launcher, L"ReSkate launcher starting");
         logging::write(logging::Level::info, logging::Channel::launcher, L"Current launch log: " + (session.paths.logs / L"ReSkate.log").wstring());
-        // The official mods, put in place on a thread of their own while the launcher opens (Play waits).
-        official_mods::start(launcher_mods::mods_root(session.paths.directory));
-        return session;
+    return session;
     }
 
     std::string game_data_build(const launcher::SiblingPaths& paths) {
@@ -508,13 +504,49 @@ namespace dingosdk::launcher_app {
         catch (...) {
             return {};
         }
+}
+std::string memory_advice() {
+    MEMORYSTATUSEX status{sizeof(status)};
+    if (!GlobalMemoryStatusEx(&status)) return {};
+    // skate. commits about 9 GB with no mods and 11 to 12 GB with many. 2.1.1's out-of-memory exits
+    // (3,300 reports) were nearly all PCs of 16 GB of RAM or less whose RAM and page file together
+    // were within a few GB of full (2026-10-21).
+    // (The game's 12 GB and Windows' own few.)
+    constexpr std::uint64_t gigabyte = 1ull << 30, enough_ram = 12 * gigabyte, enough_commit = 18 * gigabyte;
+    if (status.ullTotalPhys >= enough_ram && status.ullTotalPageFile >= enough_commit) return {};
+    return std::format("This PC has {} GB of RAM and room for {} GB with its page file; skate. needs about 12 GB with mods "
+                       "and may close when it runs out. Close other apps, let Windows manage the page file size, and use fewer mods.",
+                       (status.ullTotalPhys + gigabyte / 2) / gigabyte, (status.ullTotalPageFile + gigabyte / 2) / gigabyte);
+}
+std::string game_data_damage(const launcher::SiblingPaths& paths) {
+    // A file OneDrive (or another cloud folder) keeps only online: the game's read of it fails or
+    // stalls. The attributes Windows gives such a placeholder.
+    constexpr DWORD online_only = FILE_ATTRIBUTE_OFFLINE | FILE_ATTRIBUTE_RECALL_ON_OPEN | FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS;
+    for (const auto& file : addr::game_data_files::files) {
+        const auto path = paths.directory / fs::path(std::string(file.path)).make_preferred();
+        WIN32_FILE_ATTRIBUTE_DATA data{};
+        if (!GetFileAttributesExW(path.c_str(), GetFileExInfoStandard, &data) || (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+            return std::format("{} is missing", file.path);
+        const auto size = (std::uint64_t{data.nFileSizeHigh} << 32) | data.nFileSizeLow;
+        if (size != file.size) return std::format("{} is {} bytes, not {}", file.path, size, file.size);
+        if (data.dwFileAttributes & online_only) return std::format("{} is kept online only (a cloud folder)", file.path);
     }
-    bool game_data_mismatched(const launcher::SiblingPaths& paths) {
-        std::error_code error;
-        if (!fs::is_regular_file(paths.directory / L"Data" / L"layout.toc", error)) return true;
-        const auto build = game_data_build(paths);
-        return !build.empty() && build != supported_build::game_data_changelist;
+    return {};
+}
+bool game_data_mismatched(const launcher::SiblingPaths& paths) {
+    std::error_code error;
+    if (!fs::is_regular_file(paths.directory / L"Data" / L"layout.toc", error)) return true;
+    const auto build = game_data_build(paths);
+    if (!build.empty() && build != supported_build::game_data_changelist) return true;
+    // The supported build's data with a file missing or cut short: the game crashed on it as it
+    // started or loaded (Skate.exe+0x41e0f81, +0x3df03a0, "Truncated CAS block header"; about
+    // 1,000 of 2.1.1's reports, 2026-10-21), mostly a download that stopped or a OneDrive folder.
+    if (const auto damage = game_data_damage(paths); !damage.empty()) {
+        logging::log(logging::Level::warning, logging::Channel::launcher, "Game data is damaged: {}.", damage);
+        return true;
     }
+    return false;
+}
 
     bool game_files_supported(const launcher::SiblingPaths& paths) {
         std::error_code error;
@@ -559,8 +591,8 @@ namespace dingosdk::launcher_app {
         buffer.push_back(L'\0');
         STARTUPINFOW startup{ sizeof(startup) };
         PROCESS_INFORMATION process{};
-        if (!CreateProcessW(self.c_str(), buffer.data(), nullptr, nullptr, FALSE, 0, nullptr,
-            self.parent_path().c_str(), &startup, &process)) win32_failure(L"Restart Launcher");
+    if (!CreateProcessW(self.c_str(), buffer.data(), nullptr, nullptr, FALSE, 0, nullptr,
+            self.parent_path().c_str(), &startup, &process)) win32_failure(L"Restart launcher");
         CloseHandle(process.hThread);
         CloseHandle(process.hProcess);
     }
@@ -832,48 +864,49 @@ bool steam_signed_in() {
         set_environment(L"RESKATE_GPU_DIAGNOSTICS", options.gpu_diagnostics ? L"1" : L"0");
         // -map: the game loads it once it is up, as the console's "load" would (client_tick.cpp),
         // ahead of any startup commands already asked for.
-        if (!options.map.empty()) {
-            std::wstring commands = L"load " + options.map;
-            std::wstring already(4096, L'\0');
-            const auto length = GetEnvironmentVariableW(L"RESKATE_STARTUP_COMMANDS", already.data(), 4096);
-            if (length && length < 4096) commands += L";" + already.substr(0, length);
-            set_environment(L"RESKATE_STARTUP_COMMANDS", commands.c_str());
-        }
-        set_environment(L"RESKATE_DISCORD", options.discord ? L"1" : L"0");
-        if (options.menu_key == options.console_key)
-            throw std::runtime_error("The menu and console need different keys. Change one in Settings.");
-        set_environment(L"RESKATE_MENU_KEY", std::to_wstring(options.menu_key).c_str());
-        set_environment(L"RESKATE_CONSOLE_KEY", std::to_wstring(options.console_key).c_str());
-        const auto steam_reason = options.offline ? std::wstring{} : launcher_app::steam_offline_reason();
-        const bool offline = options.offline || !steam_reason.empty();
-        set_environment(L"RESKATE_OFFLINE", offline ? L"1" : L"0");
-        const auto steam_id = offline ? last_steam_id() : std::nullopt;
-        set_environment(L"RESKATE_OFFLINE_STEAM_ID", steam_id ? std::to_wstring(*steam_id).c_str() : nullptr);
-        if (offline)
-            logging::write(logging::Level::info, logging::Channel::launcher, options.offline ?
-                std::wstring(L"Offline mode: requested; Steam is not used") :
-                L"Offline mode: Steam is not running or not signed in: " + steam_reason);
-        logging::write(logging::Level::info, logging::Channel::launcher, std::wstring(L"Graphics options: DRED=") +
-            (options.gpu_diagnostics ? L"enabled" : L"default"));
-        if (options.force_windowed)
-            logging::write(logging::Level::info, logging::Channel::launcher, L"Requested windowed resolution: " + std::to_wstring(options.width) +
-                L"x" + std::to_wstring(options.height));
-        else logging::write(logging::Level::info, logging::Channel::launcher, L"Display settings: using the game's saved preferences");
-        command += launcher::windowed_arguments(options);
-        const auto mod_arguments = launcher::mod_data_arguments(paths.directory, options.game_arguments);
-        command += mod_arguments;
-        if (!mod_arguments.empty()) logging::write(logging::Level::info, logging::Channel::launcher, L"ModData folder detected; loading ModData/Default");
-        logging::write(logging::Level::info, logging::Channel::launcher, L"Child command: " + command);
-        if (GetEnvironmentVariableW(L"RESKATE_MANGOHUD_HELD", nullptr, 0)) {
-            // Held off for the launcher's own window only (relaunch_without_mangohud).
-            set_environment(L"DISABLE_MANGOHUD", nullptr);
-            set_environment(L"RESKATE_MANGOHUD_HELD", nullptr);
-        }
-        std::vector<wchar_t> command_buffer(command.begin(), command.end());
-        command_buffer.push_back(L'\0');
-        STARTUPINFOW startup{ sizeof(startup) };
-        PROCESS_INFORMATION process{};
-        if (!CreateProcessW(paths.game.c_str(), command_buffer.data(), nullptr, nullptr, FALSE,
+    // launcher kept open sets the variable again at each launch, and must not add to the last one.
+    static const std::wstring asked = [] {
+        std::wstring value(4096, L'\0');
+        const auto length = GetEnvironmentVariableW(L"RESKATE_STARTUP_COMMANDS", value.data(), 4096);
+        return length && length < 4096 ? value.substr(0, length) : std::wstring{};
+    }();
+    std::wstring commands = options.map.empty() ? asked : L"load " + options.map + (asked.empty() ? L"" : L";" + asked);
+    set_environment(L"RESKATE_STARTUP_COMMANDS", commands.empty() ? nullptr : commands.c_str());
+    set_environment(L"RESKATE_DISCORD", options.discord ? L"1" : L"0");
+    if (options.menu_key == options.console_key)
+        throw std::runtime_error("The menu and console need different keys. Change one in Settings.");
+    set_environment(L"RESKATE_MENU_KEY", std::to_wstring(options.menu_key).c_str());
+    set_environment(L"RESKATE_CONSOLE_KEY", std::to_wstring(options.console_key).c_str());
+    const auto steam_reason = options.offline ? std::wstring{} : launcher_app::steam_offline_reason();
+    const bool offline = options.offline || !steam_reason.empty();
+    set_environment(L"RESKATE_OFFLINE", offline ? L"1" : L"0");
+    const auto steam_id = offline ? last_steam_id() : std::nullopt;
+    set_environment(L"RESKATE_OFFLINE_STEAM_ID", steam_id ? std::to_wstring(*steam_id).c_str() : nullptr);
+    if (offline)
+        logging::write(logging::Level::info, logging::Channel::launcher, options.offline ?
+            std::wstring(L"Offline mode: requested; Steam is not used") :
+            L"Offline mode: Steam is not running or not signed in: " + steam_reason);
+    logging::write(logging::Level::info, logging::Channel::launcher, std::wstring(L"Graphics options: DRED=") +
+        (options.gpu_diagnostics ? L"enabled" : L"default"));
+    if (options.force_windowed)
+        logging::write(logging::Level::info, logging::Channel::launcher, L"Requested windowed resolution: " + std::to_wstring(options.width) +
+            L"x" + std::to_wstring(options.height));
+    else logging::write(logging::Level::info, logging::Channel::launcher, L"Display settings: using the game's saved preferences");
+    command += launcher::windowed_arguments(options);
+    const auto mod_arguments = launcher::mod_data_arguments(paths.directory, options.game_arguments);
+    command += mod_arguments;
+    if (!mod_arguments.empty()) logging::write(logging::Level::info, logging::Channel::launcher, L"ModData folder detected; loading ModData/Default");
+    logging::write(logging::Level::info, logging::Channel::launcher, L"Child command: " + command);
+    if (GetEnvironmentVariableW(L"RESKATE_MANGOHUD_HELD", nullptr, 0)) {
+        // Held off for the launcher's own window only (relaunch_without_mangohud).
+        set_environment(L"DISABLE_MANGOHUD", nullptr);
+        set_environment(L"RESKATE_MANGOHUD_HELD", nullptr);
+    }
+    std::vector<wchar_t> command_buffer(command.begin(), command.end());
+    command_buffer.push_back(L'\0');
+    STARTUPINFOW startup{sizeof(startup)};
+    PROCESS_INFORMATION process{};
+    if (!CreateProcessW(paths.game.c_str(), command_buffer.data(), nullptr, nullptr, FALSE,
             CREATE_SUSPENDED | CREATE_UNICODE_ENVIRONMENT, nullptr, paths.directory.c_str(),
             &startup, &process)) win32_failure(L"CreateProcessW(Skate.exe)");
         ChildProcess child(process);

@@ -34,8 +34,8 @@ namespace dingosdk::mods {
 	// what was looked for or found. The number is how ReSkate+'s own people tell it
 	// from a mod that really is damaged; the log names the check by it as well,
 	// when something could not be read for it.
-	inline constexpr std::string_view store_copies_problem = "uses store cosmetics";
-	inline constexpr std::string_view store_copies_check = "uses store cosmetics";
+	inline constexpr std::string_view store_copies_problem = "uses store cosmetics (0x5343)";
+	inline constexpr std::string_view store_copies_check = "uses store cosmetics (0x5343)";
 
 	// What an item is made of, whatever it is called. Lower-case; the lists sorted.
 	struct ItemContent {

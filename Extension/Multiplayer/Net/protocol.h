@@ -54,8 +54,8 @@ namespace dingosdk::multiplayer {
     // maps to pick from; older ones show the poll it is.
     inline constexpr std::uint64_t next_map_vote = 1;
     // Its answers that are not maps: any map of the pool, and (when the server offers it) staying.
-    inline constexpr std::string_view next_map_random = "Random map";
-    inline constexpr std::string_view next_map_stay = "Stay here";
+    inline constexpr std::string_view next_map_random = "Random Map";
+    inline constexpr std::string_view next_map_stay = "Stay Here";
     // One of them: the name the vote's answer has, and the Thunderstore package the map is from
     // (valid_map_package; empty for the game's own maps and when the server does not know).
     struct NextMap {
@@ -153,210 +153,196 @@ namespace dingosdk::multiplayer {
         // The sender's chat box changed recently (typing true) or they stopped (false).
         // Relayed like chat. Not a chat line: receivers draw grey dots above that skater.
         typing = 35,
-        // Where a player's FPV drone is (drone_beacon.h), for the marker others see. Unreliable,
-        // relayed like effects. Only sent when the player turns `dronetune beacon` on.
-        drone = 36
-    };
-    // A drone packet: a flag byte (1 = flying), the drone's position as three floats and which way
-    // it faces as a unit quaternion (four floats: x, y, z, w).
-    inline constexpr std::size_t drone_wire_size = 1 + 12 + 16;
-    inline bool valid_drone_rotation(const std::array<float, 4>& q) noexcept {
-        float length = 0.f;
-        for (const float v : q) {
-            if (!(v >= -1.01f && v <= 1.01f)) return false; // also false for NaN
-            length += v * v;
-        }
-        return length > 0.81f && length < 1.21f;
-    }
-    inline bool valid_drone_position(const std::array<float, 3>& p) noexcept {
-        for (const float v : p)
-            if (!(v > -1.0e6f && v < 1.0e6f)) return false; // also false for NaN
+    // 36 was the FPV drone's marker, before the drone became a plugin: not used again.
+    // A player telling a dedicated server they are at their game: they worked its controls
+    // lately, though their skater may stand still (flying a plugin's drone). The server counts
+    // it as activity for its away limit. Nothing but the header; never relayed.
+    present = 37,
+};
+// How often a game says it is present (PacketKind::present) while its player works the controls,
+// and the least time a server lets pass between two it counts.
+constexpr std::uint64_t present_interval_us = 20000000, present_least_us = 10000000;
+// Packet::party_action. Requests go from a player to whoever hosts, a dedicated server or a
+// lobby's host (party_player = the other player involved, 0 for leave/open/close); invited
+// and withdrawn go from the host to the invitee (party_player = the inviter). The host
+// answers everything else with a chat line and the next roster.
+enum class PartyAction : std::uint8_t {
+    invite = 1,    // invite party_player into the sender's party
+    accept = 2,    // accept party_player's invite
+    decline = 3,   // decline party_player's invite
+    join = 4,      // join party_player's party (open, or invited)
+    leave = 5,     // leave the sender's party
+    kick = 6,      // the leader removes party_player
+    promote = 7,   // the leader hands the lead to party_player
+    open = 8,      // the leader lets anyone join
+    close = 9,     // the leader makes the party invite-only
+    invited = 10,  // host -> invitee: party_player invited you
+    withdrawn = 11 // host -> invitee: party_player's invite can no longer be accepted
+};
+bool valid_party_request(PartyAction action, std::uint64_t player) noexcept;
+// Steam accounts in the public universe. Players are individual accounts; a
+// dedicated server is a game server: anonymous (type 4) with a new ID each time
+// it starts, or signed in with a login token (type 3) with the same ID always.
+inline bool individual_steam_id(std::uint64_t id) noexcept {
+    return (id >> 56) == 1 && ((id >> 52) & 15) == 1 && (id & 0xffffffffULL);
+}
+inline bool game_server_steam_id(std::uint64_t id) noexcept {
+    const auto type = (id >> 52) & 15;
+    return (id >> 56) == 1 && (type == 3 || type == 4) && (id & 0xffffffffULL);
+}
+inline bool persistent_server_steam_id(std::uint64_t id) noexcept {
+    return game_server_steam_id(id) && ((id >> 52) & 15) == 3;
+}
+// A player's own name as sent in their hello: at most this many bytes.
+constexpr std::size_t max_member_name = 64;
+// A role's tag (the word before a player's name), a role's name, and the commands a
+// permissions packet may list.
+constexpr std::size_t max_role_tag = 16, max_role_name = 24, max_role_commands = 128, max_role_command = 24;
+// What a role gives beyond commands (permissions packet; the names are in Server/roles.h).
+inline constexpr std::uint32_t role_reserved_slot = 1, role_objects = 2, role_movement = 4, role_afk = 8,
+                               role_vote_immune = 16, role_alerts = 32, role_polls = 64, role_votes = 128,
+                               role_parties = 256, role_whisper = 512, role_chat = 1024, role_permission_bits = 2047;
+constexpr std::size_t max_admin_text = 320;
+constexpr std::size_t max_ban_rows = 256;
+constexpr std::size_t max_server_maps = 128, max_map_asset = 128;
+// Packet::words: as many of a server's own filtered words as it sends, and how long one may be.
+constexpr std::size_t max_server_words = 256, max_server_word = 32;
+inline bool valid_server_word(std::string_view word) noexcept {
+    if (word.empty() || word.size() > max_server_word) return false;
+    for (const unsigned char c : word)
+        if (c < 32 || c == 127) return false;
+    return true;
+}
+// A level asset as a server's map list carries it: printable ASCII, no '|'.
+bool valid_map_asset(std::string_view asset) noexcept;
+bool valid_map_pool(std::span<const std::uint16_t> pool, std::size_t maps) noexcept; // distinct indices below `maps`
+bool valid_map_label(std::string_view label) noexcept; // empty, or a name like a member's
+// How long a host goes on waiting for a player who says they are fetching the map
+// (Packet::map_fetching), from the first time they say so, including installation and joining.
+// Repeated requests never extend this limit. Each host uses its own monotonic clock.
+inline constexpr std::uint64_t map_fetch_limit_us = map_fetch_policy::session_us;
+// The Thunderstore package a map comes from, so a player without it can be offered it:
+// "Owner-Name", or "Owner-Name-1.2.3" when the host knows its version. Empty for the game's own
+// maps and for a map mod that is not from Thunderstore.
+inline constexpr std::size_t max_map_package = 96;
+bool valid_map_package(std::string_view package) noexcept;
+// That name for a mod folder and the version its manifest gives; empty when the folder is not
+// named as a package: "Owner-Name", as the launcher installs one, or "Owner-Name-1.2.3", as its
+// zip unpacks by hand. The manifest's version comes before the folder's; one that is not three
+// numbers is left off.
+std::string map_package_name(std::string_view folder, std::string_view version);
+// A package's version ("1.2.3" of "Owner-Name-1.2.3"), or nothing when it names none.
+inline std::string_view map_package_version(std::string_view package) noexcept {
+    const auto first = package.find('-');
+    const auto second = first == std::string_view::npos ? first : package.find('-', first + 1);
+    return second == std::string_view::npos ? std::string_view{} : package.substr(second + 1);
+}
+// Whether version `a` is a later one than `b`: their numbers compared in turn ("1.10.0" is
+// later than "1.9.2"), a missing one counting as 0. False when either is not numbers and dots.
+inline bool map_version_newer(std::string_view a, std::string_view b) noexcept {
+    const auto next = [](std::string_view &text, std::uint64_t &value) {
+        value = 0;
+        std::size_t i = 0;
+        for (; i < text.size() && text[i] >= '0' && text[i] <= '9' && i < 9; ++i) value = value * 10 + static_cast<std::uint64_t>(text[i] - '0');
+        if (!i || (i < text.size() && text[i] != '.')) return false;
+        text.remove_prefix(i < text.size() ? i + 1 : i);
         return true;
-    }
-    // Packet::party_action. Requests go from a player to whoever hosts, a dedicated server or a
-    // lobby's host (party_player = the other player involved, 0 for leave/open/close); invited
-    // and withdrawn go from the host to the invitee (party_player = the inviter). The host
-    // answers everything else with a chat line and the next roster.
-    enum class PartyAction : std::uint8_t {
-        invite = 1,    // invite party_player into the sender's party
-        accept = 2,    // accept party_player's invite
-        decline = 3,   // decline party_player's invite
-        join = 4,      // join party_player's party (open, or invited)
-        leave = 5,     // leave the sender's party
-        kick = 6,      // the leader removes party_player
-        promote = 7,   // the leader hands the lead to party_player
-        open = 8,      // the leader lets anyone join
-        close = 9,     // the leader makes the party invite-only
-        invited = 10,  // host -> invitee: party_player invited you
-        withdrawn = 11 // host -> invitee: party_player's invite can no longer be accepted
     };
-    bool valid_party_request(PartyAction action, std::uint64_t player) noexcept;
-    // Steam accounts in the public universe. Players are individual accounts; a
-    // dedicated server is a game server: anonymous (type 4) with a new ID each time
-    // it starts, or signed in with a login token (type 3) with the same ID always.
-    inline bool individual_steam_id(std::uint64_t id) noexcept {
-        return (id >> 56) == 1 && ((id >> 52) & 15) == 1 && (id & 0xffffffffULL);
+    if (a.empty() || b.empty()) return false;
+    bool newer{}, decided{};
+    while (!a.empty() || !b.empty()) {
+        std::uint64_t left{}, right{};
+        if ((!a.empty() && !next(a, left)) || (!b.empty() && !next(b, right))) return false;
+        if (!decided && left != right) newer = left > right, decided = true;
     }
-    inline bool game_server_steam_id(std::uint64_t id) noexcept {
-        const auto type = (id >> 52) & 15;
-        return (id >> 56) == 1 && (type == 3 || type == 4) && (id & 0xffffffffULL);
-    }
-    inline bool persistent_server_steam_id(std::uint64_t id) noexcept {
-        return game_server_steam_id(id) && ((id >> 52) & 15) == 3;
-    }
-    // A player's own name as sent in their hello: at most this many bytes.
-    constexpr std::size_t max_member_name = 64;
-    // A role's tag (the word before a player's name), a role's name, and the commands a
-    // permissions packet may list.
-    constexpr std::size_t max_role_tag = 16, max_role_name = 24, max_role_commands = 128, max_role_command = 24;
-    // What a role gives beyond commands (permissions packet; the names are in Server/roles.h).
-    inline constexpr std::uint32_t role_reserved_slot = 1, role_objects = 2, role_movement = 4, role_afk = 8,
-        role_vote_immune = 16, role_alerts = 32, role_polls = 64, role_votes = 128,
-        role_parties = 256, role_whisper = 512, role_chat = 1024, role_permission_bits = 2047;
-    constexpr std::size_t max_admin_text = 320;
-    constexpr std::size_t max_ban_rows = 256;
-    constexpr std::size_t max_server_maps = 128, max_map_asset = 128;
-    // Packet::words: as many of a server's own filtered words as it sends, and how long one may be.
-    constexpr std::size_t max_server_words = 256, max_server_word = 32;
-    inline bool valid_server_word(std::string_view word) noexcept {
-        if (word.empty() || word.size() > max_server_word) return false;
-        for (const unsigned char c : word)
-            if (c < 32 || c == 127) return false;
-        return true;
-    }
-    // A level asset as a server's map list carries it: printable ASCII, no '|'.
-    bool valid_map_asset(std::string_view asset) noexcept;
-    bool valid_map_pool(std::span<const std::uint16_t> pool, std::size_t maps) noexcept; // distinct indices below `maps`
-    bool valid_map_label(std::string_view label) noexcept; // empty, or a name like a member's
-    // How long a host goes on waiting for a player who says they are fetching the map
-    // (Packet::map_fetching), from the first time they say so, including installation and joining.
-    // Repeated requests never extend this limit. Each host uses its own monotonic clock.
-    inline constexpr std::uint64_t map_fetch_limit_us = map_fetch_policy::session_us;
-    // The Thunderstore package a map comes from, so a player without it can be offered it:
-    // "Owner-Name", or "Owner-Name-1.2.3" when the host knows its version. Empty for the game's own
-    // maps and for a map mod that is not from Thunderstore.
-    inline constexpr std::size_t max_map_package = 96;
-    bool valid_map_package(std::string_view package) noexcept;
-    // That name for a mod folder and the version its manifest gives; empty when the folder is not
-    // named as a package: "Owner-Name", as the launcher installs one, or "Owner-Name-1.2.3", as its
-    // zip unpacks by hand. The manifest's version comes before the folder's; one that is not three
-    // numbers is left off.
-    std::string map_package_name(std::string_view folder, std::string_view version);
-    // A package's version ("1.2.3" of "Owner-Name-1.2.3"), or nothing when it names none.
-    inline std::string_view map_package_version(std::string_view package) noexcept {
-        const auto first = package.find('-');
-        const auto second = first == std::string_view::npos ? first : package.find('-', first + 1);
-        return second == std::string_view::npos ? std::string_view{} : package.substr(second + 1);
-    }
-    // Whether version `a` is a later one than `b`: their numbers compared in turn ("1.10.0" is
-    // later than "1.9.2"), a missing one counting as 0. False when either is not numbers and dots.
-    inline bool map_version_newer(std::string_view a, std::string_view b) noexcept {
-        const auto next = [](std::string_view& text, std::uint64_t& value) {
-            value = 0;
-            std::size_t i = 0;
-            for (; i < text.size() && text[i] >= '0' && text[i] <= '9' && i < 9; ++i) value = value * 10 + static_cast<std::uint64_t>(text[i] - '0');
-            if (!i || (i < text.size() && text[i] != '.')) return false;
-            text.remove_prefix(i < text.size() ? i + 1 : i);
-            return true;
-        };
-        if (a.empty() || b.empty()) return false;
-        bool newer{}, decided{};
-        while (!a.empty() || !b.empty()) {
-            std::uint64_t left{}, right{};
-            if ((!a.empty() && !next(a, left)) || (!b.empty() && !next(b, right))) return false;
-            if (!decided && left != right) newer = left > right, decided = true;
-        }
-        return newer;
-    }
-    // The version of a map installed here, when the host's package is the same map at a later
-    // one: that is fetched first, so players skate at least the host's version. Nothing when the
-    // versions agree, the one here is the later (a player ahead of the host is left as they are),
-    // either names none, or they are different packages.
-    inline std::string_view other_map_version(std::string_view host, std::string_view mine) noexcept {
-        const auto wanted = map_package_version(host), have = map_package_version(mine);
-        if (wanted.empty() || have.empty() || wanted == have || map_version_newer(have, wanted)) return {};
-        const auto host_name = host.substr(0, host.size() - wanted.size()), my_name = mine.substr(0, mine.size() - have.size());
-        if (host_name.size() != my_name.size()) return {};
-        for (std::size_t i = 0; i < host_name.size(); ++i)
-            if ((host_name[i] | 0x20) != (my_name[i] | 0x20)) return {};
-        return have;
-    }
-    struct Transform {
-        std::array<float, 3> position{};
-        std::array<float, 4> rotation{ 0, 0, 0, 1 };
-        std::array<float, 3> scale{ 1, 1, 1 };
-        bool operator==(const Transform&) const = default;
-    };
-    struct Pose {
-        Transform root;
-        // board[0] is the separate board entity's world transform; remaining
-        // entries are its rig pose. Empty means the board is currently unavailable.
-        std::vector<Transform> skater, board;
-    };
-    struct Member {
-        std::uint64_t id{}, epoch{};
-        std::string name;
-        bool admin{}; // roster: their role on a dedicated server has every command (Server/roles.h)
-        // roster: the player's party (0 = none), whether they lead it, and (on the leader) whether
-        // anyone may join it. Each party has exactly one leader.
-        std::uint32_t party{};
-        bool party_leader{}, party_open{};
-        // roster: a dedicated server measured the player's game running fast (a speedhack): nobody
-        // plays linked throwdowns or coop challenges with them (Server/speed_check.h).
-        bool speeding{};
-        // roster: the host or dedicated server found the player's mods change trick scoring: the same
-        // as speeding, nobody plays linked throwdowns or coop challenges with them.
-        bool scoring{};
-        // roster: the tag their role on a dedicated server gives them and its colour (IM_COL32
-        // layout); empty: none.
-        std::string tag;
-        std::uint32_t tag_color{};
-        bool operator==(const Member&) const = default;
-    };
-    bool valid_roster(std::span<const Member>, unsigned capacity) noexcept;
-    bool valid_routes(std::span<const Member>) noexcept;
-    struct Packet {
-        PacketKind kind = PacketKind::pose;
-        std::uint32_t sequence{};
-        std::uint64_t session{}, map{}, epoch{}, time_us{}, source{};
-        std::uint64_t world = 1;
-        std::array<std::uint8_t, 32> build{}, proof{};
-        std::uint64_t challenge{};
-        std::string destination;
-        bool map_authorized{};
-        bool world_ready{};
-        // map_request, world_ready: the player does not have the map and is downloading it
-        // (never with world_ready). A host gives such a player longer than a load takes.
-        bool map_fetching{};
-        Pose pose;
-        std::uint32_t pose_interval_us = 50000;
-        // pose: the sender has the game's party collision on (the top bit of the pose's rate field)
-        bool player_collision{};
-        Appearance appearance;
-        std::vector<AudioSample> audio;
-        VoiceData voice;
-        VoicePolicy voice_policy;
-        unsigned capacity = max_players;
-        std::vector<Member> members;
-        MultiplayerDistances distances; // Authoritative host policy carried by its reliable roster.
-        unsigned tps = multiplayer_default_tps;
-        // Session placement policy, including for players joining later. Clients
-        // lock their editor and native tools from it; the host enforces it by
-        // freezing guest layouts (see publish_guest_objects).
-        ObjectPlacement object_placement = ObjectPlacement::everyone;
-        // Objects each player may have placed (object_placement.h); 0: no limit.
-        unsigned object_limit{};
-        // Roster: players may place objects at another size than their own. Off: a dedicated server
-        // shares every player's objects at their own size (its admins' excepted).
-        bool object_scaling{ true };
-        // Roster: players see each other's skater effects (effects.h, and the trails and fire of
-        // each other's costumes and skateboards). Off: a dedicated server relays none and games
-        // neither send theirs nor show other players'.
-        bool sync_effects{ true };
-        // Roster: players see each other's FPV drones (Skater/drone_beacon.h). Off: a dedicated server
-        // relays none, and games neither send theirs nor show other players'.
-        bool sync_drones{ true };
-        // Bumped each time the host deletes all guest objects. Guests delete their
+    return newer;
+}
+// The version of a map installed here, when the host's package is the same map at a later
+// one: that is fetched first, so players skate at least the host's version. Nothing when the
+// versions agree, the one here is the later (a player ahead of the host is left as they are),
+// either names none, or they are different packages.
+inline std::string_view other_map_version(std::string_view host, std::string_view mine) noexcept {
+    const auto wanted = map_package_version(host), have = map_package_version(mine);
+    if (wanted.empty() || have.empty() || wanted == have || map_version_newer(have, wanted)) return {};
+    const auto host_name = host.substr(0, host.size() - wanted.size()), my_name = mine.substr(0, mine.size() - have.size());
+    if (host_name.size() != my_name.size()) return {};
+    for (std::size_t i = 0; i < host_name.size(); ++i)
+        if ((host_name[i] | 0x20) != (my_name[i] | 0x20)) return {};
+    return have;
+}
+struct Transform {
+    std::array<float, 3> position{};
+    std::array<float, 4> rotation{0, 0, 0, 1};
+    std::array<float, 3> scale{1, 1, 1};
+    bool operator==(const Transform &) const = default;
+};
+struct Pose {
+    Transform root;
+    // board[0] is the separate board entity's world transform; remaining
+    // entries are its rig pose. Empty means the board is currently unavailable.
+    std::vector<Transform> skater, board;
+};
+struct Member {
+    std::uint64_t id{}, epoch{};
+    std::string name;
+    bool admin{}; // roster: their role on a dedicated server has every command (Server/roles.h)
+    // roster: the player's party (0 = none), whether they lead it, and (on the leader) whether
+    // anyone may join it. Each party has exactly one leader.
+    std::uint32_t party{};
+    bool party_leader{}, party_open{};
+    // roster: a dedicated server measured the player's game running fast (a speedhack): nobody
+    // plays linked throwdowns or coop challenges with them (Server/speed_check.h).
+    bool speeding{};
+    // roster: the host or dedicated server found the player's mods change trick scoring: the same
+    // as speeding, nobody plays linked throwdowns or coop challenges with them.
+    bool scoring{};
+    // roster: the tag their role on a dedicated server gives them and its colour (IM_COL32
+    // layout); empty: none.
+    std::string tag;
+    std::uint32_t tag_color{};
+    bool operator==(const Member &) const = default;
+};
+bool valid_roster(std::span<const Member>, unsigned capacity) noexcept;
+bool valid_routes(std::span<const Member>) noexcept;
+struct Packet {
+    PacketKind kind = PacketKind::pose;
+    std::uint32_t sequence{};
+    std::uint64_t session{}, map{}, epoch{}, time_us{}, source{};
+    std::uint64_t world = 1;
+    std::array<std::uint8_t, 32> build{}, proof{};
+    std::uint64_t challenge{};
+    std::string destination;
+    bool map_authorized{};
+    bool world_ready{};
+    // map_request, world_ready: the player does not have the map and is downloading it
+    // (never with world_ready). A host gives such a player longer than a load takes.
+    bool map_fetching{};
+    Pose pose;
+    std::uint32_t pose_interval_us = 50000;
+    // pose: the sender has the game's party collision on (the top bit of the pose's rate field)
+    bool player_collision{};
+    Appearance appearance;
+    std::vector<AudioSample> audio;
+    VoiceData voice;
+    VoicePolicy voice_policy;
+    unsigned capacity = max_players;
+    std::vector<Member> members;
+    MultiplayerDistances distances; // Authoritative host policy carried by its reliable roster.
+    unsigned tps = multiplayer_default_tps;
+    // Session placement policy, including for players joining later. Clients
+    // lock their editor and native tools from it; the host enforces it by
+    // freezing guest layouts (see publish_guest_objects).
+    ObjectPlacement object_placement = ObjectPlacement::everyone;
+    // Objects each player may have placed (object_placement.h); 0: no limit.
+    unsigned object_limit{};
+    // Roster: players may place objects at another size than their own. Off: a dedicated server
+    // shares every player's objects at their own size (its admins' excepted).
+    bool object_scaling{true};
+    // Roster: players see each other's skater effects (effects.h, and the trails and fire of
+    // each other's costumes and skateboards). Off: a dedicated server relays none and games
+    // neither send theirs nor show other players'.
+    bool sync_effects{true};
+    // Bumped each time the host deletes all guest objects. Guests delete their
         // own session objects when it changes after their first roster.
         std::uint32_t object_clears{};
         // Roster: the colours of a dedicated server's own chat lines, its badge and name and the
@@ -373,7 +359,7 @@ namespace dingosdk::multiplayer {
         float voice_range = default_voice_range; // roster: how far the host forwards proximity voice
         // roster: whether guests may use noclip (and teleport) / No Bail / the forward and up boosts
         // (the host and a dedicated server's admins always may)
-        bool guest_noclip = true, guest_no_bail = true, guest_boosts = true;
+    bool guest_noclip = true, guest_no_bail = true, guest_boosts = true, guest_ollies = true;
         // roster: guests skate with the host's physics tuning (a dedicated server's: the game's own)
         bool enforce_tuning = true;
         // roster: the votes a dedicated server lets players start (server_vote_* bits)
@@ -401,9 +387,6 @@ namespace dingosdk::multiplayer {
         std::vector<std::string> words;           // words: a dedicated server's own filtered chat words
         std::vector<NextMap> next_maps;           // next_maps: at most max_next_maps
         std::uint32_t role_permissions{};
-        std::array<float, 3> drone_position{};    // drone: where the drone is (finite, within 1e6)
-        std::array<float, 4> drone_rotation{ 0.f, 0.f, 0.f, 1.f }; // drone: which way it faces (unit quaternion)
-        bool drone_active{};                      // drone: flying now (false = it stopped)
         PartyAction party_action = PartyAction::leave; // party: what is asked or told
         std::uint64_t party_player{};                   // party: the other player (see PartyAction)
         // scoring: the sender's scoring fingerprint, 0 for the game's own; `text` names the mods

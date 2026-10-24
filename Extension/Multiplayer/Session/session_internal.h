@@ -53,6 +53,9 @@ namespace dingosdk::multiplayer::session_detail {
     };
     // Throwdown messages per sender per 5 s: offers, joins, starts and ~4 scores a second.
     inline constexpr unsigned throwdown_burst = 60;
+// Plugin messages (Extension/Plugins/plugin_wire.h) ride the same packets on a budget of their own:
+// a plugin may send a few a second for a whole session (a drone's place, a game mode's state).
+inline constexpr unsigned plugin_burst = 200;
     // The party the echo test shows its mirrored player in (a real lobby has none until its
     // players form one).
     inline constexpr std::uint32_t lobby_party = 1;
@@ -144,7 +147,7 @@ namespace dingosdk::multiplayer::session_detail {
             std::uint64_t at{};
         };
         std::vector<ChatProof> chat_proofs, chat_waiting;
-        ChatBudget throwdown_budget, party_budget;
+    ChatBudget throwdown_budget, party_budget, plugin_budget;
         // Host: how the guest's mods change trick scoring, as they reported it (Engine/Vfs/mod_scoring.h):
         // nothing until the report arrives, 0 for the game's own. member.scoring is the verdict.
         std::optional<std::uint64_t> scoring;
@@ -175,9 +178,9 @@ namespace dingosdk::multiplayer::session_detail {
         unsigned object_limit{}; // objects each player may have placed; 0: no limit
         bool object_scaling{ true }; // the dedicated server lets players resize what they place
         bool sync_effects{ true };   // the dedicated server has players see each other's skater effects
-        bool sync_drones{ true };    // the dedicated server has players see each other's FPV drones
-        // What guests may use: the host's choice, or the host's roster for a guest.
-        bool guest_noclip = true, guest_no_bail = true, guest_boosts = true;
+    // What guests may use: the host's choice, or the host's roster for a guest.
+    bool guest_noclip = true, guest_no_bail = true, guest_boosts = true;
+    bool guest_ollies = true; // a dedicated server's lock only: a lobby host has no such choice
         // Host: guests skate with its physics tuning. Guest: the host's roster says so (a
         // dedicated server's guests skate with the game's own).
         bool enforce_tuning = true;
@@ -331,6 +334,8 @@ namespace dingosdk::multiplayer::session_detail {
         // Grey dots above this skater until this time. The overlay sets it while the chat
         // input is changing, and clears it after three seconds idle or when the box closes.
         std::uint64_t local_typing_until{};
+    // The next presence notice may go then, for input after `presence_for` (update_presence).
+    std::uint64_t next_presence{}, presence_for{};
         float chat_bubbles_distance = 40.f, chat_bubbles_duration = 5.f;
         int chat_bubbles_history = 3;
         bool game_menu{};            // a game menu is up or the game's UI is hidden: no chat on screen
@@ -565,6 +570,10 @@ namespace dingosdk::multiplayer::session_detail {
     // How the local mods change trick scoring (Engine/Vfs/mod_scoring.h). Guest: reported to the host
     // or dedicated server once known and whenever it changes. Host: judged like a guest's.
     void update_scoring(Session& s, std::uint64_t now);
+// Guest of a dedicated server: tells it the player is at their game while they work the controls
+// (note_player_input), every present_interval_us at most.
+void update_presence(Session &s, std::uint64_t now);
+void note_input() noexcept; // (note_player_input)
     // Host: flags or clears a guest from its report and the host's choice.
     void judge_scoring(Session& s, Peer& peer);
     // The chat line for the local player's own mods changing scoring or physics.
@@ -608,7 +617,7 @@ namespace dingosdk::multiplayer::session_detail {
     void apply_object_scaling(Session& s, bool allowed);
     // Stores what guests may use and applies it to the local player (the host and a dedicated
     // server's admins are exempt).
-    void apply_guest_tools(Session& s, bool noclip, bool no_bail, bool boosts);
+void apply_guest_tools(Session &s, bool noclip, bool no_bail, bool boosts, bool ollies = true);
     // Shows the chosen nametags: ReSkate's (and none of the game's nametags or compass
         // arrows), the game's own, or none.
     void apply_nametags(const Session& s);

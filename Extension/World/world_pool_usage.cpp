@@ -119,7 +119,7 @@ struct Peak {
 };
 
 void watch(std::uintptr_t base) {
-    SetThreadDescription(GetCurrentThread(), L"ReSkate World Pool Watch");
+    SetThreadDescription(GetCurrentThread(), L"ReSkate world pool watch");
     std::vector<std::uint64_t> page(pages::page_entries);
     Peak entities{"entity slots", contract::entity_slots_stock, pages::capacity};
     Peak instances{"render instances", contract::render_instances_stock, std::size_t{512} << pages::render_instance_page_shift};

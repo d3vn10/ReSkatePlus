@@ -15,7 +15,7 @@
 // installs and is applied, and the player is told to join again. A cancelled worker drains
 // before another attempt can begin.
 //
-// Only maps come in this way. The package has to be listed as a map in ReSkate+'s Thunderstore
+// Only maps come in this way. The package has to be listed as a map in ReSkate's Thunderstore
 // community, not deprecated and not rejected by its moderators; what is installed has to be a
 // map and nothing else (level bundles and their registration: no cosmetics, no settings, no
 // scripts), or it is taken out again. Everything is downloaded from thunderstore.io, whatever

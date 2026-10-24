@@ -4,7 +4,6 @@
 #include "Extension/Multiplayer/Hud/native_indicators.h"
 #include "Extension/Multiplayer/Hud/native_player_ui.h"
 #include "Extension/Multiplayer/Hud/custom_nametags.h"
-#include "Extension/Multiplayer/Remote/native_cosmetics.h"
 #include "Extension/Profile/local_profile_runtime.h"
 #include "Extension/Objects/network_object_runtime.h"
 #include "Extension/Objects/ParkEditor/park_editor_runtime.h"
@@ -23,7 +22,6 @@
 
 namespace dingosdk::multiplayer {
 	using namespace session_detail;
-
 	namespace session_detail {
 		void apply_distances(Session& s, const MultiplayerDistances& distances) {
 			if (s.distances == distances) return;
@@ -49,18 +47,19 @@ namespace dingosdk::multiplayer {
 		void apply_nametags(const Session& s) {
 			// The feed also runs when only chat bubbles are on: the overlay draws whichever of the
 			// two is enabled from the flags it is handed.
-			// Nametags are ReSkate+'s own (Hud/custom_nametags.h); the game's are never shown. Its
+			// Nametags are ReSkate's own (Hud/custom_nametags.h); the game's are never shown. Its
 			// compass comes back when they are off, since they are what points at the other players.
 			set_custom_nametags_enabled(s.nametags || s.chat_bubbles);
 			set_native_nametags_enabled(false);
 			set_native_compass_enabled(!s.nametags);
 		}
-		void apply_guest_tools(Session& s, bool noclip, bool no_bail, bool boosts) {
+		void apply_guest_tools(Session& s, bool noclip, bool no_bail, bool boosts, bool ollies) {
 			s.guest_noclip = noclip;
 			s.guest_no_bail = no_bail;
 			s.guest_boosts = boosts;
+			s.guest_ollies = ollies;
 			const bool exempt = s.mode == Mode::host || (s.role_permissions & role_movement);
-			set_session_tools_allowed(noclip || exempt, no_bail || exempt, boosts || exempt);
+			set_session_tools_allowed(noclip || exempt, no_bail || exempt, boosts || exempt, ollies || exempt);
 		}
 	} // namespace session_detail
 	namespace {
@@ -359,47 +358,6 @@ namespace dingosdk::multiplayer {
 			profile_runtime::set_local_preference("Nametags", s.nametags);
 			return s.nametags ? "Peer nametags shown." : "Peer nametags hidden.";
 		}
-		const char* shuffle_mode_word(ShuffleMode mode) {
-			switch (mode) {
-			case ShuffleMode::everything: return "all";
-			case ShuffleMode::not_installed: return "missing";
-			case ShuffleMode::off: break;
-			}
-			return "off";
-		}
-		std::string edit_shuffle_outfits(Session& s, std::string_view argument) {
-			const bool reroll = argument == "reroll";
-			const auto previous = s.shuffle_mode;
-			const auto wanted = argument == "cycle" || argument == "toggle" ? std::optional(next_shuffle_mode(s.shuffle_mode))
-				: reroll ? std::optional(s.shuffle_mode)
-				: parse_shuffle_mode(argument);
-			if (!wanted) return "Use off, all, missing, cycle, or reroll for shuffled outfits.";
-			if (reroll && s.shuffle_mode == ShuffleMode::off) return "Shuffled outfits are off. Pick all or missing first.";
-			const bool changed = *wanted != s.shuffle_mode;
-			s.shuffle_mode = *wanted;
-			s.display_preferences_loaded = true;
-			if (reroll) s.shuffle_epoch = now_us();
-			profile_runtime::set_local_values({ {"ShuffleMode", static_cast<double>(static_cast<int>(s.shuffle_mode))} });
-			// Every player's skater puts its outfit on again in turn, one per
-			// shuffle_redress_interval_us (session.cpp).
-			if (changed || reroll) {
-				unsigned redressed{};
-				for (auto& peer : active_peers(s))
-					if (peer.appearance.value()) ++redressed;
-				const auto textures = texture_handle_limit::use();
-				logging::log(logging::Level::info, logging::Channel::runtime,
-					"Multiplayer: shuffled outfits {} (mode {} -> {}, epoch {}); {} players to re-dress, {} of {} streamed textures in use{}.",
-					reroll ? "rerolled" : "mode changed", shuffle_mode_word(previous), shuffle_mode_word(s.shuffle_mode),
-					s.shuffle_epoch, redressed, textures.taken, textures.limit, s.shuffle_loaded_only ? ", loaded items only" : "");
-			}
-			if (reroll) return "Everyone's items were shuffled again.";
-			switch (s.shuffle_mode) {
-			case ShuffleMode::everything: return "Every item other players wear is random, for you only.";
-			case ShuffleMode::not_installed: return "Items other players wear that you don't have installed are random, for you only.";
-			case ShuffleMode::off: break;
-			}
-			return "Other players' items show as they wear them; ones you don't have installed use the usual stand-ins.";
-		}
 		// The Special page: a player on one of the backend's lists going without their tag, or
 		// without the animation on their items. Their next appearance packet tells everyone
 		// (session_send.cpp).
@@ -476,6 +434,10 @@ namespace dingosdk::multiplayer {
 				: "Players within " + std::to_string(static_cast<int>(value)) + " m are shown as skaters.";
 		}
 		std::string start_pose_dump(Session& s, std::string_view argument) {
+#if defined(DINGOSDK_LEAN_PLAYTEST)
+			(void)s; (void)argument;
+			return "Pose recording is not included in this playtest build.";
+#else
 			int seconds{};
 			const auto parsed = std::from_chars(argument.data(), argument.data() + argument.size(), seconds);
 			if (parsed.ec != std::errc{} || parsed.ptr != argument.data() + argument.size() || seconds < 1 || seconds > 600)
@@ -492,6 +454,7 @@ namespace dingosdk::multiplayer {
 			s.pose_dump_until = now_us() + static_cast<std::uint64_t>(seconds) * 1000000;
 			s.pose_dump_count = 0;
 			return "Recording your poses for " + std::to_string(seconds) + " s to " + path_utf8(file) + ". Skate as you normally would.";
+#endif
 		}
 		std::string edit_direct_connections(Session& s, std::string_view argument) {
 			const auto enabled = parse_switch(argument, s.prefer_direct);
@@ -693,7 +656,7 @@ namespace dingosdk::multiplayer {
 		if (launcher::offline_mode() && !own_mark_command(action)) return false;
 		if ((action != "host" && action != "host-config" && action != "join" && action != "rejoin" && action != "join-lobby" && action != "join-friend-lobby" && action != "stop" && action != "stop-map-fetch" &&
 			action != "distances" && action != "object-placement" && action != "object-limit" && action != "kick" && action != "clear-objects" &&
-			action != "nametags" && action != "shuffle-outfits" && action != "chat-visible" && action != "chat-filter" &&
+			action != "nametags" && action != "chat-visible" && action != "chat-filter" &&
 			action != "nametag-distance" && action != "nametag-dots" && action != "nametags-friends" && action != "player-distance" && action != "direct-connections" && action != "pose-dump" && action != "vote" && action != "voice-chat" &&
 			action != "chat-bubbles" && action != "chat-bubbles-own" && action != "chat-bubbles-distance" &&
 			action != "chat-bubbles-duration" && action != "chat-bubbles-history" &&
@@ -728,15 +691,8 @@ namespace dingosdk::multiplayer {
 	}
 	unsigned next_maps_serial() noexcept { return session_detail::next_maps_serial_value.load(std::memory_order_relaxed); }
 	std::string command(std::string_view action, std::string_view argument, std::string_view password) {
-		// Debug: the local skater's cosmetic slots. Reads only the local player, so it needs no
-		// session (or Steam). Runs on the client thread, as the console's game-thread commands do.
-		if (action == "slots") {
-			const auto& s = session();
-			if (!s.base || !s.client) return "Load a map first.";
-			return describe_cosmetic_slots(s.base, capture_local(s.base, s.client, false));
-		}
 		if (launcher::offline_mode() && !own_mark_command(action))
-			return "Multiplayer is unavailable in offline mode. Start Steam and relaunch ReSkate+.";
+			return "Multiplayer is unavailable in offline mode. Start Steam and relaunch ReSkate.";
 		const bool configured_host = action == "host-config";
 		if (configured_host) action = "host";
 		PrivateRequest input;
@@ -785,7 +741,7 @@ namespace dingosdk::multiplayer {
 				else if (!dedicated_host(s) && verb == "p") {
 					// A lobby's host relays party chat, as a dedicated server does.
 					const auto refused = send_party_chat(s, rest);
-					if (!refused.empty() && (s.mode == Mode::host || s.mode == Mode::join)) add_chat(s, 0, "ReSkate+", refused);
+					if (!refused.empty() && (s.mode == Mode::host || s.mode == Mode::join)) add_chat(s, 0, "ReSkate", refused);
 					return refused.empty() ? "Message sent." : refused;
 				}
 				else if (!dedicated_host(s) && verb == "party") {
@@ -794,7 +750,7 @@ namespace dingosdk::multiplayer {
 				else {
 					result = send_chat_command(s, argument);
 				}
-				if (!result.empty() && (s.mode == Mode::host || s.mode == Mode::join)) add_chat(s, 0, "ReSkate+", result);
+				if (!result.empty() && (s.mode == Mode::host || s.mode == Mode::join)) add_chat(s, 0, "ReSkate", result);
 				return result.empty() ? "Command sent." : result;
 			}
 			if (action == "typing") {
@@ -806,12 +762,12 @@ namespace dingosdk::multiplayer {
 				// The overlay queues chat and never sees this result, so a refusal
 				// is shown in the chat itself.
 				const auto refused = send_chat(s, argument);
-				if (!refused.empty() && (s.mode == Mode::host || s.mode == Mode::join)) add_chat(s, 0, "ReSkate+", refused);
+				if (!refused.empty() && (s.mode == Mode::host || s.mode == Mode::join)) add_chat(s, 0, "ReSkate", refused);
 				return refused.empty() ? "Message sent." : refused;
 			}
 			if (action == "party") {
 				const auto result = party_command(s, argument);
-				if (!result.empty() && (s.mode == Mode::host || s.mode == Mode::join)) add_chat(s, 0, "ReSkate+", result);
+				if (!result.empty() && (s.mode == Mode::host || s.mode == Mode::join)) add_chat(s, 0, "ReSkate", result);
 				publish(s);
 				return result.empty() ? "Sent to the server." : result;
 			}
@@ -937,7 +893,7 @@ namespace dingosdk::multiplayer {
 				{"ban", ban_player},                           {"unban", unban_player},
 				{"clear-objects", clear_guest_objects},
 				{"world-layer-sync", edit_world_layer_sync},   {"distances", edit_distances},
-				{"nametags", edit_nametags}, {"shuffle-outfits", edit_shuffle_outfits},
+				{"nametags", edit_nametags},
 				{"nametag-distance", edit_nametag_distance}, {"nametag-dots", edit_nametag_dots},
 				{"nametags-friends", edit_nametags_friends}, {"player-distance", edit_player_distance}, {"direct-connections", edit_direct_connections}, {"pose-dump", start_pose_dump},
 				{"mark-tag", edit_own_tag}, {"mark-items", edit_own_items}, {"mark-style", edit_mark_style},
@@ -1152,7 +1108,7 @@ namespace dingosdk::multiplayer {
 					// Falling back to the Steam name: that one is not the player's to retype, so mask it.
 					s.lobby_name = text::mask_bad_words(s.transport.name(s.host_id));
 				}
-				if (s.lobby_name.empty()) s.lobby_name = "ReSkate+ Session";
+				if (s.lobby_name.empty()) s.lobby_name = "ReSkate session";
 				s.invite = format_invite({ s.host_id, s.secret });
 				s.public_host = visibility == "public";
 				if (s.public_host)
@@ -1220,5 +1176,25 @@ namespace dingosdk::multiplayer {
 			publish(s);
 			return s.status;
 		}
+	}
+	std::string host_kick(std::uint64_t player, std::string_view why) {
+		auto& s = session();
+		if (s.mode != Mode::host) return "only the lobby's host can";
+		if (player == s.host_id) return "the host cannot be kicked";
+		const auto* peer = find_peer(s, player);
+		if (!peer || !peer->handshaken) return "that player is not in the session";
+		s.banned.insert(player);
+		disconnect(s, player, why.empty() ? std::string("You were removed from the session.") : "You were removed from the session: " + std::string(why));
+		s.next_party_update = 0;
+		return {};
+	}
+	std::string host_teleport(std::uint64_t player, const std::array<float, 3>& at) {
+		auto& s = session();
+		if (s.mode != Mode::host) return "only the lobby's host can";
+		auto* peer = find_peer(s, player);
+		if (!peer || !peer->handshaken || !peer->world_ready) return "that player is not in the world";
+		auto p = packet(s, PacketKind::teleport, now_us());
+		p.teleport = at;
+		return send_packet(s, player, p, true, false) ? std::string{} : "it could not be sent";
 	}
 } // namespace dingosdk::multiplayer

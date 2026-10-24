@@ -10,12 +10,12 @@
 #include <span>
 #include <vector>
 
-namespace dingosdk::frostbite
-{
-    struct CasDecodeOptions {
-        std::filesystem::path gameRoot;
-        std::size_t maximumOutputSize{ 256ULL * 1024ULL * 1024ULL };
-    };
+namespace dingosdk::frostbite {
+
+struct CasDecodeOptions {
+    std::filesystem::path gameRoot;
+    std::size_t maximumOutputSize{256ULL * 1024ULL * 1024ULL};
+};
 
     enum class CasCompression : std::uint8_t {
         raw = 0x00,

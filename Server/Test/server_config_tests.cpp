@@ -183,10 +183,10 @@ int run() {
     check(load_config(file).throwdown_locks == (lock_nobail | lock_tuning), "Throwdown locks lost");
     std::ofstream(file, std::ios::binary) << R"({"players": {"throwdown_locks": ["boosts", "jetpack", 3, "teleport"]}})";
     check(load_config(file).throwdown_locks == (lock_boosts | lock_noclip), "Bad throwdown locks not cleaned");
-    check(parse_lock_tools("all") == lock_all && parse_lock_tools(" NoBail , tuning") == (lock_nobail | lock_tuning) &&
+    check(parse_lock_tools("all") == lock_all && parse_lock_tools(" NoBail , tuning") == (lock_nobail | lock_tuning) && parse_lock_tools("ollies") == lock_ollies &&
               !parse_lock_tools("") && !parse_lock_tools("nobail,") && !parse_lock_tools("fly"),
           "Lock tool names not read");
-    check(lock_tools_text(lock_all) == "noclip, nobail, boosts, tuning" && lock_tools_text(0) == "none", "Lock tool names not written");
+    check(lock_tools_text(lock_all) == "noclip, nobail, boosts, tuning, ollies" && lock_tools_text(0) == "none", "Lock tool names not written");
 
     // A config from before the sections: every setting is read from where it was, under the name
     // it had, and the file is written back in sections, in reading order, with nothing called new
@@ -382,7 +382,8 @@ int run() {
         voting.votes.custom = {{"restart", "Reload the current map", "map {map}", {}, {true, 70}},
                                {"noclip", "Allow noclip", "noclip {arg}", {"on", "off"}, {false, 55, 20, 0, 3}}};
         voting.announcements = {{"Welcome to the server!", "Join our Discord"}, 15};
-        voting.commands = {{"rules", {}, {"announce-to {player} No griefing!", "say {arg}"}, false},
+        voting.commands = {{"discord", "Join us: discord.gg/reskate", {}, false},
+                           {"rules", {}, {"announce-to {player} No griefing!", "say {arg}"}, false},
                            {"restart", "Reloading...", {"map {map}"}, true}};
         check(config_error(voting).empty(), "Valid custom votes, announcements and commands refused");
         save_config(voting);
@@ -396,10 +397,10 @@ int run() {
               "Custom votes lost on save");
         check(back.announcements.messages == voting.announcements.messages && back.announcements.interval == 15,
               "Announcements lost on save");
-        /*check(back.commands.size() == 3 && back.commands[0].name == "discord" && back.commands[0].reply == "Join us: discord.gg/reskate" &&
+        check(back.commands.size() == 3 && back.commands[0].name == "discord" && back.commands[0].reply == "Join us: discord.gg/reskate" &&
                   back.commands[0].commands.empty() && !back.commands[0].admin &&
                   back.commands[1].commands == voting.commands[1].commands && back.commands[2].admin,
-              "Custom commands lost on save");*/
+              "Custom commands lost on save");
         const auto turned_down = [&](auto change, const char *what) {
             auto bad = voting;
             change(bad);

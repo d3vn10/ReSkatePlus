@@ -74,21 +74,25 @@ namespace dingosdk::mods {
         }
     } // namespace
 
-    MergeReport merge_mods(const Catalog& catalog, const MergeObserver& observe, const MergeOptions& options) noexcept {
-        MergeReport report;
-        try {
-            // How long each step took, for the log: a merge that takes many minutes
-            // can then be traced to the step that takes them.
-            using Clock = std::chrono::steady_clock;
-            std::vector<std::pair<std::string, Clock::duration>> times;
-            auto lapStart = Clock::now();
-            const auto lap = [&](std::string step) {
-                const auto now = Clock::now();
-                times.emplace_back(std::move(step), now - lapStart);
-                lapStart = now;
-            };
-            const auto output = catalog.root / generated_folder;
-            std::error_code error;
+MergeReport merge_mods(const Catalog& catalog, const MergeObserver& observe, const MergeOptions& options) noexcept {
+    MergeReport report;
+    try {
+        // How long each step took, for the log: a merge that takes many minutes
+        // can then be traced to the step that takes them.
+        using Clock = std::chrono::steady_clock;
+        std::vector<std::pair<std::string, Clock::duration>> times;
+        auto lapStart = Clock::now();
+        const auto lap = [&](std::string step) {
+            const auto now = Clock::now();
+            times.emplace_back(std::move(step), now - lapStart);
+            lapStart = now;
+        };
+        const auto output = catalog.root / generated_folder;
+        std::error_code error;
+        // A merge that rebuilds deletes the generated folder: plugins' files from before they had
+        // a folder of their own go to it first.
+        for (auto& plugin : keep_plugin_data(catalog.root))
+            report.notes.push_back("Plugin data of " + plugin + " moved to Mods/" + plugin_data_folder);
 
             std::vector<const Mod*> mods;
             for (const auto& mod : catalog.mods) if (mod.provides_layout) mods.push_back(&mod);
@@ -98,72 +102,71 @@ namespace dingosdk::mods {
             std::map<const Mod*, RelativeFiles> modFiles;
             for (const auto* mod : mods) modFiles[mod] = scan(mod->directory);
 
-            // What the store sells comes from the content cache, which the launcher installs.
-            const bool storeKnown = content_cache::installed();
-            // Disabled mods count too: their archives and map registration are placed at launch.
-            auto fingerprint = merge_fingerprint(catalog, mods, modFiles, storeKnown);
-            for (const auto& mod : catalog.inactive)
-                fingerprint += " inactive " + mod.name + " " + mod_fingerprint(mod.directory);
-            if (options.live) {
-                fs::remove(output / stamp_file, error);
+        // What the store sells comes from the content cache, which the launcher installs.
+        const bool storeKnown = content_cache::installed();
+        // Disabled mods count too: their archives and map registration are placed at launch.
+        auto fingerprint = merge_fingerprint(catalog, mods, modFiles, storeKnown);
+        for (const auto& mod : catalog.inactive)
+            fingerprint += " inactive " + mod.name + " " + mod_fingerprint(mod.directory);
+        if (options.live) {
+            fs::remove(output / stamp_file, error);
+        } else if (auto previous = previous_merge(output, fingerprint);
+                   previous && (!storeKnown || fs::exists(output / item_sources_file, error))) {
+            // (A patch from before items were traced to their mods is built again, once.)
+            return std::move(*previous);
+        }
+        // A mod that adds copies of store items is not loaded at all. Found before
+        // anything is built: the caller merges again without it, as it does for a
+        // mod that cannot be merged, and the patch on disk stays for that merge to
+        // reuse or replace.
+        // Threads for the three steps that read many files: as many as there are cores at
+        // launch (the player is waiting on nothing else), half of them and fewer while the game runs.
+        const auto cores = std::max(1U, std::thread::hardware_concurrency());
+        const std::size_t readers = std::min<std::size_t>(options.live ? std::max(1U, cores / 2) : cores, options.live ? 6U : 8U);
+        // The checks before the merge say what they are doing, the bar still at its start.
+        const auto checking = [&](std::string step) {
+            if (observe) try { observe({0, 1, mods.size(), std::move(step)}); } catch (...) {}
+        };
+        std::optional<std::vector<StoreCopies::Added>> itemsRead;
+        if (storeKnown) checking("Checking the mods");
+        if (storeKnown && store_copy_problems(catalog, report, options.live ? options.checked : std::vector<std::string>{},
+                                              readers - 1, options.live, itemsRead)) return report;
+        // Mods that conflict, found the same way before anything is built: the catalog leaves the
+        // losing ones out and merges once, where finding them in the merge took a second merge.
+        if (options.conflicts_first && !options.live) {
+            checking("Checking the mods for conflicts");
+            const auto started = Clock::now();
+            report.conflicts = ConflictChecker(catalog.data_root).check(mods, readers - 1);
+            const auto tenths = (std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - started).count() + 50) / 100;
+            report.notes.push_back("Conflict check: " + std::to_string(report.conflicts.size()) + " conflicting pair(s) in " +
+                                   std::to_string(tenths / 10) + '.' + std::to_string(tenths % 10) + " s");
+            if (!report.conflicts.empty()) {
+                report.stopped_for_conflicts = true;
+                return report;
             }
-            else if (auto previous = previous_merge(output, fingerprint);
-                previous && (!storeKnown || fs::exists(output / item_sources_file, error))) {
-                // (A patch from before items were traced to their mods is built again, once.)
-                return std::move(*previous);
+        }
+        // Which mod each item is from (mod_item_sources.h): what was just read, and for a mod a
+        // live merge did not read again, what the launch's merge found. Read before the patch
+        // folder is cleared.
+        std::optional<std::vector<ItemSource>> itemSources;
+        if (itemsRead) {
+            const auto before = options.live ? read_item_sources(output / item_sources_file) : std::vector<ItemSource>{};
+            itemSources.emplace();
+            for (const auto* mod : mods) {
+                // As the Mods folder lays it out: fs::relative resolves a linked mod folder.
+                const auto folder = mod->directory.lexically_relative(catalog.root);
+                const bool outside = folder.empty() || *folder.begin() == L"..";
+                ItemSource source{mod->name, mod->title, mod->author, mod->version,
+                                  outside ? std::string() : path_utf8(folder.generic_wstring()), {}};
+                const auto read = std::ranges::find(*itemsRead, mod->name, &StoreCopies::Added::mod);
+                const auto earlier = std::ranges::find(before, mod->name, &ItemSource::mod);
+                if (read != itemsRead->end()) source.keys = std::move(read->keys);
+                else if (earlier != before.end()) source.keys = earlier->keys;
+                if (!source.keys.empty()) itemSources->push_back(std::move(source));
             }
-            // A mod that adds copies of store items is not loaded at all. Found before
-            // anything is built: the caller merges again without it, as it does for a
-            // mod that cannot be merged, and the patch on disk stays for that merge to
-            // reuse or replace.
-            // Threads for the three steps that read many files: as many as there are cores at
-            // launch (the player is waiting on nothing else), half of them and fewer while the game runs.
-            const auto cores = std::max(1U, std::thread::hardware_concurrency());
-            const std::size_t readers = std::min<std::size_t>(options.live ? std::max(1U, cores / 2) : cores, options.live ? 6U : 8U);
-            // The checks before the merge say what they are doing, the bar still at its start.
-            const auto checking = [&](std::string step) {
-                if (observe) try { observe({ 0, 1, mods.size(), std::move(step) }); }
-                catch (...) {}
-            };
-            std::optional<std::vector<StoreCopies::Added>> itemsRead;
-            if (storeKnown) checking("Checking the mods");
-            if (storeKnown && store_copy_problems(catalog, report, options.live ? options.checked : std::vector<std::string>{},
-                readers - 1, options.live, itemsRead)) return report;
-            // Mods that conflict, found the same way before anything is built: the catalog leaves the
-            // losing ones out and merges once, where finding them in the merge took a second merge.
-            if (options.conflicts_first && !options.live) {
-                checking("Checking the mods for conflicts");
-                const auto started = Clock::now();
-                report.conflicts = ConflictChecker(catalog.data_root).check(mods, readers - 1);
-                const auto tenths = (std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - started).count() + 50) / 100;
-                report.notes.push_back("Conflict check: " + std::to_string(report.conflicts.size()) + " conflicting pair(s) in " +
-                    std::to_string(tenths / 10) + '.' + std::to_string(tenths % 10) + " s");
-                if (!report.conflicts.empty()) {
-                    report.stopped_for_conflicts = true;
-                    return report;
-                }
-            }
-            // Which mod each item is from (mod_item_sources.h): what was just read, and for a mod a
-            // live merge did not read again, what the launch's merge found. Read before the patch
-            // folder is cleared.
-            std::optional<std::vector<ItemSource>> itemSources;
-            if (itemsRead) {
-                const auto before = options.live ? read_item_sources(output / item_sources_file) : std::vector<ItemSource>{};
-                itemSources.emplace();
-                for (const auto* mod : mods) {
-                    std::error_code outside;
-                    const auto folder = fs::relative(mod->directory, catalog.root, outside);
-                    ItemSource source{ mod->name, mod->title, mod->author, mod->version,
-                                      outside ? std::string() : path_utf8(folder.generic_wstring()), {} };
-                    const auto read = std::ranges::find(*itemsRead, mod->name, &StoreCopies::Added::mod);
-                    const auto earlier = std::ranges::find(before, mod->name, &ItemSource::mod);
-                    if (read != itemsRead->end()) source.keys = std::move(read->keys);
-                    else if (earlier != before.end()) source.keys = earlier->keys;
-                    if (!source.keys.empty()) itemSources->push_back(std::move(source));
-                }
-            }
-            if (!options.live) fs::remove_all(output, error);
-            lap("checking the mods");
+        }
+        if (!options.live) fs::remove_all(output, error);
+        lap("checking the mods");
 
             // Progress: each mod's archives, the material grid, a live merge's load
             // screens, the asset overrides, each superbundle, then the layout.
@@ -298,7 +301,7 @@ namespace dingosdk::mods {
                         if (!number) throw std::runtime_error("Unexpected archive name: " + relative);
                         auto directory = lower(path.parent_path().generic_string());
                         if (directory.starts_with("win32/")) directory.erase(0, 6);
-                        const auto target = output / path.parent_path() / archive_file(manifestArchive);
+                    const auto target = inside(output, path.parent_path() / archive_file(manifestArchive));
                         if (!fs::exists(target, error))
                             throw std::runtime_error(mod->name + " needs a restart: the patch has no archive 1 in " + directory);
                         // Checked before anything is appended: past 4 GB the mod's
@@ -347,55 +350,51 @@ namespace dingosdk::mods {
                     if (number == manifestArchive) {
                         if (const auto free = claim(directory); free) {
                             spot.archive = *free;
-                            link_or_copy(mod->directory / path, output / path.parent_path() / archive_file(*free));
-                        }
-                        else {
-                            spot.offset = append_file(mod->directory / path, output / path);
-                        }
+                        link_or_copy(mod->directory / path, inside(output, path.parent_path() / archive_file(*free)));
+                    } else {
+                        spot.offset = append_file(mod->directory / path, inside(output, path));
                     }
-                    else if (claimed.insert(number).second) {
-                        link_or_copy(mod->directory / path, output / path);
-                    }
-                    else if (const auto free = claim(directory); free) {
-                        spot.archive = *free;
-                        link_or_copy(mod->directory / path,
-                            output / path.parent_path() / archive_file(*free));
-                    }
-                    else {
-                        spot.offset = append_file(mod->directory / path, output / path);
-                    }
-                    placements[mod].at.emplace(std::pair{ directory, number }, spot);
-                    // A disabled mod's archives are read by no TOC yet, so nothing
-                    // else declares them; the engine only accepts archives
-                    // declared at launch.
-                    if (!active)
-                        for (const auto chunk : store.chunks_in(directory)) used.emplace(chunk, spot.archive);
-                    if (spot.archive != number || spot.offset)
-                        report.notes.push_back(mod->name + ": " + directory + "/cas_" +
-                            std::to_string(number) + " placed as cas_" + std::to_string(spot.archive) +
-                            (spot.offset ? " at byte " + std::to_string(spot.offset) : std::string{}) +
-                            (active ? "" : " (disabled, ready to enable)"));
-                    ++report.archives;
+                } else if (claimed.insert(number).second) {
+                    link_or_copy(mod->directory / path, inside(output, path));
+                } else if (const auto free = claim(directory); free) {
+                    spot.archive = *free;
+                    link_or_copy(mod->directory / path,
+                                 inside(output, path.parent_path() / archive_file(*free)));
+                } else {
+                    spot.offset = append_file(mod->directory / path, inside(output, path));
                 }
-                placements[mod].fingerprint = mod_fingerprint(mod->directory);
-                record.mods[mod->name] = placements[mod];
+                placements[mod].at.emplace(std::pair{directory, number}, spot);
+                // A disabled mod's archives are read by no TOC yet, so nothing
+                // else declares them; the engine only accepts archives
+                // declared at launch.
+                if (!active)
+                    for (const auto chunk : store.chunks_in(directory)) used.emplace(chunk, spot.archive);
+                if (spot.archive != number || spot.offset)
+                    report.notes.push_back(mod->name + ": " + directory + "/cas_" +
+                        std::to_string(number) + " placed as cas_" + std::to_string(spot.archive) +
+                        (spot.offset ? " at byte " + std::to_string(spot.offset) : std::string{}) +
+                        (active ? "" : " (disabled, ready to enable)"));
+                ++report.archives;
             }
+            placements[mod].fingerprint = mod_fingerprint(mod->directory);
+            record.mods[mod->name] = placements[mod];
+        }
 
-            for (const auto relative : launch_superbundles)
-                if (providers.try_emplace(lower(relative)).second) superbundles.emplace_back(relative);
-            // A mod added while the game runs has no archive index declared for it,
-            // so its archives go on the end of the patch's own archive 1 (see the
-            // live placement above). Every package gets one from launch, empty if
-            // nothing needs it, so that works in any package.
-            if (!options.live)
-                for (const auto& [directory, declared] : declaredIn) {
-                    if (!declared.contains(manifestArchive)) continue;
-                    const auto path = output / L"Win32" / fs::path(directory) / archive_file(manifestArchive);
-                    if (fs::exists(path, error)) continue;
-                    fs::create_directories(path.parent_path(), error);
-                    write_file(path, {});
-                }
-            lap("linking");
+        for (const auto relative : launch_superbundles)
+            if (providers.try_emplace(lower(relative)).second) superbundles.emplace_back(relative);
+        // A mod added while the game runs has no archive index declared for it,
+        // so its archives go on the end of the patch's own archive 1 (see the
+        // live placement above). Every package gets one from launch, empty if
+        // nothing needs it, so that works in any package.
+        if (!options.live)
+            for (const auto& [directory, declared] : declaredIn) {
+                if (!declared.contains(manifestArchive)) continue;
+                const auto path = inside(output, fs::path(L"Win32") / fs::path(directory) / archive_file(manifestArchive));
+                if (fs::exists(path, error)) continue;
+                fs::create_directories(path.parent_path(), error);
+                write_file(path, {});
+            }
+        lap("linking");
 
             // Maps that author their own surfaces all number them from the same
             // first free slot of the game's material grid; they are combined into
@@ -609,7 +608,7 @@ namespace dingosdk::mods {
                 if (check.bundles.size() != job.merged.bundles.size() ||
                     check.chunks.size() != job.merged.chunks.size())
                     throw std::runtime_error("Merged TOC did not round-trip: " + relative);
-                write_file(output / fs::path(relative), bytes);
+            write_file(inside(output, fs::path(relative)), bytes);
                 ++report.superbundles;
                 // Done with: a big merge would otherwise hold every superbundle's until the end.
                 job.merged = {};
@@ -617,21 +616,23 @@ namespace dingosdk::mods {
                 job.store.reset();
             }
 
-            // A live merge takes out the TOCs of superbundles no enabled mod ships
-            // any more, so the next load reads the game's own copy instead.
-            {
-                std::set<std::string> written;
-                for (const auto& relative : superbundles) written.insert(lower(relative));
-                if (options.live)
-                    for (const auto& previous : record.tocs)
-                        if (!written.contains(lower(previous)) && fs::remove(output / fs::path(previous), error))
-                            report.removed_tocs.push_back(previous);
-                record.tocs = superbundles;
-                write_placements(placementsPath, record);
-                write_map_meshes(output / map_meshes_file, report.map_meshes);
-            }
-            scans.save();
-            lap("superbundles");
+        // A live merge takes out the TOCs of superbundles no enabled mod ships
+        // any more, so the next load reads the game's own copy instead.
+        {
+            std::set<std::string> written;
+            for (const auto& relative : superbundles) written.insert(lower(relative));
+            if (options.live)
+                for (const auto& previous : record.tocs)
+                    if (!written.contains(lower(previous)) && [&] {
+                            try { return fs::remove(inside(output, fs::path(previous)), error); } catch (const std::exception&) { return false; }
+                        }())
+                        report.removed_tocs.push_back(previous);
+            record.tocs = superbundles;
+            write_placements(placementsPath, record);
+            write_map_meshes(output / map_meshes_file, report.map_meshes);
+        }
+        scans.save();
+        lap("superbundles");
 
             // The layout lists every superbundle the merged layer now provides.
             advance("Writing the layout");

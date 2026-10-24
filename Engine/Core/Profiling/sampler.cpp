@@ -568,9 +568,8 @@ namespace dingosdk::profiler {
                                 100.0 * order[i].second.self / samples, name_of(order[i].first, order[i].second.module));
                     }
                     hitches += "\n";
-                }
-                else if (presents) {
-                    hitches += std::format("No frame times: {} present(s) were seen while sampling (ReSkate+'s present hook notes them).\n\n",
+        } else if (presents) {
+            hitches += std::format("No frame times: {} present(s) were seen while sampling (ReSkate's present hook notes them).\n\n",
                         present_at.size());
                 }
 
@@ -587,16 +586,15 @@ namespace dingosdk::profiler {
                 {
                     std::ofstream out(report.report);
                     if (all) {
-                        out << std::format("ReSkate Profile: all busy threads ({}), {:.1f} s, {} samples at {} Hz per thread\n",
-                            threads.size(), report.seconds, total, request.rate);
-                        out << std::format("Busy {:.1f}% of samples; the {} busy ones are profiled below (waiting left out).\n",
-                            report.busy_percent, counted);
-                        out << "\n  Share  Thread\n";
-                        for (const auto& t : report.threads) out << std::format("{:5.1f}%  {} {}\n", t.cpu_percent, t.id, t.label);
-                        out << "\n";
-                    }
-                    else {
-                        out << std::format("ReSkate Profile: {} (thread {}), {:.1f} s, {} samples at {} Hz\n", report.target,
+                out << std::format("ReSkate profile: all busy threads ({}), {:.1f} s, {} samples at {} Hz per thread\n",
+                    threads.size(), report.seconds, total, request.rate);
+                out << std::format("Busy {:.1f}% of samples; the {} busy ones are profiled below (waiting left out).\n",
+                    report.busy_percent, counted);
+                out << "\n  Share  Thread\n";
+                for (const auto& t : report.threads) out << std::format("{:5.1f}%  {} {}\n", t.cpu_percent, t.id, t.label);
+                out << "\n";
+            } else {
+                out << std::format("ReSkate profile: {} (thread {}), {:.1f} s, {} samples at {} Hz\n", report.target,
                             threads.front().id, report.seconds, total, request.rate);
                         out << std::format("Busy {:.1f}% (the rest waiting in the kernel)\n", report.busy_percent);
                     }
@@ -617,8 +615,7 @@ namespace dingosdk::profiler {
                 if (report.functions.size() > 400) report.functions.resize(400);
                 logging::log(logging::Level::info, logging::Channel::diagnostics, "Profiler: sampled {} for {:.1f} s ({} samples); report {}",
                     report.target, report.seconds, total, narrow(report.report.wstring()));
-            }
-            catch (const std::exception& e) {
+    } catch (const std::exception& e) {
                 report.error = std::string("Report failed: ") + e.what();
             }
             report.running = false;

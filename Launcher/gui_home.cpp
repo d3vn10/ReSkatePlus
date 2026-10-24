@@ -599,7 +599,7 @@ namespace dingosdk::launcher_gui::detail {
             detail = !state.config ? std::string("Offline")
                 : !update::binary_updates_enabled() ? std::string("ReSkate+ development build")
                 : state.config->runtime.version.empty() ? std::string("ReSkate+")
-                : "ReSkate " + state.config->runtime.version;
+                : "ReSkate+ " + state.config->runtime.version;
             break;
         case Phase::launching: label = "LAUNCHING"; enabled = false; break;
         case Phase::failed: label = "RETRY"; break;

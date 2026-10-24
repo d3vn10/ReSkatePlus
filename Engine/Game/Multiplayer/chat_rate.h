@@ -15,7 +15,7 @@ struct ChatRate {
     double tokens = burst;
     std::uint64_t refilled{}, previous_at{};
     std::string previous;
-    Verdict accept(std::uint64_t now, std::string_view text, double slack = 0) {
+    Verdict accept(std::uint64_t now, std::string_view text, double slack = 0, bool answer = false) {
         const double limit = burst + slack;
         if (!refilled || now < refilled) {
             tokens = limit;
@@ -23,7 +23,7 @@ struct ChatRate {
             tokens = std::min(limit, tokens + static_cast<double>(now - refilled) / interval_us);
         }
         refilled = now;
-        if (!previous.empty() && text == previous && now >= previous_at && now - previous_at < repeat_us)
+        if (!answer && !previous.empty() && text == previous && now >= previous_at && now - previous_at < repeat_us)
             return Verdict::repeated;
         if (tokens < 1) return Verdict::too_fast;
         tokens -= 1;
