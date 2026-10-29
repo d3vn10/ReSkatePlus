@@ -2,7 +2,7 @@
 
 #include "Engine/Core/Log/logging.h"
 
-// The CHANGELOGS panel: what the newest ReSkate+ release changed, as its GitHub release says.
+// The CHANGELOGS panel: what the newest ReSkate release changed, as its GitHub release says.
 namespace dingosdk::launcher_gui::detail {
 namespace {
 

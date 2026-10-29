@@ -6,10 +6,10 @@
 #include <iostream>
 
 namespace {
-	std::size_t saved_items(const dingosdk::profile::Snapshot& snapshot, bool objects) {
-	    const auto& section = objects ? snapshot.extensions.value("object_dropper", dingosdk::Json::object()) : snapshot.customization;
-	    return section.value("inventory", dingosdk::Json::object()).size();
-	}
+std::size_t saved_items(const dingosdk::profile::Snapshot& snapshot, bool objects) {
+    const auto& section = objects ? snapshot.extensions.value("object_dropper", dingosdk::Json::object()) : snapshot.customization;
+    return section.value("inventory", dingosdk::Json::object()).size();
+}
 }
 
 int main(int argc, char** argv) {

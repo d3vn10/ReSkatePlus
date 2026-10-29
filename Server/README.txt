@@ -192,6 +192,17 @@ park_mods          Parks built in the game's Park Editor and shared as mods,
 park_limits        How much may be spawned at once (default {"parks": 3,
                    "objects": 512}): parks 1-16, their objects in all 1-1024.
 
+"plugins" - What players must have to join.
+required           Thunderstore plugins every player must have (default []),
+                   such as "neekgate-FPV_Drone", or "neekgate-FPV_Drone-1.0.0"
+                   for at least that version; at most 16. A player without
+                   them is asked once, on the card that offers a missing map,
+                   and their game downloads, installs and applies them and
+                   joins. Only plugins: the server checks each on Thunderstore
+                   as it starts and leaves out one not listed as a plugin, and
+                   players' games fetch nothing that is not a plugin, whatever
+                   a server asks for.
+
 "players" - What players may do.
 allow_noclip, allow_no_bail, allow_boosts
                    Let players use noclip (and tp) / No Bail / the forward and up
@@ -252,11 +263,6 @@ sync_effects       Let players see each other's skater effects (default true):
                    relays none and players' games show each other without
                    them, which saves a little traffic and drawing on a busy
                    server. Console: effects on|off.
-sync_drones        Let players see each other's FPV drones (default true): the
-                   marker where a player flying ReSkate's drone mode has
-                   their drone. false relays none, and players' games
-                   neither send their drone nor show anyone else's.
-                   Console: drones on|off.
 announce_throwdowns  Tell everyone in chat when a throwdown drop is placed
                    (default true).
 throwdown_locks    Tools locked for the players of a throwdown while it runs,
@@ -607,7 +613,6 @@ or Travel, and voice, distances, placement and kicks from the Multiplayer menu.
   objects <number>|off          How many objects each player may have placed.
   object-scaling on|off         Whether players may resize the objects they place.
   effects on|off                Whether players see each other's skater effects.
-  drones on|off                 Whether players see each other's FPV drones.
   noclip on|off   nobail on|off   boosts on|off
                                 What players may use (admins always can).
   tuning on|off                 Everyone on the game's own physics tuning.

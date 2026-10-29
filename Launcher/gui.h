@@ -13,7 +13,7 @@ namespace dingosdk::launcher_gui {
 // restart after a self-update.
 int run(const launcher_app::Session& session, const std::vector<std::wstring>& arguments);
 
-// The Settings page's "Install ReSkate+ updates" choice; scripted (--no-gui) launches honour it too.
+// The Settings page's "Install ReSkate updates" choice; scripted (--no-gui) launches honour it too.
 bool updates_enabled(const launcher_app::Session& session);
 // Whether the saved settings ask for pre-releases (the "Test pre-releases" setting).
 bool prereleases_enabled(const launcher_app::Session& session);

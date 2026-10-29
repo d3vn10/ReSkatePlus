@@ -8,6 +8,7 @@
 #include <charconv>
 #include <cmath>
 #include <cstring>
+#include <optional>
 #include <span>
 
 // The wider set's game parts of the reskate API: the skater's state, control and save points, the
@@ -121,7 +122,7 @@ struct WorldApi {
         auto& plugin = plugin_of(L);
         need(L, plugin, "skater.control", "reskate.skater.shape_launch");
         const std::string from = luaL_checkstring(L, 1);
-        if (from != "grind" && from != "ollie" && from != "no_comply" && from != "boneless")
+        if (!one_of(launches, from))
             luaL_argerror(L, 1, "a launch is out of \"grind\", \"ollie\", \"no_comply\" or \"boneless\"");
         if (lua_isnoneornil(L, 2)) return result(L, game(plugin).shape_launch(plugin.id(), from, std::nullopt));
         luaL_checktype(L, 2, LUA_TTABLE);
@@ -551,10 +552,9 @@ struct WorldApi {
     static int entities_status(lua_State* L) {
         auto& plugin = plugin_of(L);
         need(L, plugin, "world.entities", "reskate.entities.status");
-        static constexpr const char* names[] = {nullptr, "waiting", "loading", "missing", "ready", "hidden"};
         const auto status = game(plugin).entity_status(plugin.id(), entity_id(L, 1));
-        if (status <= 0 || status > 5) lua_pushnil(L);
-        else lua_pushstring(L, names[status]);
+        if (status <= 0 || status > static_cast<int>(std::size(entity_statuses))) lua_pushnil(L);
+        else lua_pushlstring(L, entity_statuses[status - 1].data(), entity_statuses[status - 1].size());
         return 1;
     }
     static int entities_ready(lua_State* L) {
@@ -590,6 +590,45 @@ struct WorldApi {
         push_position(L, (*box)[0]);
         push_position(L, (*box)[1]);
         return 2;
+    }
+    // world.probe(from, to): {status = "unavailable"|"clear"|"hit"}; only a hit has position and
+    // fraction. A clear result qualifies this ray, not streaming for a region. No native identity,
+    // surface normal or velocity is supplied. Each call is one of the tick's raycasts, like
+    // world.raycast and world.pick, and its native casts also count against the VM's native cast
+    // budget, which only world.probe and world.physics.probe_batch spend.
+    static int world_probe(lua_State* L) {
+        auto& plugin = plugin_of(L);
+        need(L, plugin, "world.raycast", "reskate.world.probe");
+        if (lua_gettop(L) != 2) luaL_error(L, "world.probe takes only the ray's start and end");
+        const auto from = position_of(L, 1, "the ray's start");
+        const auto to = position_of(L, 2, "the ray's end");
+        const float dx = to[0] - from[0], dy = to[1] - from[1], dz = to[2] - from[2];
+        const float distance_squared = dx * dx + dy * dy + dz * dz;
+        if (std::sqrt(distance_squared) > plugin.limits_.raycast_metres)
+            luaL_error(L, "a ray is at most %d m long", static_cast<int>(plugin.limits_.raycast_metres));
+        if (++plugin.raycasts_ > plugin.limits_.raycasts_per_tick)
+            luaL_error(L, "more than %d raycasts in one tick", plugin.limits_.raycasts_per_tick);
+        // The counted native ray refuses segments below this squared length. Do not call it for
+        // one, or label a nonexistent direction clear; the request still counts as a raycast.
+        const auto allowed = std::min(plugin.native_casts_.remaining(), body_query::casts_per_ray);
+        const auto counted = distance_squared < 1e-10f || !allowed ? Game::CountedProbe{} : game(plugin).world_probe_bounded(from, to, allowed);
+        const bool accounted = plugin.native_casts_.consume(counted.native_casts, allowed);
+        const auto& probe = counted.probe;
+        const bool ran = accounted && counted.native_casts && probe.available;
+        // A hit is reported only where it lies on this segment at its fraction.
+        const bool hit = ran && probe.hit &&
+                         body_query::consistent({from, to}, {body_query::Status::hit, probe.position, probe.fraction});
+        const char* status = !ran || (probe.hit && !hit) ? "unavailable" : hit ? "hit" : "clear";
+        lua_createtable(L, 0, hit ? 3 : 1);
+        lua_pushstring(L, status);
+        lua_setfield(L, -2, "status");
+        if (hit) {
+            push_position(L, probe.position);
+            lua_setfield(L, -2, "position");
+            lua_pushnumber(L, probe.fraction);
+            lua_setfield(L, -2, "fraction");
+        }
+        return 1;
     }
     // world.pick(from, to): where the ray meets the world, and the object it meets: {position,
     // object = {blueprint?, position, heading, transform = {matrix}}?}, or nil when it is clear.
@@ -954,7 +993,7 @@ struct WorldApi {
             lua_getfield(L, 3, "pop");
             if (!lua_isnil(L, -1)) pop = luaL_checkstring(L, -1);
             lua_pop(L, 1);
-            if (pop != "" && pop != "low" && pop != "mid" && pop != "high") luaL_argerror(L, 3, "a pop is \"low\", \"mid\" or \"high\"");
+            if (!pop.empty() && !one_of(pops, pop)) luaL_argerror(L, 3, "a pop is \"low\", \"mid\" or \"high\"");
         }
         const float speed = number_field(L, 3, "speed", 1, 0.1f, 4);
         return result(L, game(plugin).replace_trick(plugin.id(), std::move(trick), std::move(pop), std::move(clip), speed));
@@ -1436,8 +1475,39 @@ struct WorldApi {
         lua_setfield(L, -2, "scale");
         return 1;
     }
-    // skater.pose({[joint] = {rotation = {x, y, z, w} | angles = vector (degrees), scale = n}, ...}, weight):
-    // joints turned in their own frame and scaled on top of the animation for 0.3 s; nil ends it.
+    // A joint's place in a pose: {position = vector, rotation = {x, y, z, w} | angles = vector (degrees),
+    // relative_to = joint | "skater" | "world"}, any part left out as the animation has it; relative to
+    // its own parent when no relative_to is given.
+    static pose_place::Place place_of(lua_State* L, int index) {
+        luaL_checktype(L, index, LUA_TTABLE);
+        pose_place::Place place;
+        lua_getfield(L, index, "position");
+        if (!lua_isnil(L, -1)) place.position = position_of(L, lua_gettop(L), "a joint's place");
+        lua_pop(L, 1);
+        lua_getfield(L, index, "rotation");
+        if (!lua_isnil(L, -1)) place.rotation = quaternion_at(L, lua_gettop(L));
+        lua_pop(L, 1);
+        lua_getfield(L, index, "angles");
+        if (!lua_isnil(L, -1)) {
+            const auto a = position_of(L, lua_gettop(L), "a joint's place's angles");
+            place.rotation = anim_studio::from_euler({a[0], a[1], a[2]});
+        }
+        lua_pop(L, 1);
+        lua_getfield(L, index, "relative_to");
+        if (lua_type(L, -1) == LUA_TSTRING && std::string_view(lua_tostring(L, -1)) == "skater") place.frame = pose_place::Frame::skater;
+        else if (lua_type(L, -1) == LUA_TSTRING && std::string_view(lua_tostring(L, -1)) == "world") place.frame = pose_place::Frame::world;
+        else if (!lua_isnil(L, -1)) {
+            place.frame = pose_place::Frame::joint;
+            place.joint = joint_of(L, lua_gettop(L));
+        }
+        lua_pop(L, 1);
+        if (!place.position && !place.rotation) luaL_error(L, "a joint's place has a position, a rotation or both");
+        return place;
+    }
+    // skater.pose({[joint] = {rotation = {x, y, z, w} | angles = vector (degrees), scale = n, offset = vector,
+    // place = {...}, keep_children = true}, ...}, weight): joints turned in their own frame, scaled and
+    // moved on top of the animation, or set to a place (place_of), for 0.3 s; nil ends it. keep_children:
+    // the joint's children stay where they were in the world.
     static int skater_pose(lua_State* L) {
         auto& plugin = plugin_of(L);
         need(L, plugin, "skater.animation", "reskate.skater.pose");
@@ -1474,12 +1544,34 @@ struct WorldApi {
                         if (std::abs(v) > 2) luaL_error(L, "a joint's offset is at most 2 m on each axis");
                 }
                 lua_pop(L, 1);
+                lua_getfield(L, at, "place");
+                if (!lua_isnil(L, -1)) o.place = place_of(L, lua_gettop(L));
+                lua_pop(L, 1);
+                lua_getfield(L, at, "keep_children");
+                if (!lua_isnil(L, -1)) {
+                    luaL_checktype(L, -1, LUA_TBOOLEAN);
+                    o.keep_children = lua_toboolean(L, -1) != 0;
+                }
+                lua_pop(L, 1);
                 if (std::any_of(offsets.begin(), offsets.end(), [&](const auto& e) { return e.joint == o.joint; }))
                     luaL_error(L, "joint %d is posed twice", static_cast<int>(o.joint));
-                if (offsets.size() >= 64) luaL_error(L, "at most 64 joints are posed at once");
+                // An avatar with its proportions and its own physics bones (tail, ears) needs about 70.
+                if (offsets.size() >= 128) luaL_error(L, "at most 128 joints are posed at once");
                 offsets.push_back(o);
                 lua_pop(L, 1);
             }
+            // Each joint after the joints it hangs from and the joint it is placed relative to.
+            std::vector<std::uint16_t> joints;
+            std::vector<int> relative_to;
+            for (const auto& o : offsets) {
+                joints.push_back(o.joint);
+                relative_to.push_back(o.place && o.place->frame == pose_place::Frame::joint ? o.place->joint : -1);
+            }
+            std::vector<std::size_t> order;
+            if (const auto why = pose_place::order(joints, relative_to, order); !why.empty()) luaL_error(L, "%s", why.c_str());
+            std::vector<Game::JointOffset> ordered;
+            for (const auto i : order) ordered.push_back(offsets[i]);
+            offsets = std::move(ordered);
         }
         const double weight = luaL_optnumber(L, 2, 1);
         if (!(weight >= 0 && weight <= 1)) luaL_argerror(L, 2, "a weight is 0 to 1");
@@ -1689,7 +1781,7 @@ struct WorldApi {
         lua_getfield(L, 2, "space");
         const std::string space = lua_isnil(L, -1) ? "local" : luaL_checkstring(L, -1);
         lua_pop(L, 1);
-        if (space != "local" && space != "world") luaL_argerror(L, 2, "space is \"local\" or \"world\"");
+        if (!one_of(spaces, space)) luaL_argerror(L, 2, "space is \"local\" or \"world\"");
         return result(L, game(plugin).board_set(plugin.id(), bone, value, space == "world"));
     }
     static int board_hide(lua_State* L) {
@@ -1710,6 +1802,20 @@ struct WorldApi {
         need(L, plugin, "board", "reskate.board.clear");
         game(plugin).board_clear(plugin.id(), lua_isnoneornil(L, 1) ? -1 : bone_number(L, 1));
         return 0;
+    }
+    // scale(bone, size): the bone drawn this much bigger over its animation, which still turns and places
+    // it; a number for every axis or a vector, 0.25 to 4 each, on this screen only. scale(bone) ends it.
+    static int board_scale(lua_State* L) {
+        auto& plugin = plugin_of(L);
+        need(L, plugin, "board", "reskate.board.scale");
+        const int bone = bone_number(L, 1);
+        if (lua_isnoneornil(L, 2)) return result(L, game(plugin).board_scale(plugin.id(), bone, std::nullopt));
+        Vec3 size;
+        if (lua_type(L, 2) == LUA_TNUMBER) {
+            const auto k = static_cast<float>(lua_tonumber(L, 2));
+            size = {k, k, k};
+        } else size = position_of(L, 2, "a bone's size");
+        return result(L, game(plugin).board_scale(plugin.id(), bone, size));
     }
     // park({12, 13, 14, 15}): these bones out of sight on every board, other players' too.
     static int board_park(lua_State* L) {
@@ -1776,7 +1882,9 @@ struct WorldApi {
     }
     // parameters(part): {{key = "873f48af36e50d59", name = "graphic", type = "colour", value = {r, g, b}}, ...}
     // as the part's material holds them now, or nil without a board. A number's value is a number, an
-    // integer's an integer, a switch's true or false.
+    // integer's an integer, a switch's true or false. A colour or a number the equipped item's mod
+    // declares (reskate-materials.json) that the material does not hold yet comes with inherited =
+    // true and its shader's default as its value; set_parameter adds a declared colour.
     static int board_parameters(lua_State* L) {
         auto& plugin = plugin_of(L);
         need(L, plugin, "board", "reskate.board.parameters");
@@ -1817,12 +1925,18 @@ struct WorldApi {
                 lua_pushboolean(L, p.integer != 0);
                 lua_setfield(L, -2, "value");
             }
+            if (p.inherited) {
+                lua_pushboolean(L, 1);
+                lua_setfield(L, -2, "inherited");
+            }
             lua_rawseti(L, -2, ++at);
         }
         return 1;
     }
     // set_parameter(part, key, value): a colour {r, g, b} (0 to 1) or a number held on the part until
-    // cleared, on this screen; an integer or a switch is only read.
+    // cleared, on this screen; an integer or a switch is only read. A colour the equipped item's mod
+    // declares is added to the material and goes back to its declared default when let go, or when
+    // that item is no longer on the board.
     static int board_set_parameter(lua_State* L) {
         auto& plugin = plugin_of(L);
         need(L, plugin, "board", "reskate.board.set_parameter");
@@ -2063,6 +2177,121 @@ struct WorldApi {
         auto& plugin = authority(L, "reskate.server.unban");
         return result(L, game(plugin).unban(player_of(L, 1)));
     }
+    // ---- cards and polls on players' screens ---------------------------------------------------------
+    // Who a card or poll is for: "all" (empty: everyone on the server), one player (an id or a player
+    // table) or a list of them, 1 to 128.
+    static std::vector<std::uint64_t> players_of(lua_State* L, int index) {
+        if (lua_isstring(L, index) && std::string_view(lua_tostring(L, index)) == "all") return {};
+        if (!lua_istable(L, index)) return {player_of(L, index)};
+        lua_getfield(L, index, "id");
+        const bool one = !lua_isnil(L, -1);
+        lua_pop(L, 1);
+        if (one) return {player_of(L, index)};
+        const int count = lua_objlen(L, index);
+        if (count < 1 || count > 128) luaL_argerror(L, index, "a player, a list of 1 to 128 players, or \"all\"");
+        std::vector<std::uint64_t> players;
+        for (int i = 1; i <= count; ++i) {
+            lua_rawgeti(L, index, i);
+            const auto id = player_of(L, lua_gettop(L));
+            if (std::find(players.begin(), players.end(), id) == players.end()) players.push_back(id);
+            lua_pop(L, 1);
+        }
+        return players;
+    }
+    // As the roster carries an announcement and a vote (Extension/Multiplayer/Net/protocol.h:
+    // max_vote_label, max_vote_answers, max_vote_answer).
+    static constexpr std::size_t card_text = 120, poll_answers = 6, poll_answer = 48;
+    static std::string line_of(lua_State* L, int index, std::size_t most, const char* what) {
+        auto text = checked_text(L, index, most, what);
+        if (text.empty()) luaL_error(L, "%s is empty", what);
+        return text;
+    }
+    // server.card(players, text, seconds?): up for 1 to 60 s (none: long enough to read).
+    static int server_card(lua_State* L) {
+        auto& plugin = authority(L, "reskate.server.card");
+        const auto players = players_of(L, 1);
+        const auto text = line_of(L, 2, card_text, "a card's text");
+        const auto seconds = lua_isnoneornil(L, 3) ? 0 : luaL_checkinteger(L, 3);
+        if (!lua_isnoneornil(L, 3) && (seconds < 1 || seconds > 60)) luaL_argerror(L, 3, "seconds, 1 to 60 (none: long enough to read)");
+        return result(L, game(plugin).server_card(plugin.id(), players, text, static_cast<unsigned>(seconds)));
+    }
+    // server.poll(players, question, answers, {seconds}?): the poll's id, or nil and why. 2 to 6
+    // answers; it runs 5 to 300 s (none: the server's poll time).
+    static int server_poll(lua_State* L) {
+        auto& plugin = authority(L, "reskate.server.poll");
+        const auto players = players_of(L, 1);
+        const auto question = line_of(L, 2, card_text, "a poll's question");
+        luaL_checktype(L, 3, LUA_TTABLE);
+        const int count = lua_objlen(L, 3);
+        if (count < 2 || count > static_cast<int>(poll_answers)) luaL_argerror(L, 3, "2 to 6 answers");
+        std::vector<std::string> answers;
+        for (int i = 1; i <= count; ++i) {
+            lua_rawgeti(L, 3, i);
+            answers.push_back(line_of(L, lua_gettop(L), poll_answer, "a poll's answer"));
+            lua_pop(L, 1);
+        }
+        lua_Integer seconds = 0;
+        if (!lua_isnoneornil(L, 4)) {
+            luaL_checktype(L, 4, LUA_TTABLE);
+            if (lua_getfield(L, 4, "seconds") != LUA_TNIL) {
+                seconds = luaL_checkinteger(L, -1);
+                if (seconds < 5 || seconds > 300) luaL_argerror(L, 4, "seconds, 5 to 300 (none: the server's poll time)");
+            }
+            lua_pop(L, 1);
+        }
+        std::uint32_t id = 0;
+        if (const auto why = game(plugin).server_poll(plugin.id(), players, question, answers, static_cast<unsigned>(seconds), id); !why.empty()) {
+            lua_pushnil(L);
+            lua_pushlstring(L, why.data(), why.size());
+            return 2;
+        }
+        lua_pushnumber(L, static_cast<double>(id));
+        return 1;
+    }
+    static int server_poll_close(lua_State* L) {
+        auto& plugin = authority(L, "reskate.server.poll_close");
+        const double id = luaL_checknumber(L, 1);
+        if (!(id >= 1 && id <= 4294967295.0) || id != std::floor(id)) luaL_argerror(L, 1, "a poll's id");
+        return result(L, game(plugin).server_poll_close(plugin.id(), static_cast<std::uint32_t>(id)));
+    }
+    // ---- hiding a player from others ----------------------------------------------------------------
+    // server.hide(target, viewers, {skater, name, voice, sound}?): each true unless said. The name
+    // goes with the skater (a game has no skater without its player); without them, only the voice
+    // and/or the sound is held back.
+    static int server_hide(lua_State* L) {
+        auto& plugin = authority(L, "reskate.server.hide");
+        const auto target = player_of(L, 1);
+        if (lua_isnoneornil(L, 2)) luaL_argerror(L, 2, "who they are hidden from: a player, a list of players, or \"all\"");
+        const auto viewers = players_of(L, 2);
+        Game::Hiding what;
+        if (!lua_isnoneornil(L, 3)) {
+            luaL_checktype(L, 3, LUA_TTABLE);
+            std::optional<bool> skater, name, voice, sound;
+            lua_pushnil(L);
+            while (lua_next(L, 3)) {
+                const std::string_view key = lua_type(L, -2) == LUA_TSTRING ? lua_tostring(L, -2) : "";
+                auto* field = key == "skater" ? &skater : key == "name" ? &name : key == "voice" ? &voice : key == "sound" ? &sound : nullptr;
+                if (!field) luaL_argerror(L, 3, "only skater, name, voice and sound");
+                if (!lua_isboolean(L, -1)) luaL_argerror(L, 3, "skater, name, voice and sound are true or false");
+                *field = lua_toboolean(L, -1) != 0;
+                lua_pop(L, 1);
+            }
+            if (skater && name && *skater != *name) luaL_argerror(L, 3, "the name goes with the skater: both true or both false");
+            what.skater = skater.value_or(name.value_or(true));
+            what.voice = voice.value_or(true);
+            what.sound = sound.value_or(true);
+            if (what.skater && (!what.voice || !what.sound)) luaL_argerror(L, 3, "a hidden skater's voice and sound are hidden too");
+            if (!what.skater && !what.voice && !what.sound) luaL_argerror(L, 3, "nothing to hide: the skater, the voice or the sound");
+        }
+        return result(L, game(plugin).server_hide(plugin.id(), target, viewers, what));
+    }
+    // server.unhide(target, viewers?): shown again to them (none: to everyone this plugin hid them from).
+    static int server_unhide(lua_State* L) {
+        auto& plugin = authority(L, "reskate.server.unhide");
+        const auto target = player_of(L, 1);
+        const auto viewers = lua_isnoneornil(L, 2) ? std::vector<std::uint64_t>{} : players_of(L, 2);
+        return result(L, game(plugin).server_unhide(plugin.id(), target, viewers));
+    }
     // ---- server.parks: a dedicated server's park mods -----------------------------------------------
     // parks(): {name, map, here (fits the map running now), spawned, objects, minutes_left}[];
     // park_spawn(name, minutes?): for that long (1-1440), or until removed; park_remove(name).
@@ -2280,7 +2509,7 @@ struct WorldApi {
             mode.cursor_height = static_cast<float>(h);
         }
         lua_pop(L, 1);
-        const auto stock = [](const std::string& tile) { return tile == "skate" || tile == "spot" || tile == "spot_battle" || tile == "jam"; };
+        const auto stock = [](const std::string& tile) { return one_of(throwdown_cards, tile); };
         if (!mode.replaces.empty() && !stock(mode.replaces)) luaL_argerror(L, 1, "replaces is \"skate\", \"spot\" or \"jam\"");
         if (!stock(mode.card)) luaL_argerror(L, 1, "card is \"skate\", \"spot\" or \"jam\"");
         if (mode.flag.size() > 256 || mode.art.size() > 256) luaL_argerror(L, 1, "art and flag are at most 256 characters");
@@ -2435,10 +2664,21 @@ struct WorldApi {
         return 1;
     }
     // settings.set(name, value): a game setting held at `value` while the plugin keeps it; nil lets go.
+    // Whether a game setting is about sound: how loud the game, its music, its voices and its
+    // speakers are. No plugin changes those: a plugin that turned every volume up to scare the
+    // player is why (plugin_listing.h).
+    static bool sound_setting(std::string_view name) {
+        std::string lower(name);
+        for (auto& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        for (const char* word : {"volume", "audio", "sound", "mute", "loud", "speaker", "voip", "voice", "sfx", "dynamicrange"})
+            if (lower.find(word) != std::string::npos) return true;
+        return false;
+    }
     static int setting_set(lua_State* L) {
         auto& plugin = plugin_of(L);
         need(L, plugin, "settings.write", "reskate.settings.set");
         const auto name = checked_text(L, 1, 120, "a setting's name");
+        if (sound_setting(name)) return result(L, "sound settings are the player's: no plugin changes how loud the game is");
         std::optional<std::string> value;
         if (lua_type(L, 2) == LUA_TBOOLEAN) value = lua_toboolean(L, 2) ? "true" : "false";
         else if (lua_type(L, 2) == LUA_TNUMBER) value = std::format("{}", lua_tonumber(L, 2));
@@ -2524,17 +2764,26 @@ struct WorldApi {
         lua_setfield(L, -2, "playstation");
         return 1;
     }
+    // joystick(): the first controller (a radio first); joystick(device): that one, a number
+    // joysticks() lists.
     static int input_joystick(lua_State* L) {
         auto& plugin = plugin_of(L);
         need(L, plugin, "input", "reskate.input.joystick");
-        const auto stick = game(plugin).joystick();
+        int device = -1;
+        if (!lua_isnoneornil(L, 1)) {
+            const double wanted = luaL_checknumber(L, 1);
+            if (!(wanted >= 0 && wanted < 16) || wanted != static_cast<double>(static_cast<int>(wanted)))
+                luaL_argerror(L, 1, "a controller's number, as reskate.input.joysticks() lists it");
+            device = static_cast<int>(wanted);
+        }
+        const auto stick = game(plugin).joystick(device);
         if (!stick) {
             lua_pushnil(L);
             return 1;
         }
-        lua_createtable(L, 0, 3);
-        lua_createtable(L, 6, 0);
-        for (int i = 0; i < 6; ++i) {
+        lua_createtable(L, 0, 4);
+        lua_createtable(L, static_cast<int>(stick->axes.size()), 0);
+        for (int i = 0; i < static_cast<int>(stick->axes.size()); ++i) {
             lua_pushnumber(L, stick->axes[static_cast<std::size_t>(i)]);
             lua_rawseti(L, -2, i + 1);
         }
@@ -2547,6 +2796,25 @@ struct WorldApi {
         lua_setfield(L, -2, "buttons");
         lua_pushlstring(L, stick->name.data(), stick->name.size());
         lua_setfield(L, -2, "name");
+        lua_pushinteger(L, stick->device);
+        lua_setfield(L, -2, "device");
+        return 1;
+    }
+    // joysticks(): {{device = n, name = "..."}, ...}, every controller plugged in.
+    static int input_joysticks(lua_State* L) {
+        auto& plugin = plugin_of(L);
+        need(L, plugin, "input", "reskate.input.joysticks");
+        const auto found = game(plugin).joysticks();
+        lua_createtable(L, static_cast<int>(found.size()), 0);
+        int n = 0;
+        for (const auto& stick : found) {
+            lua_createtable(L, 0, 2);
+            lua_pushinteger(L, stick.device);
+            lua_setfield(L, -2, "device");
+            lua_pushlstring(L, stick.name.data(), stick.name.size());
+            lua_setfield(L, -2, "name");
+            lua_rawseti(L, -2, ++n);
+        }
         return 1;
     }
     static int input_capture(lua_State* L) {
@@ -2786,7 +3054,7 @@ void WorldApi::install(Plugin& plugin, lua_State* L) {
     lua_setfield(L, LUA_REGISTRYINDEX, "reskate.permissions");
     add_functions(L, "skater", {{"state", state}, {"noclip", noclip}, {"boost", boost}, {"freeze", freeze}, {"wipeout", wipeout}, {"xray", xray},
                                 {"shape_launch", shape_launch}, {"hide", hide_skater}, {"reach", reach}, {"carry", carry}, {"hand", hand}, {"joint", skater_joint}, {"pose", skater_pose}});
-    add_functions(L, "board", {{"motion", board_motion}, {"bones", board_bones}, {"set", board_set}, {"hide", board_hide}, {"clear", board_clear},
+    add_functions(L, "board", {{"motion", board_motion}, {"bones", board_bones}, {"set", board_set}, {"hide", board_hide}, {"clear", board_clear}, {"scale", board_scale},
                                {"park", board_park}, {"fit", board_fit}, {"toss", board_toss}, {"parameters", board_parameters},
                                {"set_parameter", board_set_parameter}, {"clear_parameter", board_clear_parameter}});
     add_functions(L, "camera", {{"look", camera_look}, {"set", camera_set}, {"follow", camera_follow}, {"release", camera_release}, {"held", camera_held}, {"get", camera_get}, {"cycle", camera_cycle}});
@@ -2797,7 +3065,7 @@ void WorldApi::install(Plugin& plugin, lua_State* L) {
     add_functions(L, "entities", {{"set", entities_set}, {"remove", entities_remove}, {"clear", entities_clear}, {"status", entities_status},
                                   {"ready", entities_ready}, {"blueprints", entities_blueprints},
                                   {"bounds", entities_bounds}});
-    add_functions(L, "world", {{"set_time", set_time}, {"set_control", set_control}, {"set_park", set_park}, {"pick", world_pick}});
+    add_functions(L, "world", {{"set_time", set_time}, {"set_control", set_control}, {"set_park", set_park}, {"pick", world_pick}, {"probe", world_probe}});
     add_functions(L, "travel", {{"locations", locations}, {"levels", levels}, {"go", go}, {"load", load}});
     add_functions(L, "ai", {{"spawn", ai_spawn}, {"clear", ai_clear}, {"count", ai_count}});
     add_functions(L, "session", {{"skaters", skaters}, {"tag", tag}, {"nametags", nametags}, {"joint", session_joint}, {"touch", session_touch},
@@ -2815,14 +3083,15 @@ void WorldApi::install(Plugin& plugin, lua_State* L) {
     add_functions(L, "audio", {{"play", audio_play}, {"set", audio_set}, {"stop", audio_stop}, {"playing", audio_playing}});
     add_functions(L, "server", {{"kick", server_kick}, {"say", server_say}, {"tell", server_tell}, {"move", server_move},
                                 {"ban", server_ban}, {"unban", server_unban}, {"parks", server_parks}, {"park_spawn", server_park_spawn},
-                                {"park_remove", server_park_remove}});
+                                {"park_remove", server_park_remove}, {"card", server_card}, {"poll", server_poll}, {"poll_close", server_poll_close},
+                                {"hide", server_hide}, {"unhide", server_unhide}});
     add_functions(L, "throwdowns", {{"state", throwdown_state}, {"host", throwdown_host}, {"cancel", throwdown_cancel}, {"hosting", throwdown_hosting},
                                     {"mode", throwdown_mode}, {"remove_mode", throwdown_remove_mode}});
     add_functions(L, "music", {{"current", current}, {"play", play}, {"pause", pause}, {"next", next}, {"previous", previous},
                                {"game", game_current}, {"game_next", game_next}});
     add_functions(L, "progression", {{"get", progress}});
     add_functions(L, "settings", {{"game", setting}, {"names", setting_names}, {"set", setting_set}});
-    add_functions(L, "input", {{"bind", bind}, {"flight", input_flight}, {"gamepad", input_gamepad}, {"joystick", input_joystick}, {"capture", input_capture},
+    add_functions(L, "input", {{"bind", bind}, {"flight", input_flight}, {"gamepad", input_gamepad}, {"joystick", input_joystick}, {"joysticks", input_joysticks}, {"capture", input_capture},
                                {"hide", input_hide}, {"cursor", input_cursor}, {"text", input_text}});
     add_functions(L, "room", {{"open", room_open}, {"leave", room_leave}, {"state", room_state}});
     add_functions(L, "ui", {{"screen", screen}, {"open", open}, {"close", close}});

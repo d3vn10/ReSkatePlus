@@ -1,3 +1,5 @@
+#include "Extension/Rendering/plugin_effects.h"
+#include "Extension/Skater/skater_events.h"
 #include "runtime_internal.h"
 #include "Extension/Customization/item_browser.h"
 #include "Extension/Rendering/Capture/capture_runtime.h"
@@ -73,29 +75,48 @@
 #include "Engine/Vfs/content_catalogs.h"
 #include "Engine/Vfs/world_layer_scan.h"
 #include "Engine/Game/World/world_layer_catalog.h"
+#include "Engine/Core/Platform/startup_failure.h"
 #include <array>
+#include <cstring>
 #include <filesystem>
 
+// Why startup stopped, for the launcher to show (startup_failure.h).
+extern "C" __declspec(dllexport) char DingoSDKStartupFailure[dingosdk::startup_failure::capacity]{};
+
 namespace dingosdk::runtime::detail {
-    namespace {
-        bool exact_environment_one(const wchar_t* name) noexcept {
-            const auto incoming_error = GetLastError();
-            std::array<wchar_t, 2> value{};
-            const auto length = GetEnvironmentVariableW(name, value.data(),
-                static_cast<DWORD>(value.size()));
-            SetLastError(incoming_error);
-            return length == 1 && value[0] == L'1';
-        }
-        bool validate_image(std::uintptr_t base) {
-            IMAGE_DOS_HEADER dos{}; IMAGE_NT_HEADERS64 nt{};
-            if (!read(base, dos) || dos.e_magic != IMAGE_DOS_SIGNATURE || dos.e_lfanew <= 0 || dos.e_lfanew > 0x100000 ||
-                !read(base + dos.e_lfanew, nt) || nt.Signature != IMAGE_NT_SIGNATURE ||
-                nt.FileHeader.Machine != IMAGE_FILE_MACHINE_AMD64 || nt.OptionalHeader.SizeOfImage != dingosdk::supported_build::game_image_size) return false;
-            if (!matches(base + rt::client_tick, rt::client_tick_prefix)) return false;
-            for (const auto& entry : rt::image_checks) if (!matches(base + entry.rva, entry.bytes)) return false;
-            return true;
-        }
-    }
+namespace {
+// Keeps the first reason startup stopped. The launcher reads it only after
+// DingoSDKDebugInitialize has returned, so nothing reads it while it is written.
+BOOL startup_failed(std::string_view reason) noexcept {
+    if (DingoSDKStartupFailure[0]) return FALSE;
+    const auto length = dingosdk::startup_failure::utf8_prefix(reason, sizeof(DingoSDKStartupFailure) - 1);
+    std::memcpy(DingoSDKStartupFailure, reason.data(), length);
+    DingoSDKStartupFailure[length] = '\0';
+    return FALSE;
+}
+BOOL stop_startup(dingosdk::logging::Level level, dingosdk::logging::Channel channel,
+                  std::string_view reason) noexcept {
+    dingosdk::logging::write(level, channel, reason);
+    return startup_failed(reason);
+}
+bool exact_environment_one(const wchar_t* name) noexcept {
+    const auto incoming_error = GetLastError();
+    std::array<wchar_t, 2> value{};
+    const auto length = GetEnvironmentVariableW(name, value.data(),
+        static_cast<DWORD>(value.size()));
+    SetLastError(incoming_error);
+    return length == 1 && value[0] == L'1';
+}
+bool validate_image(std::uintptr_t base) {
+    IMAGE_DOS_HEADER dos{}; IMAGE_NT_HEADERS64 nt{};
+    if (!read(base, dos) || dos.e_magic != IMAGE_DOS_SIGNATURE || dos.e_lfanew <= 0 || dos.e_lfanew > 0x100000 ||
+        !read(base + dos.e_lfanew, nt) || nt.Signature != IMAGE_NT_SIGNATURE ||
+        nt.FileHeader.Machine != IMAGE_FILE_MACHINE_AMD64 || nt.OptionalHeader.SizeOfImage != dingosdk::supported_build::game_image_size) return false;
+    if (!matches(base + rt::client_tick, rt::client_tick_prefix)) return false;
+    for (const auto& entry : rt::image_checks) if (!matches(base + entry.rva, entry.bytes)) return false;
+    return true;
+}
+}
 }
 
 extern "C" __declspec(dllexport) BOOL WINAPI DingoSDKDebugInitialize() {
@@ -109,20 +130,16 @@ extern "C" __declspec(dllexport) BOOL WINAPI DingoSDKDebugInitialize() {
         dingosdk::logging::startup_banner();
         if (!files_ready) dingosdk::logging::write(dingosdk::logging::Level::warning,
             dingosdk::logging::Channel::runtime, "File logging is unavailable; console and debugger output remain active.");
-        if (!validate_image(r.base)) {
-            dingosdk::logging::write(dingosdk::logging::Level::critical, dingosdk::logging::Channel::runtime, "Game image validation failed.");
-            return FALSE;
-        }
+        if (!validate_image(r.base))
+            return stop_startup(dingosdk::logging::Level::critical, dingosdk::logging::Channel::runtime, "Game image validation failed.");
         // Before anything is merged or opened in the folder: one game in it at a time
         // (game_instance.h). The launcher checks first; this is two started at the same moment.
         {
             std::wstring game(32768, L'\0');
             game.resize(GetModuleFileNameW(nullptr, game.data(), static_cast<DWORD>(game.size())));
-            if (!game.empty() && !dingosdk::game_instance::claim(std::filesystem::path(game).parent_path())) {
-                dingosdk::logging::write(dingosdk::logging::Level::critical, dingosdk::logging::Channel::runtime,
+            if (!game.empty() && !dingosdk::game_instance::claim(std::filesystem::path(game).parent_path()))
+                return stop_startup(dingosdk::logging::Level::critical, dingosdk::logging::Channel::runtime,
                     "Another Skate is already running from this folder; this one does not start.");
-                return FALSE;
-            }
         }
         if (const auto& content = dingosdk::content_cache::catalogs(); content.available) {
             dingosdk::logging::log(dingosdk::logging::Level::info, dingosdk::logging::Channel::assets,
@@ -131,7 +148,7 @@ extern "C" __declspec(dllexport) BOOL WINAPI DingoSDKDebugInitialize() {
         } else {
             dingosdk::logging::write(dingosdk::logging::Level::warning, dingosdk::logging::Channel::assets,
                 "Game content cache is not installed: item names, challenges and default entitlements are unavailable. "
-                "Start ReSkate+ from ReSkatePlusLauncher to install it.");
+                "Start ReSkate from ReSkateLauncher to install it.");
         }
         // World layers come from the installed level data. The launcher builds
         // the per-build cache; without it this scans the level TOCs once here.
@@ -162,7 +179,8 @@ extern "C" __declspec(dllexport) BOOL WINAPI DingoSDKDebugInitialize() {
             }
         } startup_window;
         dingosdk::initialize_client_source_spawn(r.base);
-        if (!dingosdk::runtime::initialize_bootstrap(r.base)) return FALSE;
+        std::string bootstrap_failure;
+        if (!dingosdk::runtime::initialize_bootstrap(r.base, bootstrap_failure)) return startup_failed(bootstrap_failure);
 
         // Skate imports its graphics factory from the sibling Streamline
         // interposer. Load that ordinary dependency while the game is still
@@ -173,17 +191,17 @@ extern "C" __declspec(dllexport) BOOL WINAPI DingoSDKDebugInitialize() {
         if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
                 GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                 reinterpret_cast<LPCWSTR>(&DingoSDKDebugInitialize), &self)) {
-            dingosdk::logging::log(dingosdk::logging::Level::error, dingosdk::logging::Channel::runtime,
-                "Cannot locate the runtime module (Windows error {}).", GetLastError());
-            return FALSE;
+            const auto error = GetLastError();
+            return stop_startup(dingosdk::logging::Level::error, dingosdk::logging::Channel::runtime,
+                std::format("Cannot locate the runtime module (Windows error {}).", error));
         }
 #pragma warning(pop)
         wchar_t self_path[32768]{};
         const auto self_length = GetModuleFileNameW(self, self_path, 32768);
         if (!self_length || self_length >= 32768) {
-            dingosdk::logging::log(dingosdk::logging::Level::error, dingosdk::logging::Channel::runtime,
-                "Cannot resolve the runtime path (Windows error {}).", GetLastError());
-            return FALSE;
+            const auto error = GetLastError();
+            return stop_startup(dingosdk::logging::Level::error, dingosdk::logging::Channel::runtime,
+                std::format("Cannot resolve the runtime path (Windows error {}).", error));
         }
         const auto interposer_path = std::filesystem::path(
             std::wstring(self_path, self_length)).parent_path() / L"sl.interposer.dll";
@@ -203,13 +221,26 @@ extern "C" __declspec(dllexport) BOOL WINAPI DingoSDKDebugInitialize() {
         if (r.custom_levels.present)
             dingosdk::logging::log(dingosdk::logging::Level::info, dingosdk::logging::Channel::level,
                 "Custom-level destinations after merging: {}.", r.custom_levels.levels.size());
+        // Names and Quick Drop families mods give their own objects, before anything lists objects.
+        {
+            std::vector<std::pair<std::string, std::filesystem::path>> object_files;
+            for (const auto& mod : mod_catalog.mods)
+                object_files.emplace_back(mod.name, mod.directory / dingosdk::content_cache::mod_objects_file);
+            const auto declared = dingosdk::content_cache::install_mod_objects(object_files);
+            for (const auto& note : declared.notes)
+                dingosdk::logging::log(dingosdk::logging::Level::warning, dingosdk::logging::Channel::objects,
+                    "Mod objects: {}.", note);
+            if (declared.mods)
+                dingosdk::logging::log(dingosdk::logging::Level::info, dingosdk::logging::Channel::objects,
+                    "Mod objects: {} named by {} mod(s).", declared.objects, declared.mods);
+        }
         auto interposer = GetModuleHandleW(L"sl.interposer.dll");
         if (!interposer) interposer = LoadLibraryExW(interposer_path.c_str(), nullptr,
             LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32);
         if (!interposer) {
-            dingosdk::logging::log(dingosdk::logging::Level::error, dingosdk::logging::Channel::graphics,
-                "Cannot load the game's sl.interposer.dll (Windows error {}).", GetLastError());
-            return FALSE;
+            const auto error = GetLastError();
+            return stop_startup(dingosdk::logging::Level::error, dingosdk::logging::Channel::graphics,
+                std::format("Cannot load the game's sl.interposer.dll (Windows error {}).", error));
         }
         wchar_t interposer_loaded_path[32768]{};
         const auto interposer_length = GetModuleFileNameW(
@@ -218,11 +249,9 @@ extern "C" __declspec(dllexport) BOOL WINAPI DingoSDKDebugInitialize() {
         if (!interposer_length || interposer_length >= 32768 ||
             !std::filesystem::equivalent(interposer_path,
                 std::filesystem::path(std::wstring(interposer_loaded_path, interposer_length)),
-                interposer_error) || interposer_error) {
-            dingosdk::logging::write(dingosdk::logging::Level::error, dingosdk::logging::Channel::graphics,
+                interposer_error) || interposer_error)
+            return stop_startup(dingosdk::logging::Level::error, dingosdk::logging::Channel::graphics,
                 "Loaded graphics provider does not match the game's sibling sl.interposer.dll.");
-            return FALSE;
-        }
         dingosdk::logging::write(dingosdk::logging::Level::info, dingosdk::logging::Channel::graphics,
             "Game graphics provider loaded: sl.interposer.dll.");
         const dingosdk::overlay::CallbacksV3 callbacks{
@@ -236,6 +265,8 @@ extern "C" __declspec(dllexport) BOOL WINAPI DingoSDKDebugInitialize() {
         // A map a session needs: hosts say which Thunderstore package theirs is from, and a
         // guest without it is offered it on a card (Extension/Assets/map_download.h).
         dingosdk::multiplayer::set_map_package_lookup(dingosdk::map_download::package_of);
+        // And a dedicated server's required plugins, offered on the same card.
+        dingosdk::multiplayer::set_plugin_check(dingosdk::map_download::missing_plugins, dingosdk::map_download::has_level);
         dingosdk::overlay::set_map_download_feed([]() {
             const auto view = dingosdk::map_download::view();
             using Stage = dingosdk::map_download::Stage;
@@ -260,6 +291,9 @@ extern "C" __declspec(dllexport) BOOL WINAPI DingoSDKDebugInitialize() {
             card.total = view.total;
             card.yes_bind = view.yes_bind;
             card.no_bind = view.no_bind;
+            for (const auto& item : view.items)
+                card.items.push_back({item.name, item.author, item.version, item.have, item.plugin, item.installed, item.bytes});
+            card.current = view.current;
             return card;
         });
         dingosdk::overlay::set_map_download_answer(dingosdk::map_download::answer);
@@ -291,7 +325,7 @@ extern "C" __declspec(dllexport) BOOL WINAPI DingoSDKDebugInitialize() {
             {dingosdk::addr::profiler_labels::render_dispatch_end, "Job: renderDispatchEnd"},
             {dingosdk::addr::profiler_labels::input_dispatch, "Input dispatch"},
             {dingosdk::addr::profiler_labels::ui_pointer_update, "UI pointer update (mouse hit-test)"},
-            {dingosdk::addr::profiler_labels::ui_view_pointer, "UI view pointer hit-test"} };
+            {dingosdk::addr::profiler_labels::ui_view_pointer, "UI view pointer hit-test"}};
         dingosdk::profiler::set_engine_labels(engine_labels);
         dingosdk::overlay::set_park_surface_queue(dingosdk::queue_local_park_surface);
         dingosdk::overlay::set_park_preview_queue(dingosdk::queue_local_park_preview);
@@ -299,10 +333,8 @@ extern "C" __declspec(dllexport) BOOL WINAPI DingoSDKDebugInitialize() {
         dingosdk::overlay::set_park_paste_queue(dingosdk::queue_local_park_paste);
         dingosdk::overlay::set_park_object_set_queue(dingosdk::queue_local_park_object_set);
         dingosdk::overlay::set_park_delete_queue(dingosdk::queue_local_park_delete);
-        if (!DingoSDKOverlayStartV3(&callbacks)) {
-            dingosdk::logging::write(dingosdk::logging::Level::error, dingosdk::logging::Channel::graphics, "Overlay startup failed.");
-            return FALSE;
-        }
+        if (!DingoSDKOverlayStartV3(&callbacks))
+            return stop_startup(dingosdk::logging::Level::error, dingosdk::logging::Channel::graphics, "Overlay startup failed.");
         // Install the offline boot hooks before the passive observers and other
         // native hooks, while Skate's primary thread remains suspended. The
         // launcher always sets the global-offline variable; install the dependent
@@ -338,16 +370,19 @@ extern "C" __declspec(dllexport) BOOL WINAPI DingoSDKDebugInitialize() {
         if (global_offline_requested && (!global_offline_hook || !progression_guard_armed)) {
             record("{\"event\":\"launcher_readiness\",\"ready\":false,"
                 "\"reason\":\"authored_offline_hooks\"}");
-            return FALSE;
+            return stop_startup(dingosdk::logging::Level::error, dingosdk::logging::Channel::runtime,
+                std::format("The offline hooks could not be installed (offline boot {}, progression guard {}).",
+                    global_offline_hook ? "ready" : "failed", progression_guard_armed ? "armed" : "not armed"));
         }
         const bool graphics_labels = dingosdk::initialize_graphics_labels(r.base,
             global_offline_hook && progression_guard_armed);
         record("{\"event\":\"graphics_labels_initialized\",\"active\":" +
             std::string(graphics_labels ? "true" : "false") + "}");
+        std::string profile_failure;
         if (global_offline_hook && progression_guard_armed &&
-            !dingosdk::initialize_local_profile(r.base, true, dingosdk::profile::default_path())) {
+            !dingosdk::initialize_local_profile(r.base, true, dingosdk::profile::default_path(), profile_failure)) {
             record("{\"event\":\"launcher_readiness\",\"ready\":false,\"reason\":\"local_profile\"}");
-            return FALSE;
+            return startup_failed(profile_failure);
         }
         if (global_offline_hook && progression_guard_armed) {
             dingosdk::set_local_location_travel_queue(&queue_location_travel);
@@ -521,7 +556,9 @@ extern "C" __declspec(dllexport) BOOL WINAPI DingoSDKDebugInitialize() {
             if (global_offline_requested) {
                 record("{\"event\":\"launcher_readiness\",\"ready\":false,"
                     "\"reason\":\"native_tick_hook\"}");
-                return FALSE;
+                return stop_startup(dingosdk::logging::Level::error, dingosdk::logging::Channel::runtime,
+                    std::format("The engine update hook could not be installed: {} ({}).",
+                        dingosdk::hook_status_string(hook_status), static_cast<long>(hook_status)));
             }
             startup_window.hand_over();
             return TRUE;
@@ -532,6 +569,8 @@ extern "C" __declspec(dllexport) BOOL WINAPI DingoSDKDebugInitialize() {
         }
         r.native_loading_logging = dingosdk::start_level_loading_logging(r.base,
             [](std::uintptr_t base, unsigned next) noexcept {
+                dingosdk::effects::before_level_transition(next);
+                dingosdk::skater_events::before_level_transition(next);
                 dingosdk::local_profile_before_level_transition(next);
                 dingosdk::world_entities::before_level_transition(base, next);
                 dingosdk::multiplayer::native_menu_before_level_transition(base, next);
@@ -547,13 +586,20 @@ extern "C" __declspec(dllexport) BOOL WINAPI DingoSDKDebugInitialize() {
         startup_window.hand_over();
         return TRUE;
     } catch (const std::exception& error) {
-        dingosdk::logging::log(dingosdk::logging::Level::critical, dingosdk::logging::Channel::runtime,
-            "Runtime initialization failed: {}", error.what());
-        return FALSE;
+        // Nothing may escape the launcher's remote thread: a reason that cannot
+        // be built falls back to a fixed one.
+        using namespace dingosdk::runtime::detail;
+        try {
+            return stop_startup(dingosdk::logging::Level::critical, dingosdk::logging::Channel::runtime,
+                std::string("Runtime initialization failed: ") + error.what());
+        } catch (...) {
+            return stop_startup(dingosdk::logging::Level::critical, dingosdk::logging::Channel::runtime,
+                "Runtime initialization failed.");
+        }
     } catch (...) {
-        dingosdk::logging::write(dingosdk::logging::Level::critical, dingosdk::logging::Channel::runtime,
+        using namespace dingosdk::runtime::detail;
+        return stop_startup(dingosdk::logging::Level::critical, dingosdk::logging::Channel::runtime,
             "Runtime initialization failed with an unknown exception.");
-        return FALSE;
     }
 }
 

@@ -2,14 +2,14 @@
 #include <string>
 #include <string_view>
 
-// Discord Rich Presence: what the player is doing in ReSkate+, shown on their Discord profile
+// Discord Rich Presence: what the player is doing in ReSkate, shown on their Discord profile
 // ("On San Vansterdam", "Server: EU 1", 12 of 32). The Discord app on the same PC takes it over
 // its local pipe; nothing goes to Discord's servers from here, and without the app running
 // nothing happens at all. Players can turn it off (the menu's Multiplayer settings).
 //
 // A session anyone may walk into (no password, not full, a server or a public lobby) also
 // carries its join code, which gives the status Discord's Join button. Whoever presses it has
-// Discord start ReSkate+ (the launcher, registered for that below) if it is not running, and
+// Discord start ReSkate (the launcher, registered for that below) if it is not running, and
 // then hand their game the code (take_join).
 namespace dingosdk::discord_presence {
 // The Discord application the presence belongs to (its name is what Discord shows as the game):

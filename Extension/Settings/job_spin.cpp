@@ -9,7 +9,7 @@
 namespace dingosdk::job_spin {
 namespace {
 struct Contract { bool ok{}; double ticks_per_microsecond{}; std::int64_t stock_ticks{}; std::uintptr_t ticks{}; };
-// Read from the job system's own values the first time (before ReSkate+ changes them): the
+// Read from the job system's own values the first time (before ReSkate changes them): the
 // configured milliseconds and the ticks the engine computed from them.
 const Contract& contract() noexcept {
     static Contract value;

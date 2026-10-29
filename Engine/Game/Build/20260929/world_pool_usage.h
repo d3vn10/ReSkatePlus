@@ -1,5 +1,5 @@
 // Reviewed native contract for supported_build::game_sha256 (September 29 2026).
-// Where the three world pools ReSkate+ enlarges (entity_pages.h, spatial_buckets.h)
+// Where the three world pools ReSkate enlarges (entity_pages.h, spatial_buckets.h)
 // can be read for how full they are: for telling whether a level needs more than
 // the game's own sizes.
 #pragma once

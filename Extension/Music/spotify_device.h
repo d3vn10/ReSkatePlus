@@ -2,13 +2,13 @@
 #include "external_player.h"
 #include <string>
 
-// The game as a device in the player's Spotify app ("ReSkate+"), by way of ReSkateSpotify.exe
-// (SpotifyHelper/, built on librespot), which is started beside ReSkatePlus.dll. Spotify plays to
+// The game as a device in the player's Spotify app ("ReSkate"), by way of ReSkateSpotify.exe
+// (SpotifyHelper/, built on librespot), which is started beside ReSkate.dll. Spotify plays to
 // it as it would to a speaker: its sound comes to the game as it is (app_audio_capture.h's
 // buffer is filled with it, in the place of what is captured from the Spotify app), with the
 // song's name and cover, and the game's play, pause and next go to it.
 //
-// Who the account is comes from the Spotify app: the player picks "ReSkate+" among its devices
+// Who the account is comes from the Spotify app: the player picks "ReSkate" among its devices
 // once, on the same network, and it is kept. Until an account is on it, the Spotify station
 // goes on working through the Spotify app on this computer (external_player.h).
 namespace dingosdk::spotify_device {

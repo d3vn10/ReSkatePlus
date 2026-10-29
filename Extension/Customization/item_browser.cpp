@@ -26,10 +26,10 @@
 #include <utility>
 
 namespace dingosdk::item_browser {
-    namespace {
-        namespace md = dingosdk::multiplayer::menu_data;
-        using logging::Channel;
-        using logging::Level;
+namespace {
+namespace md = dingosdk::multiplayer::menu_data;
+using logging::Channel;
+using logging::Level;
 
 // Schema and field hashes are the game's own: a data-defined type's TypeNameHash and its fields'
 // NameHash (UI/Foundations/Components/Lists/GridList/Widget/GridListViewModel and the types it holds).
@@ -68,25 +68,25 @@ constexpr std::array<std::string_view, 3> check_textures{"UI/Textures/comMon/Sha
                                                          "UI/Textures/Common/Shapes/Bespoke/img_Icon_RoughCheckmark_White_128",
                                                          "UI/Textures/Icons/Generic/img_Generic_Check_64"};
 
-        std::uint32_t schema_of(md::Address type) { return type ? md::read<std::uint32_t>(md::read<md::Address>(type)) : 0; }
+std::uint32_t schema_of(md::Address type) { return type ? md::read<std::uint32_t>(md::read<md::Address>(type)) : 0; }
 
-        unsigned inline_offset(const md::Context& context, md::Address type, std::span<const std::uint32_t> hashes,
-            md::Address* last = nullptr) {
-            unsigned offset = 0;
-            for (const auto hash : hashes) {
-                const auto field = context.member(type, hash);
-                offset += field.offset;
-                type = field.type;
-            }
-            if (last) *last = type;
-            return offset;
-        }
+unsigned inline_offset(const md::Context& context, md::Address type, std::span<const std::uint32_t> hashes,
+                       md::Address* last = nullptr) {
+    unsigned offset = 0;
+    for (const auto hash : hashes) {
+        const auto field = context.member(type, hash);
+        offset += field.offset;
+        type = field.type;
+    }
+    if (last) *last = type;
+    return offset;
+}
 
-        // The favorites file: beside Skate.exe, where the launcher keeps its own settings.
-        struct Favorites {
-            std::set<std::string, std::less<>> keys;
-            std::filesystem::path file;
-            bool loaded{};
+// The favorites file: beside Skate.exe, where the launcher keeps its own settings.
+struct Favorites {
+    std::set<std::string, std::less<>> keys;
+    std::filesystem::path file;
+    bool loaded{};
 
     void load() {
         if (loaded) return;
@@ -131,10 +131,10 @@ constexpr std::array<std::string_view, 3> check_textures{"UI/Textures/comMon/Sha
     }
 };
 
-        struct Layout {
-            md::Address row_type{};
-            unsigned stride{}, content{}, focused{};
-        };
+struct Layout {
+    md::Address row_type{};
+    unsigned stride{}, content{}, focused{};
+};
 
 // One item grid of the game (a slot's tab), and our copy of every row it was built with.
 struct Grid {
@@ -193,46 +193,46 @@ struct Shared {
 };
 Shared& shared() { static auto* value = new Shared; return *value; }
 
-        void report(State& s, const std::string& what) {
-            if (what == s.last_error) return;
-            s.last_error = what;
-            logging::log(Level::warning, Channel::customization, "Item browser: {}", what);
-        }
+void report(State& s, const std::string& what) {
+    if (what == s.last_error) return;
+    s.last_error = what;
+    logging::log(Level::warning, Channel::customization, "Item browser: {}", what);
+}
 
-        Layout layout_of(const md::Context& context, md::Value items) {
-            Layout layout;
-            layout.row_type = md::read<md::Address>(md::read<md::Address>(items.type) + 0x30);
-            md::require(schema_of(layout.row_type) == tile_row, "Item grid rows are not tiles.");
-            layout.stride = md::size(layout.row_type);
-            md::Address last{};
-            layout.content = inline_offset(context, layout.row_type, content_path, &last);
-            md::require(schema_of(last) == reference && md::size(last) == sizeof(md::Ref), "Item tile content differs.");
-            layout.focused = inline_offset(context, layout.row_type, focused_path, &last);
-            md::require(md::size(last) == 1, "Item tile focus differs.");
-            return layout;
-        }
+Layout layout_of(const md::Context& context, md::Value items) {
+    Layout layout;
+    layout.row_type = md::read<md::Address>(md::read<md::Address>(items.type) + 0x30);
+    md::require(schema_of(layout.row_type) == tile_row, "Item grid rows are not tiles.");
+    layout.stride = md::size(layout.row_type);
+    md::Address last{};
+    layout.content = inline_offset(context, layout.row_type, content_path, &last);
+    md::require(schema_of(last) == reference && md::size(last) == sizeof(md::Ref), "Item tile content differs.");
+    layout.focused = inline_offset(context, layout.row_type, focused_path, &last);
+    md::require(md::size(last) == 1, "Item tile focus differs.");
+    return layout;
+}
 
-        struct Rows {
-            std::vector<std::byte> bytes;
-            unsigned count{};
-            std::vector<std::uint64_t> content;
-            int focused{ -1 };
-        };
-        Rows read_rows(const md::Context& context, md::Value items, const Layout& layout) {
-            Rows rows;
-            unsigned stride{};
-            rows.bytes = context.array(items, 4096, rows.count, stride);
-            md::require(!rows.count || stride == layout.stride, "Item grid row size differs.");
-            rows.content.reserve(rows.count);
-            for (unsigned i = 0; i < rows.count; ++i) {
-                const auto row = rows.bytes.data() + std::size_t{ i } * stride;
-                md::Ref ref{};
-                std::memcpy(&ref, row + layout.content, sizeof(ref));
-                rows.content.push_back(ref.handle & ~std::uint64_t{ 1 });
-                if (rows.focused < 0 && row[layout.focused] != std::byte{ 0 }) rows.focused = static_cast<int>(i);
-            }
-            return rows;
-        }
+struct Rows {
+    std::vector<std::byte> bytes;
+    unsigned count{};
+    std::vector<std::uint64_t> content;
+    int focused{-1};
+};
+Rows read_rows(const md::Context& context, md::Value items, const Layout& layout) {
+    Rows rows;
+    unsigned stride{};
+    rows.bytes = context.array(items, 4096, rows.count, stride);
+    md::require(!rows.count || stride == layout.stride, "Item grid row size differs.");
+    rows.content.reserve(rows.count);
+    for (unsigned i = 0; i < rows.count; ++i) {
+        const auto row = rows.bytes.data() + std::size_t{i} * stride;
+        md::Ref ref{};
+        std::memcpy(&ref, row + layout.content, sizeof(ref));
+        rows.content.push_back(ref.handle & ~std::uint64_t{1});
+        if (rows.focused < 0 && row[layout.focused] != std::byte{0}) rows.focused = static_cast<int>(i);
+    }
+    return rows;
+}
 
 // Every item's title as the grids showed it this session (a mod's item has none in the game's own
 // catalog), for plugins (reskate.outfit.title).
@@ -269,20 +269,19 @@ Item resolve(const md::Context& context, std::uint64_t content) {
     return item;
 }
 
-        bool cosmetic(const Item& item) {
-            if (item.key.empty()) return false;
-            const auto& items = profile_runtime::cosmetic_runtime().items;
-            const auto found = items.find(item.key);
-            return found != items.end() && !found->second.build_kit;
-        }
+bool cosmetic(const Item& item) {
+    if (item.key.empty()) return false;
+    const auto& items = profile_runtime::cosmetic_runtime().items;
+    const auto found = items.find(item.key);
+    return found != items.end() && !found->second.build_kit;
+}
 
-        void release(const md::Context& context, Grid& grid) {
-            if (grid.backing.handle) {
-                try { context.destroy(grid.backing); }
-                catch (const std::exception&) {}
-                grid.backing = {};
-            }
-        }
+void release(const md::Context& context, Grid& grid) {
+    if (grid.backing.handle) {
+        try { context.destroy(grid.backing); } catch (const std::exception&) {}
+        grid.backing = {};
+    }
+}
 
 // The game's style our copy `style` was made from, and which mark it carries; {0, -1} for the game's own.
 std::pair<std::uint64_t, int> starred_source(const State& s, std::uint64_t style) {
@@ -361,33 +360,32 @@ void release_styles(State& s, const md::Context& context) {
     s.starred.clear();
 }
 
-        // Finds the game's item grids: every grid list one of whose first tiles shows a cosmetic (the
-        // accessory grids start with a "none" tile, which shows no item).
-        void scan(State& s, const md::Context& context) {
-            std::erase_if(s.grids, [&](Grid& grid) {
-                if (context.type_of(grid.list.handle) == grid.list.type) return false;
-                release(context, grid); // the game closed the screen this grid was on
-                return true;
-            });
-            if (s.grids.empty() && !s.starred.empty()) release_styles(s, context);
-            for (const auto& root : context.roots({ grid_list.hash })) {
-                if (std::any_of(s.grids.begin(), s.grids.end(), [&](const Grid& grid) {
-                    return grid.list.handle == root.model.handle || grid.backing.handle == root.model.handle; })) continue;
-                try {
-                    if (md::size(root.model.type) != grid_list.size) continue;
-                    Grid grid;
-                    grid.list = root.model;
-                    grid.items = context.field(grid.list, owned_items);
-                    if (!s.layout.row_type) s.layout = layout_of(context, grid.items);
-                    const auto rows = read_rows(context, grid.items, s.layout);
-                    bool items = false;
-                    for (unsigned i = 0; i < rows.count && i < 3 && !items; ++i) items = cosmetic(resolve(context, rows.content[i]));
-                    if (!items) continue;
-                    s.grids.push_back(std::move(grid));
-                }
-                catch (const std::exception&) { /* Another screen's grid list. */ }
-            }
-        }
+// Finds the game's item grids: every grid list one of whose first tiles shows a cosmetic (the
+// accessory grids start with a "none" tile, which shows no item).
+void scan(State& s, const md::Context& context) {
+    std::erase_if(s.grids, [&](Grid& grid) {
+        if (context.type_of(grid.list.handle) == grid.list.type) return false;
+        release(context, grid); // the game closed the screen this grid was on
+        return true;
+    });
+    if (s.grids.empty() && !s.starred.empty()) release_styles(s, context);
+    for (const auto& root : context.roots({grid_list.hash})) {
+        if (std::any_of(s.grids.begin(), s.grids.end(), [&](const Grid& grid) {
+                return grid.list.handle == root.model.handle || grid.backing.handle == root.model.handle; })) continue;
+        try {
+            if (md::size(root.model.type) != grid_list.size) continue;
+            Grid grid;
+            grid.list = root.model;
+            grid.items = context.field(grid.list, owned_items);
+            if (!s.layout.row_type) s.layout = layout_of(context, grid.items);
+            const auto rows = read_rows(context, grid.items, s.layout);
+            bool items = false;
+            for (unsigned i = 0; i < rows.count && i < 3 && !items; ++i) items = cosmetic(resolve(context, rows.content[i]));
+            if (!items) continue;
+            s.grids.push_back(std::move(grid));
+        } catch (const std::exception&) { /* Another screen's grid list. */ }
+    }
+}
 
 std::vector<std::byte> take_rows(const std::vector<std::byte>& from, const std::vector<unsigned>& order, const Layout& layout,
                                  int focused) {
@@ -500,149 +498,145 @@ void sync(State& s, const md::Context& context, Grid& grid, bool verify) {
     grid.focused = after.focused;
 }
 
-        md::Value deref(const md::Context& context, md::Value value) {
-            md::require(schema_of(value.type) == reference, "Not a model reference.");
-            const auto handle = md::read<md::Ref>(context.address(value)).handle & ~std::uint64_t{ 1 };
-            md::require(handle != 0, "The reference is empty.");
-            return { handle, context.type_of(handle) };
-        }
+md::Value deref(const md::Context& context, md::Value value) {
+    md::require(schema_of(value.type) == reference, "Not a model reference.");
+    const auto handle = md::read<md::Ref>(context.address(value)).handle & ~std::uint64_t{1};
+    md::require(handle != 0, "The reference is empty.");
+    return {handle, context.type_of(handle)};
+}
 
-        std::string hex(std::uint64_t value, int width) {
-            static constexpr char digits[] = "0123456789abcdef";
-            std::string out(static_cast<std::size_t>(width), '0');
-            for (int i = width - 1; i >= 0; --i, value >>= 4) out[static_cast<std::size_t>(i)] = digits[value & 15];
-            return "0x" + out;
-        }
+std::string hex(std::uint64_t value, int width) {
+    static constexpr char digits[] = "0123456789abcdef";
+    std::string out(static_cast<std::size_t>(width), '0');
+    for (int i = width - 1; i >= 0; --i, value >>= 4) out[static_cast<std::size_t>(i)] = digits[value & 15];
+    return "0x" + out;
+}
 
-        // Research aid: "peek <root> [path]" and "poke <root> <path> <kind>:<value>" on live models.
-        // root: grid | row | item | data (of the focused tile) or a model handle; path: field hashes, [n] and
-        // ">" (follow a reference), separated by dots.
-        std::string poke(State& s, const md::Context& context, const std::string& arguments) {
-            std::vector<std::string> words;
-            for (std::size_t at = 0; at < arguments.size();) {
-                const auto end = std::min(arguments.find(' ', at), arguments.size());
-                if (end > at) words.push_back(arguments.substr(at, end - at));
-                at = end + 1;
-                if (words.size() == 3 && at < arguments.size()) { words.push_back(arguments.substr(at)); break; }
+// Research aid: "peek <root> [path]" and "poke <root> <path> <kind>:<value>" on live models.
+// root: grid | row | item | data (of the focused tile) or a model handle; path: field hashes, [n] and
+// ">" (follow a reference), separated by dots.
+std::string poke(State& s, const md::Context& context, const std::string& arguments) {
+    std::vector<std::string> words;
+    for (std::size_t at = 0; at < arguments.size();) {
+        const auto end = std::min(arguments.find(' ', at), arguments.size());
+        if (end > at) words.push_back(arguments.substr(at, end - at));
+        at = end + 1;
+        if (words.size() == 3 && at < arguments.size()) { words.push_back(arguments.substr(at)); break; }
+    }
+    md::require(words.size() >= 2, "usage: peek <root> [path] | poke <root> <path> <kind>:<value>");
+    const bool write = words[0] == "poke";
+    const auto focused = std::find_if(s.grids.begin(), s.grids.end(), [](const Grid& grid) { return grid.focused >= 0; });
+    md::Value value;
+    if (words[1].starts_with("0x")) {
+        const auto handle = std::stoull(words[1].substr(2), nullptr, 16);
+        value = {handle, context.type_of(handle)};
+    } else {
+        md::require(focused != s.grids.end(), "No item tile has the focus.");
+        if (words[1] == "grid") value = focused->list;
+        else if (words[1] == "back") value = focused->backing;
+        else {
+            value = context.element(focused->items, static_cast<unsigned>(focused->focused));
+            if (words[1] != "row") {
+                value = deref(context, context.path(value, {content_path[0], content_path[1]}));
+                if (words[1] == "data") value = deref(context, context.field(value, ownable_data_ref));
+                else md::require(words[1] == "item", "root: grid, back, row, item, data or a 0x handle");
             }
-            md::require(words.size() >= 2, "usage: peek <root> [path] | poke <root> <path> <kind>:<value>");
-            const bool write = words[0] == "poke";
-            const auto focused = std::find_if(s.grids.begin(), s.grids.end(), [](const Grid& grid) { return grid.focused >= 0; });
-            md::Value value;
-            if (words[1].starts_with("0x")) {
-                const auto handle = std::stoull(words[1].substr(2), nullptr, 16);
-                value = { handle, context.type_of(handle) };
+        }
+    }
+    md::require(value.handle && value.type, "That model does not exist.");
+    const std::string path = words.size() > 2 && (write || words.size() == 3) ? words[2] : std::string{};
+    for (std::size_t at = 0; at < path.size();) {
+        const auto end = std::min(path.find('.', at), path.size());
+        const auto token = path.substr(at, end - at);
+        at = end + 1;
+        if (token.empty()) continue;
+        if (token == ">") value = deref(context, value);
+        else if (token.front() == '[') value = context.element(value, static_cast<unsigned>(std::stoul(token.substr(1))));
+        else value = context.field(value, static_cast<std::uint32_t>(std::stoul(token, nullptr, 16)));
+    }
+    const auto kind = md::kind(value.type), size = md::size(value.type);
+    if (write) {
+        md::require(words.size() == 4, "poke needs <kind>:<value>");
+        const auto colon = words[3].find(':');
+        md::require(colon != std::string::npos, "poke needs <kind>:<value>");
+        const auto how = words[3].substr(0, colon), text = words[3].substr(colon + 1);
+        if (how == "u8") context.set(value, static_cast<std::uint8_t>(std::stoul(text, nullptr, 0)));
+        else if (how == "u32") context.set(value, static_cast<std::uint32_t>(std::stoul(text, nullptr, 0)));
+        else if (how == "f32") context.set(value, std::stof(text));
+        else if (how == "text") context.text(value, text);
+        else if (how == "ref") context.set(value, md::Ref{0, std::stoull(text, nullptr, 0)});
+        else if (how == "tex") md::require(md::publish_texture(context, value, text), "That texture is not loaded.");
+        else throw std::runtime_error("kinds: u8, u32, f32, text, ref, tex");
+    }
+    std::string out = (write ? "poked " : "peek ") + hex(value.handle, 16) + " <" + hex(schema_of(value.type), 8) + " k" +
+        std::to_string(kind) + ' ' + std::to_string(size) + ">";
+    const auto at = context.address(value);
+    if (kind == 7) out += " = \"" + md::string(md::read<md::Address>(at), 255) + '"';
+    else if (kind == 4) {
+        const auto pointer = md::read<md::Address>(at);
+        out += " [" + std::to_string(pointer ? md::read<std::uint32_t>(pointer - 4) & 0x7fffffff : 0) + "] of <" +
+            hex(schema_of(md::read<md::Address>(md::read<md::Address>(value.type) + 0x30)), 8) + ">";
+    } else if (kind == 2) {
+        const auto meta = md::read<md::Address>(value.type), fields = md::read<md::Address>(meta + 0x60);
+        const auto count = md::read<std::uint16_t>(meta + 0x2a);
+        for (unsigned i = 0; i < count && i < 64; ++i) {
+            const auto entry = fields + i * 24;
+            const auto type = md::read<md::Address>(entry + 16);
+            const auto offset = md::read<std::uint16_t>(entry + 8);
+            out += "\n    " + hex(md::read<std::uint32_t>(entry), 8) + '@' + std::to_string(offset) + " <" +
+                hex(schema_of(type), 8) + " k" + std::to_string(md::kind(type)) + ' ' + std::to_string(md::size(type)) + ">";
+            if (md::kind(type) == 7) out += " \"" + md::string(md::read<md::Address>(at + offset), 96) + '"';
+            else if (md::kind(type) != 2 && md::size(type) <= 16) {
+                out += " ";
+                for (unsigned b = 0; b < md::size(type); ++b) out += hex(md::read<std::uint8_t>(at + offset + b), 2).substr(2);
             }
-            else {
-                md::require(focused != s.grids.end(), "No item tile has the focus.");
-                if (words[1] == "grid") value = focused->list;
-                else if (words[1] == "back") value = focused->backing;
-                else {
-                    value = context.element(focused->items, static_cast<unsigned>(focused->focused));
-                    if (words[1] != "row") {
-                        value = deref(context, context.path(value, { content_path[0], content_path[1] }));
-                        if (words[1] == "data") value = deref(context, context.field(value, ownable_data_ref));
-                        else md::require(words[1] == "item", "root: grid, back, row, item, data or a 0x handle");
-                    }
+        }
+    } else {
+        out += " = ";
+        for (unsigned b = 0; b < std::min(size, 32U); ++b) out += hex(md::read<std::uint8_t>(at + b), 2).substr(2);
+    }
+    return out;
+}
+
+// Research aid, with the status: every grid list the game has open, taken or not, and what its
+// first tiles show. Says why a menu's grid was passed over.
+void log_roots(State& s, const md::Context& context) {
+    for (const auto& root : context.roots({grid_list.hash})) {
+        std::string line = "  root " + hex(root.model.handle, 16) + ": size " + std::to_string(md::size(root.model.type));
+        try {
+            const auto items = context.field(root.model, owned_items);
+            const auto row_type = md::read<md::Address>(md::read<md::Address>(items.type) + 0x30);
+            line += ", rows of " + hex(schema_of(row_type), 8);
+            if (schema_of(row_type) == tile_row) {
+                if (!s.layout.row_type) s.layout = layout_of(context, items);
+                const auto rows = read_rows(context, items, s.layout);
+                line += ", " + std::to_string(rows.count) + " tile(s)";
+                for (unsigned i = 0; i < rows.count && i < 4; ++i) {
+                    const auto content = rows.content[i];
+                    const auto item = resolve(context, content);
+                    line += "; [" + std::to_string(i) + "] " + (content ? hex(schema_of(context.type_of(content)), 8) : std::string("-")) +
+                            " \"" + item.key + "\" in \"" + item.category + "\"" + (cosmetic(item) ? "" : " (no cosmetic)");
                 }
             }
-            md::require(value.handle && value.type, "That model does not exist.");
-            const std::string path = words.size() > 2 && (write || words.size() == 3) ? words[2] : std::string{};
-            for (std::size_t at = 0; at < path.size();) {
-                const auto end = std::min(path.find('.', at), path.size());
-                const auto token = path.substr(at, end - at);
-                at = end + 1;
-                if (token.empty()) continue;
-                if (token == ">") value = deref(context, value);
-                else if (token.front() == '[') value = context.element(value, static_cast<unsigned>(std::stoul(token.substr(1))));
-                else value = context.field(value, static_cast<std::uint32_t>(std::stoul(token, nullptr, 16)));
-            }
-            const auto kind = md::kind(value.type), size = md::size(value.type);
-            if (write) {
-                md::require(words.size() == 4, "poke needs <kind>:<value>");
-                const auto colon = words[3].find(':');
-                md::require(colon != std::string::npos, "poke needs <kind>:<value>");
-                const auto how = words[3].substr(0, colon), text = words[3].substr(colon + 1);
-                if (how == "u8") context.set(value, static_cast<std::uint8_t>(std::stoul(text, nullptr, 0)));
-                else if (how == "u32") context.set(value, static_cast<std::uint32_t>(std::stoul(text, nullptr, 0)));
-                else if (how == "f32") context.set(value, std::stof(text));
-                else if (how == "text") context.text(value, text);
-                else if (how == "ref") context.set(value, md::Ref{ 0, std::stoull(text, nullptr, 0) });
-                else if (how == "tex") md::require(md::publish_texture(context, value, text), "That texture is not loaded.");
-                else throw std::runtime_error("kinds: u8, u32, f32, text, ref, tex");
-            }
-            std::string out = (write ? "poked " : "peek ") + hex(value.handle, 16) + " <" + hex(schema_of(value.type), 8) + " k" +
-                std::to_string(kind) + ' ' + std::to_string(size) + ">";
-            const auto at = context.address(value);
-            if (kind == 7) out += " = \"" + md::string(md::read<md::Address>(at), 255) + '"';
-            else if (kind == 4) {
-                const auto pointer = md::read<md::Address>(at);
-                out += " [" + std::to_string(pointer ? md::read<std::uint32_t>(pointer - 4) & 0x7fffffff : 0) + "] of <" +
-                    hex(schema_of(md::read<md::Address>(md::read<md::Address>(value.type) + 0x30)), 8) + ">";
-            }
-            else if (kind == 2) {
-                const auto meta = md::read<md::Address>(value.type), fields = md::read<md::Address>(meta + 0x60);
-                const auto count = md::read<std::uint16_t>(meta + 0x2a);
-                for (unsigned i = 0; i < count && i < 64; ++i) {
-                    const auto entry = fields + i * 24;
-                    const auto type = md::read<md::Address>(entry + 16);
-                    const auto offset = md::read<std::uint16_t>(entry + 8);
-                    out += "\n    " + hex(md::read<std::uint32_t>(entry), 8) + '@' + std::to_string(offset) + " <" +
-                        hex(schema_of(type), 8) + " k" + std::to_string(md::kind(type)) + ' ' + std::to_string(md::size(type)) + ">";
-                    if (md::kind(type) == 7) out += " \"" + md::string(md::read<md::Address>(at + offset), 96) + '"';
-                    else if (md::kind(type) != 2 && md::size(type) <= 16) {
-                        out += " ";
-                        for (unsigned b = 0; b < md::size(type); ++b) out += hex(md::read<std::uint8_t>(at + offset + b), 2).substr(2);
-                    }
-                }
-            }
-            else {
-                out += " = ";
-                for (unsigned b = 0; b < std::min(size, 32U); ++b) out += hex(md::read<std::uint8_t>(at + b), 2).substr(2);
-            }
-            return out;
-        }
-
-        // Research aid, with the status: every grid list the game has open, taken or not, and what its
-        // first tiles show. Says why a menu's grid was passed over.
-        void log_roots(State& s, const md::Context& context) {
-            for (const auto& root : context.roots({ grid_list.hash })) {
-                std::string line = "  root " + hex(root.model.handle, 16) + ": size " + std::to_string(md::size(root.model.type));
-                try {
-                    const auto items = context.field(root.model, owned_items);
-                    const auto row_type = md::read<md::Address>(md::read<md::Address>(items.type) + 0x30);
-                    line += ", rows of " + hex(schema_of(row_type), 8);
-                    if (schema_of(row_type) == tile_row) {
-                        if (!s.layout.row_type) s.layout = layout_of(context, items);
-                        const auto rows = read_rows(context, items, s.layout);
-                        line += ", " + std::to_string(rows.count) + " tile(s)";
-                        for (unsigned i = 0; i < rows.count && i < 4; ++i) {
-                            const auto content = rows.content[i];
-                            const auto item = resolve(context, content);
-                            line += "; [" + std::to_string(i) + "] " + (content ? hex(schema_of(context.type_of(content)), 8) : std::string("-")) +
-                                " \"" + item.key + "\" in \"" + item.category + "\"" + (cosmetic(item) ? "" : " (no cosmetic)");
-                        }
-                    }
-                }
-                catch (const std::exception& error) { line += std::string(": ") + error.what(); }
-                logging::log(Level::info, Channel::customization, "{}", line);
-            }
-        }
-        void log_status(const State& s) {
-            logging::log(Level::info, Channel::customization, "Item browser: {} grid(s), search \"{}\", filter {}, {} favorite(s), file {}.",
-                s.grids.size(), s.search, filter_names[static_cast<std::size_t>(s.filter)], s.favorites.keys.size(),
-                path_utf8(s.favorites.file));
-            for (const auto& grid : s.grids) {
-                std::string focus = "-";
-                if (grid.focused >= 0 && static_cast<std::size_t>(grid.focused) < grid.shown.size())
-                    for (const auto& item : grid.native)
-                        if (item.content == grid.shown[static_cast<std::size_t>(grid.focused)]) focus = std::to_string(grid.focused) + " " + item.key;
-                logging::log(Level::info, Channel::customization, "  grid {}: {} of {} shown, first \"{}\", focus {}{}.",
-                    hex(grid.list.handle, 16), grid.shown.size(), grid.native.size(),
-                    grid.native.empty() ? std::string{} : grid.native.front().title, focus, grid.failed ? ", FAILED" : "");
-            }
-        }
-    } // namespace
+        } catch (const std::exception& error) { line += std::string(": ") + error.what(); }
+        logging::log(Level::info, Channel::customization, "{}", line);
+    }
+}
+void log_status(const State& s) {
+    logging::log(Level::info, Channel::customization, "Item browser: {} grid(s), search \"{}\", filter {}, {} favorite(s), file {}.",
+        s.grids.size(), s.search, filter_names[static_cast<std::size_t>(s.filter)], s.favorites.keys.size(),
+        path_utf8(s.favorites.file));
+    for (const auto& grid : s.grids) {
+        std::string focus = "-";
+        if (grid.focused >= 0 && static_cast<std::size_t>(grid.focused) < grid.shown.size())
+            for (const auto& item : grid.native)
+                if (item.content == grid.shown[static_cast<std::size_t>(grid.focused)]) focus = std::to_string(grid.focused) + " " + item.key;
+        logging::log(Level::info, Channel::customization, "  grid {}: {} of {} shown, first \"{}\", focus {}{}.",
+            hex(grid.list.handle, 16), grid.shown.size(), grid.native.size(),
+            grid.native.empty() ? std::string{} : grid.native.front().title, focus, grid.failed ? ", FAILED" : "");
+    }
+}
+} // namespace
 
 View view() {
     auto& sh = shared();
@@ -727,69 +721,68 @@ void request_poke(std::string arguments) {
     if (sh.pokes.size() < 32) sh.pokes.push_back(std::move(arguments));
 }
 
-    void before_level_transition(unsigned next, std::uintptr_t base) noexcept {
-        try {
-            auto& s = state();
-            s.lifetime.before_transition(next, [&] {
-                // Our copies hold references to the screen's widgets and styles: let go while those are loaded.
-                md::Address ui{}, manager{};
-                if (memory::read(base + addr::engine::ui_manager, ui) && ui && memory::read(ui + 0x140, manager) &&
-                    manager && manager == s.manager) {
-                    game::ModelWriteLock lock(manager);
-                    const md::Context context(base, manager);
-                    for (auto& grid : s.grids) release(context, grid);
-                    release_styles(s, context);
-                }
-                s.grids.clear();
-                s.starred.clear();
-                s.restyled.clear();
-                s.layout = {};
-                s.open = false;
-                s.notice_info = 0; // (its texture may go with the level)
-            });
-        }
-        catch (...) {}
-    }
+void before_level_transition(unsigned next, std::uintptr_t base) noexcept {
+    try {
+        auto& s = state();
+        s.lifetime.before_transition(next, [&] {
+            // Our copies hold references to the screen's widgets and styles: let go while those are loaded.
+            md::Address ui{}, manager{};
+            if (memory::read(base + addr::engine::ui_manager, ui) && ui && memory::read(ui + 0x140, manager) &&
+                manager && manager == s.manager) {
+                game::ModelWriteLock lock(manager);
+                const md::Context context(base, manager);
+                for (auto& grid : s.grids) release(context, grid);
+                release_styles(s, context);
+            }
+            s.grids.clear();
+            s.starred.clear();
+            s.restyled.clear();
+            s.layout = {};
+            s.open = false;
+            s.check_unavailable = s.star_unavailable = false;
+            s.notice_info = 0; // (its texture may go with the level)
+        });
+    } catch (...) {}
+}
 
-    // A notice showing a mod item's reserved description has the info sign for the warning sign (see
-    // notice_view). Every tick while a grid is open: the game puts the warning back on each focus.
-    void quiet_notices(State& s, const md::Context& context) {
-        for (const auto handle : s.notices) {
-            try {
-                const md::Value notice{ handle, context.type_of(handle) };
-                if (schema_of(notice.type) != notice_view) continue;
-                // Only as much of its text as tells: the others' notices may say a lot.
-                const auto text = context.path(notice, { notice_message, label_text });
-                md::require(md::kind(text.type) == 7, "Native menu text field differs.");
-                const auto& reserved = item_origins::reserved_description;
-                std::array<char, item_origins::reserved_description.size() + 1> start{};
-                const auto chars = md::read<md::Address>(context.address(text));
-                if (!chars || !memory::peek_bytes(chars, start.data(), start.size()) || start.back() != 0 ||
-                    std::string_view(start.data(), reserved.size()) != reserved)
-                    continue;
-                const auto icon = context.field(notice, notice_icon);
-                std::uint64_t now{};
-                md::require(md::size(icon.type) == sizeof(now), "Native notice icon field differs.");
-                if (!memory::peek(context.address(icon), now) || !now || now == s.notice_info) continue;
-                // A texture the game has loaded, or the warning stays: never an empty override.
-                if (GetTickCount64() < s.notice_info_retry) continue;
-                if (!md::publish_texture(context, icon, notice_info_texture)) {
-                    s.notice_info_retry = GetTickCount64() + 2000;
-                    if (!std::exchange(s.notice_kept_logged, true))
-                        logging::log(Level::info, Channel::customization, "Item browser: the info sign is not loaded; a mod item's card keeps the warning sign.");
-                    continue;
-                }
-                std::uint64_t info{};
-                if (memory::peek(context.address(icon), info)) s.notice_info = info;
-                if (!std::exchange(s.notice_cleared_logged, true))
-                    logging::log(Level::info, Channel::customization, "Item browser: a mod item's card shows the info sign for the warning sign.");
+// A notice showing a mod item's reserved description has the info sign for the warning sign (see
+// notice_view). Every tick while a grid is open: the game puts the warning back on each focus.
+void quiet_notices(State& s, const md::Context& context) {
+    for (const auto handle : s.notices) {
+        try {
+            const md::Value notice{handle, context.type_of(handle)};
+            if (schema_of(notice.type) != notice_view) continue;
+            // Only as much of its text as tells: the others' notices may say a lot.
+            const auto text = context.path(notice, {notice_message, label_text});
+            md::require(md::kind(text.type) == 7, "Native menu text field differs.");
+            const auto& reserved = item_origins::reserved_description;
+            std::array<char, item_origins::reserved_description.size() + 1> start{};
+            const auto chars = md::read<md::Address>(context.address(text));
+            if (!chars || !memory::peek_bytes(chars, start.data(), start.size()) || start.back() != 0 ||
+                std::string_view(start.data(), reserved.size()) != reserved)
+                continue;
+            const auto icon = context.field(notice, notice_icon);
+            std::uint64_t now{};
+            md::require(md::size(icon.type) == sizeof(now), "Native notice icon field differs.");
+            if (!memory::peek(context.address(icon), now) || !now || now == s.notice_info) continue;
+            // A texture the game has loaded, or the warning stays: never an empty override.
+            if (GetTickCount64() < s.notice_info_retry) continue;
+            if (!md::publish_texture(context, icon, notice_info_texture)) {
+                s.notice_info_retry = GetTickCount64() + 2000;
+                if (!std::exchange(s.notice_kept_logged, true))
+                    logging::log(Level::info, Channel::customization, "Item browser: the info sign is not loaded; a mod item's card keeps the warning sign.");
+                continue;
             }
-            catch (const std::exception& error) {
-                if (!std::exchange(s.notice_failed_logged, true))
-                    logging::log(Level::warning, Channel::customization, "Item browser: a notice could not be checked for a mod item's warning sign: {}", error.what());
-            }
+            std::uint64_t info{};
+            if (memory::peek(context.address(icon), info)) s.notice_info = info;
+            if (!std::exchange(s.notice_cleared_logged, true))
+                logging::log(Level::info, Channel::customization, "Item browser: a mod item's card shows the info sign for the warning sign.");
+        } catch (const std::exception& error) {
+            if (!std::exchange(s.notice_failed_logged, true))
+                logging::log(Level::warning, Channel::customization, "Item browser: a notice could not be checked for a mod item's warning sign: {}", error.what());
         }
     }
+}
 
 // Between full passes, only the highlight: which tile of the open grid has the focus, and whether
 // its screen is still up. So what the overlay shows of the focused item (its mod's card) follows

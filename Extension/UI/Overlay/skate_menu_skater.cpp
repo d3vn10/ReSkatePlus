@@ -6,21 +6,21 @@
 
 // The SKATER page.
 namespace dingosdk::overlay::menu {
-    namespace {
-        // A slider row with a trailing button (e.g. "Default") after a field() label.
-        float trailing_width(const char* label) {
-            return ImGui::CalcTextSize(label).x + ImGui::GetStyle().FramePadding.x * 2;
-        }
-    }
-    static void camera_controls(SkateMenu& menu, const Model& model, const CallbacksV3& callbacks) {
-        const auto& debug = model.debug;
-        begin_card(menu, "freecam", "FREECAM");
-        bool flight = debug.free_camera;
-        if (toggle_row(menu, "Freecam", "Detach the camera and explore.", flight,
+namespace {
+// A slider row with a trailing button (e.g. "Default") after a field() label.
+float trailing_width(const char* label) {
+    return ImGui::CalcTextSize(label).x + ImGui::GetStyle().FramePadding.x * 2;
+}
+}
+void camera_controls(SkateMenu& menu, const Model& model, const CallbacksV3& callbacks) {
+    const auto& debug = model.debug;
+    begin_card(menu, "freecam", "FREECAM");
+    bool flight = debug.free_camera;
+    if (toggle_row(menu, "Freecam", "Detach the camera and explore.", flight,
             debug.available && debug.camera_available && callbacks.queue_debug))
-            debug_request(menu, callbacks, { DebugAction::set_free_camera, flight });
-        bool freecam_controller = model.bindings.freecam_controller;
-        if (toggle_row(menu, "Block Input(Enable Controller Support)", "Block player input and use the controller for the Freecam.", freecam_controller,
+        debug_request(menu, callbacks, {DebugAction::set_free_camera, flight});
+    bool freecam_controller = model.bindings.freecam_controller;
+    if (toggle_row(menu, "Block Input(Enable Controller Support)", "Block player input and use the controller for the Freecam.", freecam_controller,
             model.bindings.available && callbacks.queue_debug)) {
         std::array<char, 512> result{};
         callbacks.queue_console_command(callbacks.user, freecam_controller ? "freecam_controller true" : "freecam_controller false", result.data(), result.size());
@@ -115,56 +115,56 @@ void first_person_controls(SkateMenu& menu, const Model& model, const CallbacksV
         percent("Head bob", "##fp-bob", settings.bob, DebugAction::set_first_person_bob);
         if (toggle_row(menu, "Follow flips", "Turn the view with the skater during flips and bails.", settings.follow_flips,
                 can_edit && settings.stabilize))
-                debug_request(menu, callbacks, { DebugAction::set_first_person_follow_flips, settings.follow_flips });
-            ImGui::EndDisabled();
-            if (toggle_row(menu, "Third person on foot",
+            debug_request(menu, callbacks, {DebugAction::set_first_person_follow_flips, settings.follow_flips});
+        ImGui::EndDisabled();
+        if (toggle_row(menu, "Third person on foot",
                 "Use the game's camera while walking; first person comes back when you get on the board.",
                 settings.board_only, can_edit))
-                debug_request(menu, callbacks, { DebugAction::set_first_person_board_only, settings.board_only });
-            if (toggle_row(menu, "First person in the camera cycle",
+            debug_request(menu, callbacks, {DebugAction::set_first_person_board_only, settings.board_only});
+        if (toggle_row(menu, "First person in the camera cycle",
                 "Clicking the right stick (R3) on the board goes high camera, low camera, first person, then high again. "
                 "Needs Camera height control on in the game's settings (Gameplay > Advanced Camera).",
                 settings.camera_cycle, can_edit))
-                debug_request(menu, callbacks, { DebugAction::set_first_person_camera_cycle, settings.camera_cycle });
-            note("Nod, tilt and bob are the share of the head's own movement kept. Use Spring arm > Pitch to look "
-                "further down at the board.");
-        }
-        if (ImGui::TreeNode("Spring arm")) {
-            namespace fp = dingosdk::first_person;
-            auto settings = debug.first_person_arm;
-            if (toggle_row(menu, "Spring", "Let the camera lag behind and soften animated head movement.", settings.enabled,
-                debug.available && callbacks.queue_debug))
-                debug_request(menu, callbacks, { DebugAction::set_first_person_spring, settings.enabled });
-            ImGui::BeginDisabled(!debug.available || !callbacks.queue_debug);
-            const auto slider = [&](const char* label, float value, float low, float high, const char* format, DebugAction action) {
-                field(menu, label);
-                ImGui::PushID(label);
-                if (dingosdk::overlay::menu::slider_float("##arm-value", &value, low, high, format, ImGuiSliderFlags_AlwaysClamp)) //::?
-                    debug_request(menu, callbacks, { action, false, value });
-                ImGui::PopID();
-            };
-            note("Position offset, metres from the head");
-            slider("Right", settings.offset[0], -fp::offset_limit, fp::offset_limit, "%.3f", DebugAction::set_first_person_offset_x);
-            slider("Up", settings.offset[1], -fp::offset_limit, fp::offset_limit, "%.3f", DebugAction::set_first_person_offset_y);
-            slider("Forward", settings.offset[2], -fp::offset_limit, fp::offset_limit, "%.3f", DebugAction::set_first_person_offset_z);
-            note("Rotation offset, degrees");
-            slider("Pitch", settings.rotation[0], -fp::rotation_limit, fp::rotation_limit, "%.1f", DebugAction::set_first_person_pitch);
-            slider("Yaw", settings.rotation[1], -fp::rotation_limit, fp::rotation_limit, "%.1f", DebugAction::set_first_person_yaw);
-            slider("Roll", settings.rotation[2], -fp::rotation_limit, fp::rotation_limit, "%.1f", DebugAction::set_first_person_roll);
-            note("Smoothing strength");
-            slider("Moving up", settings.up, 0, fp::strength_limit, "%.0f%%", DebugAction::set_first_person_spring_up);
-            slider("Moving down", settings.down, 0, fp::strength_limit, "%.0f%%", DebugAction::set_first_person_spring_down);
-            slider("Moving left", settings.left, 0, fp::strength_limit, "%.0f%%", DebugAction::set_first_person_spring_left);
-            slider("Moving right", settings.right, 0, fp::strength_limit, "%.0f%%", DebugAction::set_first_person_spring_right);
-            if (ImGui::Button("Reset arm settings", ImVec2(-FLT_MIN, 0)))
-                debug_request(menu, callbacks, { DebugAction::reset_first_person_arm });
-            ImGui::EndDisabled();
-            note("Higher smoothing follows more slowly; 0% follows directly. Offsets work with Spring off. "
-                "Depth and roll use the average strength.");
-            ImGui::TreePop();
-        }
-        end_card();
+            debug_request(menu, callbacks, {DebugAction::set_first_person_camera_cycle, settings.camera_cycle});
+        note("Nod, tilt and bob are the share of the head's own movement kept. Use Spring arm > Pitch to look "
+             "further down at the board.");
     }
+    if (ImGui::TreeNode("Spring arm")) {
+        namespace fp = dingosdk::first_person;
+        auto settings = debug.first_person_arm;
+        if (toggle_row(menu, "Spring", "Let the camera lag behind and soften animated head movement.", settings.enabled,
+                debug.available && callbacks.queue_debug))
+            debug_request(menu, callbacks, {DebugAction::set_first_person_spring, settings.enabled});
+        ImGui::BeginDisabled(!debug.available || !callbacks.queue_debug);
+        const auto slider = [&](const char* label, float value, float low, float high, const char* format, DebugAction action) {
+            field(menu, label);
+            ImGui::PushID(label);
+            if (::dingosdk::overlay::menu::slider_float("##arm-value", &value, low, high, format, ImGuiSliderFlags_AlwaysClamp))
+                debug_request(menu, callbacks, {action, false, value});
+            ImGui::PopID();
+        };
+        note("Position offset, metres from the head");
+        slider("Right", settings.offset[0], -fp::offset_limit, fp::offset_limit, "%.3f", DebugAction::set_first_person_offset_x);
+        slider("Up", settings.offset[1], -fp::offset_limit, fp::offset_limit, "%.3f", DebugAction::set_first_person_offset_y);
+        slider("Forward", settings.offset[2], -fp::offset_limit, fp::offset_limit, "%.3f", DebugAction::set_first_person_offset_z);
+        note("Rotation offset, degrees");
+        slider("Pitch", settings.rotation[0], -fp::rotation_limit, fp::rotation_limit, "%.1f", DebugAction::set_first_person_pitch);
+        slider("Yaw", settings.rotation[1], -fp::rotation_limit, fp::rotation_limit, "%.1f", DebugAction::set_first_person_yaw);
+        slider("Roll", settings.rotation[2], -fp::rotation_limit, fp::rotation_limit, "%.1f", DebugAction::set_first_person_roll);
+        note("Smoothing strength");
+        slider("Moving up", settings.up, 0, fp::strength_limit, "%.0f%%", DebugAction::set_first_person_spring_up);
+        slider("Moving down", settings.down, 0, fp::strength_limit, "%.0f%%", DebugAction::set_first_person_spring_down);
+        slider("Moving left", settings.left, 0, fp::strength_limit, "%.0f%%", DebugAction::set_first_person_spring_left);
+        slider("Moving right", settings.right, 0, fp::strength_limit, "%.0f%%", DebugAction::set_first_person_spring_right);
+        if (ImGui::Button("Reset arm settings", ImVec2(-FLT_MIN, 0)))
+            debug_request(menu, callbacks, {DebugAction::reset_first_person_arm});
+        ImGui::EndDisabled();
+        note("Higher smoothing follows more slowly; 0% follows directly. Offsets work with Spring off. "
+             "Depth and roll use the average strength.");
+        ImGui::TreePop();
+    }
+    end_card();
+}
 
 // Skater > CHEATS: flying through things, never bailing, and the boosts.
 void cheats_tab(SkateMenu& menu, const Model& model, const CallbacksV3& callbacks) {

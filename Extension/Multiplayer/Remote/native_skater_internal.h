@@ -48,6 +48,7 @@ static_assert(sizeof(NativeBone) == 0x30);
 using AnimationUpdate = void (*)(std::uintptr_t, std::uintptr_t);
 using DestroyEntity = void (*)(std::uintptr_t, std::uintptr_t);
 using RenderPose = bool (*)(std::uintptr_t, std::uintptr_t);
+using SubmitRenderPose = std::uintptr_t (*)(std::uintptr_t, std::uintptr_t);
 struct HookState {
     std::uintptr_t base{};
     DWORD engine_thread{};
@@ -55,6 +56,7 @@ struct HookState {
     AnimationUpdate original_animation{};
     DestroyEntity original_destroy{};
     RenderPose original_render_pose{};
+    SubmitRenderPose original_submit_render_pose{};
     std::atomic<EntityDestroyed> destroyed_listener{};
     std::atomic<AnimationEvaluated> evaluated_listener{};
     std::atomic<LocalPoseFilter> pose_filter{};
@@ -62,64 +64,65 @@ struct HookState {
     // A pose override of the local skater (Extension/Skater/skater_animation.cpp), after the one above.
     std::atomic<AnimationEvaluated> override_listener{};
     std::atomic<RenderPosePublished> override_render_listener{};
+    std::atomic<RenderPosePublished> override_drawn_listener{};
     std::atomic<BoardPosePublished> override_board_listener{};
-	    std::atomic<RenderPosePublished> render_listener{};
-	};
-	// Keys the per-entity hooks match, one contiguous array per kind in slot order.
-	// Every native skater, board and entity callback looks its key up here: a few
-	// cache lines up to the highest slot ever watched, not one Remote per slot.
-	using WatchedArray = std::array<std::atomic<std::uintptr_t>, max_remote_players>;
-	struct WatchedKeys {
-	    WatchedArray component{}, entity{}, board{}, board_holder{};
-	    // One past the highest slot that has stored a key. Only grows, and grows
-	    // before the key is stored, so a lookup never stops short of a watched key.
-	    std::atomic<std::size_t> bound{};
-	};
-	WatchedKeys &watched();
-	// Stores key for the current peer slot (0 stops watching).
-	void watch(WatchedArray &keys, std::uintptr_t key) noexcept;
-	// The slot whose key equals key, or max_remote_players.
-	std::size_t watching(const WatchedArray &keys, std::uintptr_t key) noexcept;
-	struct Remote {
-	    std::uintptr_t entity{}, component{}, parent{}, context{}, local_entity{};
-	    std::uintptr_t board_entity{}, board_component{}, board_parent{};
-	    bool failed{};
-	    std::mutex mutex;
-	    Pose target;
-	    // Bumped whenever target is replaced. The skeleton buffer last written and the
-	    // target revision it holds let an animation callback that did not re-evaluate
-	    // the native graph skip writing the same pose again.
-	    std::uint64_t target_revision{}, written_revision{};
-	    std::uintptr_t written_buffer{};
-	    // Bumped whenever this slot's actor is created, removed or destroyed, so state
-	    // cached for one actor (its sound binding) is never used for the next.
-	    std::atomic<std::uint64_t> generation{};
-	    // Frozen with entity placement, independent of newer network snapshots.
-	    std::vector<Transform> board_render_pose;
-	    std::atomic<bool> board_ready{};
-	    std::atomic<std::uint64_t> applied{};
-	    std::atomic<std::uint64_t> board_applied{};
-	    std::atomic<bool> pose_driven{};
-	    std::atomic<std::uint64_t> native_evaluated{}, native_skipped{}, native_evaluation_us{}, apply_us{};
-	    ULONGLONG next_native_animation{}, next_safety_audit{}, next_entity_audit{},
-	        next_board_safety_audit{}, next_board_status{}, next_status{};
-	    // A skateboard that went away is not created again before this: one creation is a heavy
-	    // native pass, and a player's board may come and go with every pose.
-	    ULONGLONG next_board_create{};
-	    bool board_failed{};
-	    std::string board_issue;
-	    std::string board_status;
-	    std::string issue;
-	    std::optional<CosmeticRecipe> skater_appearance, board_appearance;
-	    Shuffle skater_shuffle, board_shuffle;
-	    // The last appearance the native copy or catalog check rejected, retried at
-	    // next_appearance_retry instead of on every cosmetics pass. Client thread.
-	    std::optional<Appearance> rejected_appearance;
-	    ULONGLONG next_appearance_retry{};
-	};
-	HookState &shared();
-	Remote &remote();
-	void install(std::uintptr_t base);
-	void place_actor(std::uintptr_t base, std::uintptr_t entity, const Transform &root);
-	void place_board(std::uintptr_t base, std::uintptr_t entity, const Transform &root);
+    std::atomic<RenderPosePublished> render_listener{};
+};
+// Keys the per-entity hooks match, one contiguous array per kind in slot order.
+// Every native skater, board and entity callback looks its key up here: a few
+// cache lines up to the highest slot ever watched, not one Remote per slot.
+using WatchedArray = std::array<std::atomic<std::uintptr_t>, max_remote_players>;
+struct WatchedKeys {
+    WatchedArray component{}, entity{}, board{}, board_holder{};
+    // One past the highest slot that has stored a key. Only grows, and grows
+    // before the key is stored, so a lookup never stops short of a watched key.
+    std::atomic<std::size_t> bound{};
+};
+WatchedKeys &watched();
+// Stores key for the current peer slot (0 stops watching).
+void watch(WatchedArray &keys, std::uintptr_t key) noexcept;
+// The slot whose key equals key, or max_remote_players.
+std::size_t watching(const WatchedArray &keys, std::uintptr_t key) noexcept;
+struct Remote {
+    std::uintptr_t entity{}, component{}, parent{}, context{}, local_entity{};
+    std::uintptr_t board_entity{}, board_component{}, board_parent{};
+    bool failed{};
+    std::mutex mutex;
+    Pose target;
+    // Bumped whenever target is replaced. The skeleton buffer last written and the
+    // target revision it holds let an animation callback that did not re-evaluate
+    // the native graph skip writing the same pose again.
+    std::uint64_t target_revision{}, written_revision{};
+    std::uintptr_t written_buffer{};
+    // Bumped whenever this slot's actor is created, removed or destroyed, so state
+    // cached for one actor (its sound binding) is never used for the next.
+    std::atomic<std::uint64_t> generation{};
+    // Frozen with entity placement, independent of newer network snapshots.
+    std::vector<Transform> board_render_pose;
+    std::atomic<bool> board_ready{};
+    std::atomic<std::uint64_t> applied{};
+    std::atomic<std::uint64_t> board_applied{};
+    std::atomic<bool> pose_driven{};
+    std::atomic<std::uint64_t> native_evaluated{}, native_skipped{}, native_evaluation_us{}, apply_us{};
+    ULONGLONG next_native_animation{}, next_safety_audit{}, next_entity_audit{},
+        next_board_safety_audit{}, next_board_status{}, next_status{};
+    // A skateboard that went away is not created again before this: one creation is a heavy
+    // native pass, and a player's board may come and go with every pose.
+    ULONGLONG next_board_create{};
+    bool board_failed{};
+    std::string board_issue;
+    std::string board_status;
+    std::string issue;
+    std::optional<CosmeticRecipe> skater_appearance, board_appearance;
+	Shuffle skater_shuffle, board_shuffle;
+    // The last appearance the native copy or catalog check rejected, retried at
+    // next_appearance_retry instead of on every cosmetics pass. Client thread.
+    std::optional<Appearance> rejected_appearance;
+    ULONGLONG next_appearance_retry{};
+};
+HookState &shared();
+Remote &remote();
+void install(std::uintptr_t base);
+void place_actor(std::uintptr_t base, std::uintptr_t entity, const Transform &root);
+void place_board(std::uintptr_t base, std::uintptr_t entity, const Transform &root);
 } // namespace dingosdk::multiplayer::native_skater_detail

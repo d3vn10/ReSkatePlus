@@ -169,23 +169,23 @@ bool start_add_preset(std::uintptr_t base) {
 }
 } // namespace
 
-	bool start(std::uintptr_t base) noexcept {
-	    try {
-	        std::array<unsigned char, native::named_lookup_prefix.size()> bytes{};
-	        if (!base || !memory::read_bytes(base + native::named_lookup, bytes.data(), bytes.size()) ||
-	            bytes != native::named_lookup_prefix)
-	            return false;
-	        auto *target = reinterpret_cast<void *>(base + native::named_lookup);
-	        void *previous{};
-	        if (hook_prepare(target, reinterpret_cast<void *>(&lookup), &previous) != HookOk) return false;
-	        original = reinterpret_cast<Lookup>(previous);
-	        if (hook_enable(target) != HookOk) {
-	            hook_remove(target);
-	            return false;
-	        }
-	        return start_add_preset(base);
-	    } catch (...) {
-	        return false;
-	    }
-	}
+bool start(std::uintptr_t base) noexcept {
+    try {
+        std::array<unsigned char, native::named_lookup_prefix.size()> bytes{};
+        if (!base || !memory::read_bytes(base + native::named_lookup, bytes.data(), bytes.size()) ||
+            bytes != native::named_lookup_prefix)
+            return false;
+        auto *target = reinterpret_cast<void *>(base + native::named_lookup);
+        void *previous{};
+        if (hook_prepare(target, reinterpret_cast<void *>(&lookup), &previous) != HookOk) return false;
+        original = reinterpret_cast<Lookup>(previous);
+        if (hook_enable(target) != HookOk) {
+            hook_remove(target);
+            return false;
+        }
+        return start_add_preset(base);
+    } catch (...) {
+        return false;
+    }
+}
 } // namespace dingosdk::preset_lookup_guard

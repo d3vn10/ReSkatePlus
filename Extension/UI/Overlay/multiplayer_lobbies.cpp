@@ -100,7 +100,7 @@ const std::vector<Row> &lobby_list(const SkateMenu &menu, const Model &model) {
     }
     std::sort(rows.begin(), rows.end(), [&](const Row &a, const Row &b) {
         const auto &first = mp.lobbies[a.lobby], &second = mp.lobbies[b.lobby];
-        // The ReSkate+ team's own servers lead the list, however the rest is sorted.
+        // The ReSkate team's own servers lead the list, however the rest is sorted.
         if (first.official != second.official) return first.official;
         // Then where friends are.
         if (first.friends.empty() != second.friends.empty()) return !first.friends.empty();
@@ -338,7 +338,7 @@ void join_page(SkateMenu &menu, const Model &model, const CallbacksV3 &callbacks
             const bool here = mp.active && lobby.id == mp.public_lobby;
             const bool hop = mp.active && !mp.hosting && !mp.echo && !here;
             const bool joinable = (!mp.active || hop) && !mp.lobby_joining && !row.self && !row.full;
-            // The team's own servers are ReSkate+ blue, and the ones friends are skating in green.
+            // The team's own servers are ReSkate blue, and the ones friends are skating in green.
             const bool with_friends = !lobby.friends.empty() && !lobby.official;
             skate_theme::rough_rect(draw, top, ImVec2(top.x + width, top.y + tile_height),
                                     lobby.official ? skate_theme::official_tile : with_friends ? skate_theme::friends_tile : skate_theme::tile,

@@ -106,7 +106,7 @@ class ThreadMonitor {
         std::string lower = module;
         for (auto& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
         // Frostbite starts its threads through the CRT, so they all begin in ucrtbase.
-        if (lower == "reskate.dll" || lower == "reskateplus.dll") return "ReSkate Worker";
+        if (lower == "reskateplus.dll") return "ReSkate+ Worker";
         if (lower == "ucrtbase.dll" || lower == "skate.exe") return "Skate";
         if (lower.starts_with("steam") || lower.starts_with("tier0") || lower.starts_with("gameoverlay")) return "Steam";
         if (lower.starts_with("amd") || lower.starts_with("nv") || lower.starts_with("igd") || lower.starts_with("d3d")) return "Graphics driver";
@@ -177,7 +177,7 @@ public:
 };
 
 void monitor() {
-    SetThreadDescription(GetCurrentThread(), L"ReSkate Profiler");
+    SetThreadDescription(GetCurrentThread(), L"ReSkate profiler");
     ThreadMonitor threads;
     auto last = std::chrono::steady_clock::now();
     // Zone ticks to nanoseconds: the timestamp counter measured against the steady clock over

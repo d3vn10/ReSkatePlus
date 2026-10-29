@@ -18,74 +18,74 @@
 
 namespace dingosdk::mods::detail {
 
-    namespace {
+namespace {
 
-        // The game's side of what every mod is held against, read once for all of them: forty
-        // cosmetic mods each patch the same few bundles, the largest with some 17,000 assets, and
-        // each used to list that bundle again for itself.
-        struct GameBundle {
-            std::optional<Listing> listing;
-            // The game's copy of each asset: its sha1, and where in the listing it is.
-            std::map<std::string, std::pair<fb::Sha1, std::size_t>, std::less<>> original;
-            std::map<std::string, const fb::BundleAsset*, std::less<>> scripts;
-            std::set<std::string, std::less<>> resources;
-        };
-        struct GameToc {
-            fb::TocDocument document;
-            std::map<std::string, const fb::TocBundle*, std::less<>> bundles;
-            std::set<fb::Guid> chunks;
-        };
-        // Made on first use by whichever thread asks first; the others wait for it. One that could
-        // not be read throws for each asker, as reading it for each did.
-        template <class Value> class Shared {
-        public:
-            template <class Make> const Value& get(const std::string& key, Make&& make) {
-                Entry* entry{};
-                {
-                    std::lock_guard lock(mutex_);
-                    entry = &entries_[key];
-                }
-                std::call_once(entry->once, [&] { make(entry->value); });
-                return entry->value;
-            }
+// The game's side of what every mod is held against, read once for all of them: forty
+// cosmetic mods each patch the same few bundles, the largest with some 17,000 assets, and
+// each used to list that bundle again for itself.
+struct GameBundle {
+    std::optional<Listing> listing;
+    // The game's copy of each asset: its sha1, and where in the listing it is.
+    std::map<std::string, std::pair<fb::Sha1, std::size_t>, std::less<>> original;
+    std::map<std::string, const fb::BundleAsset*, std::less<>> scripts;
+    std::set<std::string, std::less<>> resources;
+};
+struct GameToc {
+    fb::TocDocument document;
+    std::map<std::string, const fb::TocBundle*, std::less<>> bundles;
+    std::set<fb::Guid> chunks;
+};
+// Made on first use by whichever thread asks first; the others wait for it. One that could
+// not be read throws for each asker, as reading it for each did.
+template <class Value> class Shared {
+public:
+    template <class Make> const Value& get(const std::string& key, Make&& make) {
+        Entry* entry{};
+        {
+            std::lock_guard lock(mutex_);
+            entry = &entries_[key];
+        }
+        std::call_once(entry->once, [&] { make(entry->value); });
+        return entry->value;
+    }
 
-        private:
-            struct Entry {
-                std::once_flag once;
-                Value value;
-            };
-            std::mutex mutex_;
-            std::map<std::string, Entry, std::less<>> entries_;   // nodes stay where they are
-        };
+private:
+    struct Entry {
+        std::once_flag once;
+        Value value;
+    };
+    std::mutex mutex_;
+    std::map<std::string, Entry, std::less<>> entries_;   // nodes stay where they are
+};
 
-        // The game's assets a mod changed. They wait until its additions are settled: one that
-        // another mod's asset of the same name stands in for is not where a copy can find it, and a
-        // change must not name it there.
-        struct Change {
-            std::string bundle;                         // lower case: where the mod changed it
-            std::string name;                           // lower case
-            std::string asset;                          // as the bundle spells it
-            fb::Sha1 game;                              // the game's copy it replaces
-            fb::Sha1 sha1;
-            std::uint64_t originalSize{};
-            std::vector<std::byte> encoded;
-            std::optional<fb::BundleFileInfo> gameFile; // where the game's copy is
-        };
-        struct Script {
-            std::string name;                     // lower case
-            fb::Sha1 game;                        // the game's copy it replaces
-            std::optional<AssetOverride> value;   // none: it could not be read, and `note` says so
-            std::size_t note{};                   // its place in the mod's notes
-        };
-        // What one mod's files say, read without regard to any other mod: the part of the work that
-        // is reading and decoding, done for several mods at once. What it means beside the mods
-        // above it is settled afterwards, one mod at a time in priority order.
-        struct ModRead {
-            // This mod's new assets, and the partitions its recorded changes import.
-            // An added asset only follows a change that refers to it: copied on its
-            // own, it could arrive in another mod's bundle without the resources
-            // and chunks it was added with.
-            std::vector<std::pair<std::string, AssetAddition>> candidates, companions;
+// The game's assets a mod changed. They wait until its additions are settled: one that
+// another mod's asset of the same name stands in for is not where a copy can find it, and a
+// change must not name it there.
+struct Change {
+    std::string bundle;                         // lower case: where the mod changed it
+    std::string name;                           // lower case
+    std::string asset;                          // as the bundle spells it
+    fb::Sha1 game;                              // the game's copy it replaces
+    fb::Sha1 sha1;
+    std::uint64_t originalSize{};
+    std::vector<std::byte> encoded;
+    std::optional<fb::BundleFileInfo> gameFile; // where the game's copy is
+};
+struct Script {
+    std::string name;   // lower case
+    fb::Sha1 game;      // the game's copy it replaces
+    std::optional<AssetOverride> value;   // none: it could not be read, and `note` says so
+    std::size_t note{};                   // its place in the mod's notes
+};
+// What one mod's files say, read without regard to any other mod: the part of the work that
+// is reading and decoding, done for several mods at once. What it means beside the mods
+// above it is settled afterwards, one mod at a time in priority order.
+struct ModRead {
+    // This mod's new assets, and the partitions its recorded changes import.
+    // An added asset only follows a change that refers to it: copied on its
+    // own, it could arrive in another mod's bundle without the resources
+    // and chunks it was added with.
+    std::vector<std::pair<std::string, AssetAddition>> candidates, companions;
     struct BundleChunk { std::string bundle; AssetAddition addition; fb::BundleFileInfo file; };
     std::vector<BundleChunk> bundleChunks;
     std::map<std::string,AssetOverrides::ChunkDefaults,std::less<>> chunkDefaults;
@@ -259,57 +259,53 @@ ModRead read_mod(const Mod& mod, const RelativeFiles& files, const CasStore& sto
     return read;
 }
 
-    } // namespace
+} // namespace
 
-    AssetOverrides collect_asset_overrides(const std::vector<const Mod*>& mods,
-        const std::map<const Mod*, RelativeFiles>& modFiles,
-        const CasStore& store, const fs::path& baseRoot,
-        const fs::path& gameRoot, MergeReport& report,
-        std::size_t threads, bool background) {
-        AssetOverrides out;
-        // Where in `out.added` each bundle's addition of a kind and (lower-case) name is: looked up
-        // for every addition and companion, which a search of the list made quadratic.
-        std::map<std::string, std::map<std::pair<fb::AssetKind, std::string>, std::size_t>, std::less<>> addedAt;
+AssetOverrides collect_asset_overrides(const std::vector<const Mod*>& mods,
+                                       const std::map<const Mod*, RelativeFiles>& modFiles,
+                                       const CasStore& store, const fs::path& baseRoot,
+                                       const fs::path& gameRoot, MergeReport& report,
+                                       std::size_t threads, bool background) {
+    AssetOverrides out;
+    // Where in `out.added` each bundle's addition of a kind and (lower-case) name is: looked up
+    // for every addition and companion, which a search of the list made quadratic.
+    std::map<std::string, std::map<std::pair<fb::AssetKind, std::string>, std::size_t>, std::less<>> addedAt;
 
-        // A map's edits to the game's assets serve its own levels; asset mods
-        // (cameras, tuning, cosmetics) are the ones meant to apply everywhere.
-        std::vector<std::pair<const Mod*, const RelativeFiles*>> asked;
-        for (const auto* mod : mods) {
-            if (mod->provides_levels) continue;
-            if (const auto files = modFiles.find(mod); files != modFiles.end()) asked.emplace_back(mod, &files->second);
-        }
-        // Read: every mod's files, several mods at a time.
-        Shared<GameToc> gameTocs;
-        Shared<GameBundle> gameBundles;
-        std::vector<ModRead> reads(asked.size());
-        {
-            std::atomic<std::size_t> next{ 0 };
-            const auto work = [&] {
-                for (;;) {
-                    const auto mine = next.fetch_add(1);
-                    if (mine >= asked.size()) return;
-                    try {
-                        reads[mine] = read_mod(*asked[mine].first, *asked[mine].second, store, baseRoot, gameRoot, gameTocs, gameBundles);
-                    }
-                    catch (...) {
-                        reads[mine].failure = std::current_exception();
-                    }
+    // A map's edits to the game's assets serve its own levels; asset mods
+    // (cameras, tuning, cosmetics) are the ones meant to apply everywhere.
+    std::vector<std::pair<const Mod*, const RelativeFiles*>> asked;
+    for (const auto* mod : mods) {
+        if (mod->provides_levels) continue;
+        if (const auto files = modFiles.find(mod); files != modFiles.end()) asked.emplace_back(mod, &files->second);
+    }
+    // Read: every mod's files, several mods at a time.
+    Shared<GameToc> gameTocs;
+    Shared<GameBundle> gameBundles;
+    std::vector<ModRead> reads(asked.size());
+    {
+        std::atomic<std::size_t> next{0};
+        const auto work = [&] {
+            for (;;) {
+                const auto mine = next.fetch_add(1);
+                if (mine >= asked.size()) return;
+                try {
+                    reads[mine] = read_mod(*asked[mine].first, *asked[mine].second, store, baseRoot, gameRoot, gameTocs, gameBundles);
+                } catch (...) {
+                    reads[mine].failure = std::current_exception();
                 }
-            };
-            std::vector<std::jthread> workers;
-            try {
-                // Threads of their own, not the system's pool (see the superbundles in mod_merge.cpp).
-                for (std::size_t index = 0; index < std::min(threads, asked.size()) && asked.size() > 1; ++index)
-                    workers.emplace_back([&] {
+            }
+        };
+        std::vector<std::jthread> workers;
+        try {
+            // Threads of their own, not the system's pool (see the superbundles in mod_merge.cpp).
+            for (std::size_t index = 0; index < std::min(threads, asked.size()) && asked.size() > 1; ++index)
+                workers.emplace_back([&] {
                     if (background) SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
                     work();
                 });
-            }
-            catch (const std::system_error&) {
-                // fewer threads, or none: this one does the rest
-            }
-            work();
-        }
+        } catch (const std::system_error&) {} // fewer threads, or none: this one does the rest
+        work();
+    }
 
     const auto decoded = [&](std::span<const std::byte> encoded) {
         return fb::ebx::read_document(fb::decode_cas(encoded, {gameRoot}));

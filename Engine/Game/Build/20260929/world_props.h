@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
 
-// Props spawned by ReSkate+ itself (Extension/Multiplayer/Remote/native_prop.cpp): an object
+// Props spawned by ReSkate itself (Extension/Multiplayer/Remote/native_prop.cpp): an object
 // blueprint loaded on the map, created as a client-only entity the way the remote skateboard is
 // (skater_entities.h, native_skater.h) and moved every frame by the plain entity transform setter
 // (skater_entities::place_entity). Found in game on 2026-10-15 with the traffic cone

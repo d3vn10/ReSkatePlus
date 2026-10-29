@@ -6,7 +6,7 @@
 // The player's Spotify account, through Spotify's Web API: their playlists, for the music
 // screen's Spotify row (spotify_station.h), and starting one of them in their Spotify app.
 //
-// Spotify gives this to an application registered with it, by its client id. ReSkate+ has
+// Spotify gives this to an application registered with it, by its client id. ReSkate has
 // none of its own built in: the id is a setting ("music spotify client <id>" in the console), of an
 // application whose redirect address is http://127.0.0.1:47824/callback. The player signs in
 // once in their browser ("music spotify login"); what is kept is the token that renews the sign-in,

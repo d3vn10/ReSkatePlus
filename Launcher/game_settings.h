@@ -11,7 +11,7 @@
 #include <vector>
 
 // skate.'s own settings, edited from the launcher. The game keeps the ones it saves per PC in
-// save containers under its data folder (%LOCALAPPDATA%\ReSkate\Game\Skate\data, where ReSkate+
+// save containers under its data folder (%LOCALAPPDATA%\ReSkate\Game\Skate\data, where ReSkate
 // points it): each container is a DATA file of sections and an INDEX naming them. The "body"
 // section is one binary object, a setting a named value: on/off, a whole number, a number or
 // text. Its "TierManagerUserSettings" text holds the graphics options as

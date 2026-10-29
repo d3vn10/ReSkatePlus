@@ -284,7 +284,7 @@ void update_world_layers(std::uintptr_t manager, std::uint64_t now) {
     // A disabled container takes precedence over enabled children. Otherwise
     // a later row could silently turn it back on or leave the plan oscillating.
     std::vector<bool> disabled(targets.size());
-    // A layer ReSkate+ keeps off (world_layers.h) is "off" whatever the player or a host chose.
+    // A layer ReSkate keeps off (world_layers.h) is "off" whatever the player or a host chose.
     const auto choice_of = [&](unsigned i) -> std::string_view {
         return world_layer_kept_off(world_layers()[i].key) ? std::string_view("off") : std::string_view(r.model.choices[i]);
     };

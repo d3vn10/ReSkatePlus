@@ -2558,7 +2558,6 @@ struct SettingsForm {
     bool auto_update{true};
     bool activity_log{true};
 
-	int protocol_idx{3}; // 50,51,52,53
     int port{27015};
     int query_port{27016};
     char steam_token[128]{};
@@ -2598,7 +2597,6 @@ static void sync_form_from_config(SettingsForm& form, const ServerConfig& cfg) {
     form.auto_update = cfg.auto_update;
     form.activity_log = cfg.activity_log;
 
-    form.protocol_idx = static_cast<int>(cfg.protocol_idx);
     form.port = static_cast<int>(cfg.port);
     form.query_port = static_cast<int>(cfg.query_port);
     strncpy_s(form.steam_token, cfg.steam_token.c_str(), sizeof(form.steam_token) - 1);
@@ -2647,7 +2645,6 @@ void draw_settings_tab(ServerStatusSnapshot& stats) {
         cfg.auto_update = s_form.auto_update;
         cfg.activity_log = s_form.activity_log;
 
-        cfg.protocol_idx = static_cast<uint16_t>(std::clamp(s_form.protocol_idx, 0, 3));
         cfg.port = static_cast<uint16_t>(std::clamp(s_form.port, 1024, 65535));
         cfg.query_port = static_cast<uint16_t>(std::clamp(s_form.query_port, 1024, 65535));
         cfg.steam_token = s_form.steam_token;
@@ -2779,8 +2776,6 @@ void draw_settings_tab(ServerStatusSnapshot& stats) {
     // Column 2: Network & Ports
     begin_card("card_cfg_network", "NETWORK & PORT BINDINGS", "Steam SDR UDP ports and token");
     ImGui::PushItemWidth(S(360));
-	const char* available_protocols[] = { "50 (2.0.7)", "51 (2.0.8)", "52 (2.1.0)", "53 (2.1.2)" };
-    ImGui::Combo("Packet Protocol", &s_form.protocol_idx, available_protocols, IM_ARRAYSIZE(available_protocols));
     ImGui::InputInt("Game Port (UDP)", &s_form.port);
     ImGui::InputInt("Query Port (UDP)", &s_form.query_port);
     ImGui::InputText("Steam GSLT Token", s_form.steam_token, sizeof(s_form.steam_token));
@@ -2823,7 +2818,7 @@ void draw_settings_tab(ServerStatusSnapshot& stats) {
 
     // Updates & Releases Card
     begin_card("card_cfg_updates", "UPDATES & RELEASES", "Check and install official releases");
-    stat_row("Installed Server Build", std::format("ReSkate+ v{}", dingosdk::reskate_version), good);
+    stat_row("Installed Server Build", "ReSkate v2.0.3 (Protocol " + std::to_string(multiplayer::protocol_version) + ")", good);stat_row("Installed Server Build", std::format("ReSkate+ v{}", dingosdk::reskate_version), good);
     const auto update = ServerEngine::instance().update_info();
     stat_row("Release Status", update.message,
              update.status == ServerEngine::UpdateInfo::Status::Available ? warning : (update.status == ServerEngine::UpdateInfo::Status::Error ? danger : good));
@@ -2886,7 +2881,7 @@ void render_frame() {
     // Sidebar Background (Ultra-dark slate)
     draw->AddRectFilled(ImVec2(0, 0), ImVec2(sidebar_width, size.y), IM_COL32(10, 10, 12, 255));
 
-    // Brushed Wordmark "RESKATE+" rotated -4.0 deg with shadow
+    // Brushed Wordmark "RESKATE" rotated -4.0 deg with shadow
     {
         const int start = draw->VtxBuffer.Size;
         const ImVec2 at(S(20), S(16));

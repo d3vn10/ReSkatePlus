@@ -7,7 +7,9 @@
 namespace dingosdk {
 // Chat flood control, the same for the sender, the host, a dedicated server and every
 // receiver: a few lines at once, then one every 1.5 s, and never the same line twice within
-// 15 s. Receivers allow one line of slack for lines that arrive bunched up.
+// 15 s. Receivers allow one line of slack for lines that arrive bunched up. An answer to the
+// running vote or poll may repeat the line before it (`answer`): the same /2 is a new answer
+// in the next poll, and the vote itself counts one answer per player. The pace still holds.
 struct ChatRate {
     static constexpr double burst = 4, interval_us = 1500000;
     static constexpr std::uint64_t repeat_us = 15000000;

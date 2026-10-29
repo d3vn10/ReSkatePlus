@@ -6,17 +6,17 @@
 #include <stdexcept>
 
 namespace dingosdk::vfs {
-    namespace fb = frostbite;
-    namespace {
-        // Where the game keeps its item thumbnails: one texture per owned item.
-        constexpr std::string_view bundle_name = "win32/characters/customization/configs/cas_main_sharedbundle";
-        constexpr std::string_view prefix = "thumbnail/tool/";
+namespace fb = frostbite;
+namespace {
+// Where the game keeps its item thumbnails: one texture per owned item.
+constexpr std::string_view bundle_name = "win32/characters/customization/configs/cas_main_sharedbundle";
+constexpr std::string_view prefix = "thumbnail/tool/";
 
-        bool build_kit_item(std::string_view item) {
+bool build_kit_item(std::string_view item) {
     return item.starts_with("own_bk") && !item.ends_with("_lrg") &&
-                std::all_of(item.begin(), item.end(), [](char c) { return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_'; });
-        }
-    }
+        std::all_of(item.begin(), item.end(), [](char c) { return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_'; });
+}
+}
 
 namespace {
 struct Opened {

@@ -12,6 +12,7 @@
 #include <Windows.h>
 #include <algorithm>
 #include <atomic>
+#include <cctype>
 #include <filesystem>
 #include <memory>
 #include <mutex>
@@ -69,10 +70,12 @@ std::filesystem::path game_directory() {
     return std::filesystem::path(std::wstring(executable.data(), length)).parent_path();
 }
 // What a mod brings, as the native Mods page words it.
-std::string mod_contents(const mods::Mod& mod) {
-    std::string text = mod.provides_layout && mod.provides_levels ? "Maps + game data"
-                     : mod.provides_levels ? "Maps" : mod.provides_layout ? "Game data" : "";
-    if (!mod.park_maps.empty()) text += text.empty() ? "Parks" : " + parks";
+std::string contents_text(const mods::Mod& mod) {
+    std::string text;
+    for (auto part : mods::mod_contents(mod)) {
+        if (!text.empty()) part[0] = static_cast<char>(std::tolower(static_cast<unsigned char>(part[0])));
+        text += (text.empty() ? "" : " + ") + part;
+    }
     return text.empty() ? "Nothing to load" : text;
 }
 // Every mod folder and what mods.json says about it, re-read every 1.5 s while
@@ -92,8 +95,7 @@ void draw_installed_mods(SkateMenu& menu) {
     const auto& launch = mods::catalog();
     const auto applied = live_mods::applied_mods();
     // ReSkate's own packs (builtin_packs.h) live outside the Mods folder's list, always on. Without
-    // this, the ones in effect read as mods whose folder was deleted. (Official mods are mods like
-    // any other, in the list.)
+    // this, the ones in effect read as mods whose folder was deleted.
     const auto kept = [&](const std::string& name) {
         const auto owner = mods::variant_owner(name);
         return (owner.empty() ? name : owner).starts_with("reskate-builtin-");
@@ -128,7 +130,8 @@ void draw_installed_mods(SkateMenu& menu) {
     for (const auto& entry : list.entries) {
         const bool effect = in_effect(entry.mod.name);
         if (effect) ++loaded;
-        if (entry.enabled != effect && !excluded(entry.mod.name) && !set_aside(entry)) ++pending;
+        // (A mod that is only a plugin is switched on and off live: nothing of it waits to be applied.)
+        if (entry.enabled != effect && !excluded(entry.mod.name) && !set_aside(entry) && !mods::plugin_only(entry.mod)) ++pending;
     }
     // Mods still in effect whose folder has been deleted: applying unloads them.
     std::vector<std::string> removed;
@@ -241,9 +244,12 @@ void draw_installed_mods(SkateMenu& menu) {
             status = "SET ASIDE";
             hover = "Set aside: it changes what another mod's chosen variant replaces (a deck pack's deck, say), and "
                     "only one of them can be in the game. Pick another variant on that mod's own page, or disable that mod.";
-        } else if (entry.enabled && effect) {
+        } else if (entry.enabled && (effect || mods::plugin_only(mod))) {
+            // (A mod that is only a plugin runs as soon as it is on: nothing of it is applied.)
             status = "LOADED";
             colour = skate_theme::good;
+        } else if (mods::plugin_only(mod)) {
+            // (and stops as soon as it is off)
         } else if (entry.enabled) {
             status = "APPLY TO LOAD";
             colour = skate_theme::danger;
@@ -251,7 +257,7 @@ void draw_installed_mods(SkateMenu& menu) {
             status = "APPLY TO UNLOAD";
             colour = skate_theme::danger;
         }
-        if (tile(index++, mod.title.empty() ? mod.name : mod.title, byline(mod), status, colour, mod_contents(mod), hover,
+        if (tile(index++, mod.title.empty() ? mod.name : mod.title, byline(mod), status, colour, contents_text(mod), hover,
                  entry.enabled ? "Disable" : "Enable"))
             toggle = i;
     }

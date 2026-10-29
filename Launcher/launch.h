@@ -15,7 +15,7 @@ struct Session {
     launcher::SiblingPaths paths;
 };
 
-// Resolves ReSkatePlusLauncher.exe and its sibling game files and opens ReSkate.log.
+// Resolves ReSkateLauncher.exe and its sibling game files and opens ReSkate.log.
 Session open_session(const std::string& log_level);
 // Skate.exe and steam_api64.dll are present and exactly the supported build.
 bool game_files_supported(const launcher::SiblingPaths& paths);
@@ -56,7 +56,7 @@ std::string steam_persona_name();
 // when Steam is not running, signed out, or has not cached it.
 std::filesystem::path steam_avatar_path();
 // Validates, starts, injects and resumes Skate; returns its process id.
-// `created` receives the id as soon as the process exists (ReSkate+'s startup
+// `created` receives the id as soon as the process exists (ReSkate's startup
 // splash can open before this returns). Throws a user-facing message.
 DWORD start_game(const Session& session, const launcher::LaunchOptions& options,
                  const std::function<void(DWORD)>& created = {});

@@ -8,49 +8,49 @@
 #include <imgui_internal.h>
 #include <string>
 
-// The ADDONS page (what ReSkate adds to skate.: the drone, Board Break, Road Rash and Hall of Meat,
-// music) and the full screen menu's HOME page.
+// The ADDONS page (what ReSkate adds to skate.: music; what plugins add has its own section)
+// and the full screen menu's HOME page.
 namespace dingosdk::overlay::menu {
-    using namespace theme;
-    namespace {
-        // A tile for an addon on ALL ADDONS: what it is, whether it is on, and a way in.
-        void addon_tile(SkateMenu& menu, const char* id, const char* title, const char* about, const char* state, ImU32 state_colour,
-            int addon) {
-            if (console_style()) {
-                // Full screen: a tile as the pause menu's, A opens the addon.
-                const auto at = ImGui::GetCursorScreenPos();
-                const ImVec2 size((ImGui::GetContentRegionAvail().x - px(12)) * .5f, px(168));
-                ImGui::PushID(id);
-                const bool pressed = ImGui::InvisibleButton("##addon", size, ImGuiButtonFlags_EnableNav);
-                const bool lit = (ImGui::IsItemFocused() && ImGui::GetIO().NavVisible) || ImGui::IsItemHovered();
-                if (lit) set_console_hint((std::string("Open ") + title + ".").c_str());
-                auto* draw = ImGui::GetWindowDrawList();
-                const ImVec2 end(at.x + size.x, at.y + size.y);
-                skate_theme::rough_rect(draw, at, end, lit ? blue : IM_COL32(26, 26, 26, 235), static_cast<unsigned>(ImGui::GetItemID()) & 0xfff, px(1));
-                draw->PushClipRect(at, end, true);
-                draw->AddText(menu.heading, px(26), ImVec2(at.x + px(20), at.y + px(18)), paper, title);
-                if (state) {
-                    const auto text = menu.bold->CalcTextSizeA(px(13), FLT_MAX, 0, state);
-                    const ImVec2 tag_at(end.x - px(20) - text.x - px(14), at.y + px(22));
-                    draw->AddRectFilled(tag_at, ImVec2(tag_at.x + text.x + px(14), tag_at.y + text.y + px(8)), lit ? paper : state_colour);
-                    draw->AddText(menu.bold, px(13), ImVec2(tag_at.x + px(7), tag_at.y + px(4)), skate_theme::black, state);
-                }
-                draw->AddText(menu.body, px(16), ImVec2(at.x + px(20), at.y + px(66)), lit ? paper : muted, about, nullptr, size.x - px(40));
-                draw->PopClipRect();
-                ImGui::PopID();
-                if (pressed) open_page(menu, page_addons, addon);
-                return;
-            }
-            begin_card(menu, id, title);
-            if (state) {
-                ImGui::SameLine();
-                tag(menu, state, state_colour);
-            }
-            note(about);
-            ImGui::Dummy(ImVec2(0, px(2)));
-            if (ImGui::Button((std::string("OPEN ") + title + "##" + id).c_str(), ImVec2(-FLT_MIN, px(34)))) open_page(menu, page_addons, addon);
-            end_card();
+using namespace theme;
+namespace {
+// A tile for an addon on ALL ADDONS: what it is, whether it is on, and a way in.
+void addon_tile(SkateMenu& menu, const char* id, const char* title, const char* about, const char* state, ImU32 state_colour,
+                int addon) {
+    if (console_style()) {
+        // Full screen: a tile as the pause menu's, A opens the addon.
+        const auto at = ImGui::GetCursorScreenPos();
+        const ImVec2 size((ImGui::GetContentRegionAvail().x - px(12)) * .5f, px(168));
+        ImGui::PushID(id);
+        const bool pressed = ImGui::InvisibleButton("##addon", size, ImGuiButtonFlags_EnableNav);
+        const bool lit = (ImGui::IsItemFocused() && ImGui::GetIO().NavVisible) || ImGui::IsItemHovered();
+        if (lit) set_console_hint((std::string("Open ") + title + ".").c_str());
+        auto* draw = ImGui::GetWindowDrawList();
+        const ImVec2 end(at.x + size.x, at.y + size.y);
+        skate_theme::rough_rect(draw, at, end, lit ? blue : IM_COL32(26, 26, 26, 235), static_cast<unsigned>(ImGui::GetItemID()) & 0xfff, px(1));
+        draw->PushClipRect(at, end, true);
+        draw->AddText(menu.heading, px(26), ImVec2(at.x + px(20), at.y + px(18)), paper, title);
+        if (state) {
+            const auto text = menu.bold->CalcTextSizeA(px(13), FLT_MAX, 0, state);
+            const ImVec2 tag_at(end.x - px(20) - text.x - px(14), at.y + px(22));
+            draw->AddRectFilled(tag_at, ImVec2(tag_at.x + text.x + px(14), tag_at.y + text.y + px(8)), lit ? paper : state_colour);
+            draw->AddText(menu.bold, px(13), ImVec2(tag_at.x + px(7), tag_at.y + px(4)), skate_theme::black, state);
         }
+        draw->AddText(menu.body, px(16), ImVec2(at.x + px(20), at.y + px(66)), lit ? paper : muted, about, nullptr, size.x - px(40));
+        draw->PopClipRect();
+        ImGui::PopID();
+        if (pressed) open_page(menu, page_addons, addon);
+        return;
+    }
+    begin_card(menu, id, title);
+    if (state) {
+        ImGui::SameLine();
+        tag(menu, state, state_colour);
+    }
+    note(about);
+    ImGui::Dummy(ImVec2(0, px(2)));
+    if (ImGui::Button((std::string("OPEN ") + title + "##" + id).c_str(), ImVec2(-FLT_MIN, px(34)))) open_page(menu, page_addons, addon);
+    end_card();
+}
 
 void all_addons(SkateMenu& menu) {
     addon_tile(menu, "addon-music", "MUSIC", "Spotify, YouTube Music, your own files and online radio through the game's music player.",
@@ -81,124 +81,123 @@ void addons_page(SkateMenu& menu, const Model& model, const CallbacksV3& callbac
     ImGui::PopID();
 }
 
-    namespace {
-        // A HOME tile, in the pause menu's look: rough-cut, blue under the focus or the pointer. Its name
-        // at the top; what it is now (ON, OFF, the time of day) under it, or a line about the page it
-        // opens. Returns 1 when pressed (A, a click), -1 / 1 for left / right on a tile that `steps`.
-        int home_tile(SkateMenu& menu, const char* id, const char* name, const std::string& value, ImVec2 size, bool enabled, bool on,
-            bool steps, const char* hint, bool big_value = true) {
-            ImGui::BeginDisabled(!enabled);
-            const auto at = ImGui::GetCursorScreenPos();
-            const bool pressed = ImGui::InvisibleButton(id, size, ImGuiButtonFlags_EnableNav);
-            const bool hovered = ImGui::IsItemHovered(), focused = ImGui::IsItemFocused() && ImGui::GetIO().NavVisible;
-            const unsigned seed = static_cast<unsigned>(ImGui::GetItemID()) & 0xfff;
-            ImGui::EndDisabled();
-            int result = 0;
-            // A tile that steps is changed as the pause menu's settings are: A to start (it turns white),
-            // then left / right, and A or B when done. Until then the D-pad moves past it. A click steps it on.
-            static ImGuiID editing{};
-            const ImGuiID item = ImGui::GetItemID();
-            const bool mouse = pressed && hovered && ImGui::GetIO().MouseReleased[0];
-            if (enabled && steps) {
-                // (While it is held active ImGui makes no press of A, so A / B / Enter / Esc are read here.)
-                if (editing == item && (!ImGui::IsItemFocused() || ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight, false) ||
-                    ImGui::IsKeyPressed(ImGuiKey_GamepadFaceDown, false) || ImGui::IsKeyPressed(ImGuiKey_Escape, false) ||
-                    ImGui::IsKeyPressed(ImGuiKey_Enter, false) || ImGui::IsKeyPressed(ImGuiKey_Space, false)))
-                    editing = 0;
-                else if (pressed && !mouse) editing = item;
-                else if (mouse) result = 1;
-                if (editing == item) {
-                    result = console_step(true);
-                    // Held active while it is changed: B ends the change, not the page.
-                    ImGui::SetActiveID(item, ImGui::GetCurrentWindow());
-                }
-            }
-            else if (enabled && pressed) {
-                result = 1;
-            }
-            const bool changing = steps && editing == item;
-            if (focused || hovered) set_console_hint(changing ? "Left / right to change it. A or B when done." : hint);
-            auto* draw = ImGui::GetWindowDrawList();
-            const ImVec2 end(at.x + size.x, at.y + size.y);
-            const bool lit = enabled && (focused || hovered);
-            skate_theme::rough_rect(draw, at, end, changing ? paper : lit ? blue : enabled ? IM_COL32(26, 26, 26, 235) : IM_COL32(26, 26, 26, 140), seed, px(1));
-            draw->PushClipRect(at, end, true);
-            draw->AddText(menu.bold, px(14), ImVec2(at.x + px(18), at.y + px(14)), changing ? skate_theme::black : lit ? paper : muted, name);
-            const float value_size = big_value ? px(24) : px(15);
-            const ImU32 value_ink = changing ? skate_theme::black : !enabled ? muted : lit ? paper : on ? blue : paper;
-            draw->AddText(big_value ? menu.heading : menu.body, value_size, ImVec2(at.x + px(18), end.y - px(16) - value_size), value_ink, value.c_str(),
-                nullptr, size.x - px(36));
-            if (steps && enabled) {
-                // Left / right change it.
-                const float s = px(6), mid = end.y - px(16) - value_size * .5f;
-                const ImU32 arrow = changing ? skate_theme::black : lit ? paper : muted;
-                draw->AddTriangleFilled(ImVec2(end.x - px(40), mid), ImVec2(end.x - px(40) + s, mid - s), ImVec2(end.x - px(40) + s, mid + s), arrow);
-                draw->AddTriangleFilled(ImVec2(end.x - px(16), mid), ImVec2(end.x - px(16) - s, mid - s), ImVec2(end.x - px(16) - s, mid + s), arrow);
-            }
-            draw->PopClipRect();
-            return result;
+namespace {
+// A HOME tile, in the pause menu's look: rough-cut, blue under the focus or the pointer. Its name
+// at the top; what it is now (ON, OFF, the time of day) under it, or a line about the page it
+// opens. Returns 1 when pressed (A, a click), -1 / 1 for left / right on a tile that `steps`.
+int home_tile(SkateMenu& menu, const char* id, const char* name, const std::string& value, ImVec2 size, bool enabled, bool on,
+              bool steps, const char* hint, bool big_value = true) {
+    ImGui::BeginDisabled(!enabled);
+    const auto at = ImGui::GetCursorScreenPos();
+    const bool pressed = ImGui::InvisibleButton(id, size, ImGuiButtonFlags_EnableNav);
+    const bool hovered = ImGui::IsItemHovered(), focused = ImGui::IsItemFocused() && ImGui::GetIO().NavVisible;
+    const unsigned seed = static_cast<unsigned>(ImGui::GetItemID()) & 0xfff;
+    ImGui::EndDisabled();
+    int result = 0;
+    // A tile that steps is changed as the pause menu's settings are: A to start (it turns white),
+    // then left / right, and A or B when done. Until then the D-pad moves past it. A click steps it on.
+    static ImGuiID editing{};
+    const ImGuiID item = ImGui::GetItemID();
+    const bool mouse = pressed && hovered && ImGui::GetIO().MouseReleased[0];
+    if (enabled && steps) {
+        // (While it is held active ImGui makes no press of A, so A / B / Enter / Esc are read here.)
+        if (editing == item && (!ImGui::IsItemFocused() || ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight, false) ||
+                                ImGui::IsKeyPressed(ImGuiKey_GamepadFaceDown, false) || ImGui::IsKeyPressed(ImGuiKey_Escape, false) ||
+                                ImGui::IsKeyPressed(ImGuiKey_Enter, false) || ImGui::IsKeyPressed(ImGuiKey_Space, false)))
+            editing = 0;
+        else if (pressed && !mouse) editing = item;
+        else if (mouse) result = 1;
+        if (editing == item) {
+            result = console_step(true);
+            // Held active while it is changed: B ends the change, not the page.
+            ImGui::SetActiveID(item, ImGui::GetCurrentWindow());
         }
-        void heading(SkateMenu& menu, const char* text) {
-            ImGui::PushFont(menu.heading);
-            ImGui::TextUnformatted(text);
-            ImGui::PopFont();
-            ImGui::Dummy(ImVec2(0, px(2)));
-        }
-        // A console line, without its reply on the page (a quick control says what it did by its tile).
-        void quietly(const CallbacksV3& callbacks, const std::string& command) {
-            if (!callbacks.queue_console_command) return;
-            std::array<char, 256> reply{};
-            callbacks.queue_console_command(callbacks.user, command.c_str(), reply.data(), reply.size());
-        }
+    } else if (enabled && pressed) {
+        result = 1;
     }
+    const bool changing = steps && editing == item;
+    if (focused || hovered) set_console_hint(changing ? "Left / right to change it. A or B when done." : hint);
+    auto* draw = ImGui::GetWindowDrawList();
+    const ImVec2 end(at.x + size.x, at.y + size.y);
+    const bool lit = enabled && (focused || hovered);
+    skate_theme::rough_rect(draw, at, end, changing ? paper : lit ? blue : enabled ? IM_COL32(26, 26, 26, 235) : IM_COL32(26, 26, 26, 140), seed, px(1));
+    draw->PushClipRect(at, end, true);
+    draw->AddText(menu.bold, px(14), ImVec2(at.x + px(18), at.y + px(14)), changing ? skate_theme::black : lit ? paper : muted, name);
+    const float value_size = big_value ? px(24) : px(15);
+    const ImU32 value_ink = changing ? skate_theme::black : !enabled ? muted : lit ? paper : on ? blue : paper;
+    draw->AddText(big_value ? menu.heading : menu.body, value_size, ImVec2(at.x + px(18), end.y - px(16) - value_size), value_ink, value.c_str(),
+                  nullptr, size.x - px(36));
+    if (steps && enabled) {
+        // Left / right change it.
+        const float s = px(6), mid = end.y - px(16) - value_size * .5f;
+        const ImU32 arrow = changing ? skate_theme::black : lit ? paper : muted;
+        draw->AddTriangleFilled(ImVec2(end.x - px(40), mid), ImVec2(end.x - px(40) + s, mid - s), ImVec2(end.x - px(40) + s, mid + s), arrow);
+        draw->AddTriangleFilled(ImVec2(end.x - px(16), mid), ImVec2(end.x - px(16) - s, mid - s), ImVec2(end.x - px(16) - s, mid + s), arrow);
+    }
+    draw->PopClipRect();
+    return result;
+}
+void heading(SkateMenu& menu, const char* text) {
+    ImGui::PushFont(menu.heading);
+    ImGui::TextUnformatted(text);
+    ImGui::PopFont();
+    ImGui::Dummy(ImVec2(0, px(2)));
+}
+// A console line, without its reply on the page (a quick control says what it did by its tile).
+void quietly(const CallbacksV3& callbacks, const std::string& command) {
+    if (!callbacks.queue_console_command) return;
+    std::array<char, 256> reply{};
+    callbacks.queue_console_command(callbacks.user, command.c_str(), reply.data(), reply.size());
+}
+}
 
-    void home_page(SkateMenu& menu, const Model& model, const CallbacksV3& callbacks) {
-        ImGui::BeginChild("home", ImVec2(0, page_body_height(menu)), ImGuiChildFlags_NavFlattened);
-        const float gap = px(12);
-        const auto grid = [&](int columns) {
-            return (ImGui::GetContentRegionAvail().x - gap * static_cast<float>(columns - 1)) / static_cast<float>(columns);
-        };
-        const float left = ImGui::GetCursorPosX();
-        const auto place = [&](float width, int column) { ImGui::SameLine(left + (width + gap) * static_cast<float>(column)); };
-        const auto& debug = model.debug;
-        const auto on_off = [](bool value) { return std::string(value ? "ON" : "OFF"); };
-        const auto request = [&](DebugAction action, bool value) {
-            if (!callbacks.queue_debug) return;
-            std::array<char, 256> reply{};
-            callbacks.queue_debug(callbacks.user, { action, value }, reply.data(), reply.size());
-        };
+void home_page(SkateMenu& menu, const Model& model, const CallbacksV3& callbacks) {
+    ImGui::BeginChild("home", ImVec2(0, page_body_height(menu)), ImGuiChildFlags_NavFlattened);
+    const float gap = px(12);
+    const auto grid = [&](int columns) {
+        return (ImGui::GetContentRegionAvail().x - gap * static_cast<float>(columns - 1)) / static_cast<float>(columns);
+    };
+    const float left = ImGui::GetCursorPosX();
+    const auto place = [&](float width, int column) { ImGui::SameLine(left + (width + gap) * static_cast<float>(column)); };
+    const auto& debug = model.debug;
+    const auto on_off = [](bool value) { return std::string(value ? "ON" : "OFF"); };
+    const auto request = [&](DebugAction action, bool value) {
+        if (!callbacks.queue_debug) return;
+        std::array<char, 256> reply{};
+        callbacks.queue_debug(callbacks.user, {action, value}, reply.data(), reply.size());
+    };
 
-        // ---- the switches people reach for while skating
-        heading(menu, "QUICK");
-        {
-            constexpr int columns = 5;
-            const float width = grid(columns);
-            const ImVec2 size(width, px(96));
-            namespace tod = dingosdk::native_tools;
-            static constexpr std::array<const char*, 8> times{ "Default", "Morning", "Noon", "Afternoon", "Evening", "Night", "Weather day", "Weather night" };
-            const bool tod_available = tod::time_of_day_available(model, callbacks);
-            const int now = time_of_day_shown(model);
-            const int step = home_tile(menu, "##time", "TIME OF DAY", times[static_cast<std::size_t>(std::clamp(now, 0, 7))], size, tod_available, now != 0,
-                true, "Press A to change the time of day. Default follows the level's own.");
-            // One time a press, on from the one last asked for.
-            if (step) set_time_of_day(menu, model, callbacks, (now + step + 8) % 8, true);
-            place(width, 1);
-            if (home_tile(menu, "##noclip", "NOCLIP", on_off(debug.noclip), size, (debug.noclip_available || debug.noclip) && callbacks.queue_debug,
-                debug.noclip, false, "Fly with the normal player camera, through anything. Includes No Bail.") == 1)
-                request(DebugAction::set_noclip, !debug.noclip);
-            place(width, 2);
-            if (home_tile(menu, "##no-bail", "NO BAIL", on_off(debug.no_bail), size, (debug.no_bail_available || debug.no_bail) && callbacks.queue_debug,
-                debug.no_bail, false, "Never wipe out.") == 1)
-                request(DebugAction::set_no_bail, !debug.no_bail);
-            place(width, 3);
-            if (home_tile(menu, "##hide-hud", "HIDE HUD", on_off(debug.game_ui_hidden), size, debug.available && debug.ui_available && callbacks.queue_debug,
-                debug.game_ui_hidden, false, "Keep the view clear for riding and captures.") == 1)
-                request(DebugAction::set_game_ui_hidden, !debug.game_ui_hidden);
-            place(width, 4);
-            if (home_tile(menu, "##first-person", "FIRST PERSON", on_off(debug.first_person), size, debug.available && callbacks.queue_debug,
-                debug.first_person, false, "See it through your skater's eyes.") == 1)
-                request(DebugAction::set_first_person, !debug.first_person);
-            ImGui::Dummy(ImVec2(0, gap - ImGui::GetStyle().ItemSpacing.y));
+    // ---- the switches people reach for while skating
+    heading(menu, "QUICK");
+    {
+        constexpr int columns = 5;
+        const float width = grid(columns);
+        const ImVec2 size(width, px(96));
+        namespace tod = dingosdk::native_tools;
+        static constexpr std::array<const char*, 8> times{"Default", "Morning", "Noon", "Afternoon", "Evening", "Night", "Weather day", "Weather night"};
+        const bool tod_available = tod::time_of_day_available(model, callbacks);
+        const int now = time_of_day_shown(model);
+        const int step = home_tile(menu, "##time", "TIME OF DAY", times[static_cast<std::size_t>(std::clamp(now, 0, 7))], size, tod_available, now != 0,
+                                   true, "Press A to change the time of day. Default follows the level's own.");
+        // One time a press, on from the one last asked for.
+        if (step) set_time_of_day(menu, model, callbacks, (now + step + 8) % 8, true);
+        place(width, 1);
+        if (home_tile(menu, "##noclip", "NOCLIP", on_off(debug.noclip), size, (debug.noclip_available || debug.noclip) && callbacks.queue_debug,
+                      debug.noclip, false, "Fly with the normal player camera, through anything. Includes No Bail.") == 1)
+            request(DebugAction::set_noclip, !debug.noclip);
+        place(width, 2);
+        if (home_tile(menu, "##no-bail", "NO BAIL", on_off(debug.no_bail), size, (debug.no_bail_available || debug.no_bail) && callbacks.queue_debug,
+                      debug.no_bail, false, "Never wipe out.") == 1)
+            request(DebugAction::set_no_bail, !debug.no_bail);
+        place(width, 3);
+        if (home_tile(menu, "##hide-hud", "HIDE HUD", on_off(debug.game_ui_hidden), size, debug.available && debug.ui_available && callbacks.queue_debug,
+                      debug.game_ui_hidden, false, "Keep the view clear for riding and captures.") == 1)
+            request(DebugAction::set_game_ui_hidden, !debug.game_ui_hidden);
+        place(width, 4);
+        if (home_tile(menu, "##first-person", "FIRST PERSON", on_off(debug.first_person), size, debug.available && callbacks.queue_debug,
+                      debug.first_person, false, "See it through your skater's eyes.") == 1)
+            request(DebugAction::set_first_person, !debug.first_person);
+        ImGui::Dummy(ImVec2(0, gap - ImGui::GetStyle().ItemSpacing.y));
 
         if (home_tile(menu, "##freecam", "FREECAM", on_off(debug.free_camera), size, debug.camera_available && callbacks.queue_debug,
                       debug.free_camera, false, "Leave your skater and fly the camera.") == 1)

@@ -55,7 +55,7 @@ inline bool valid_mark_style(const MarkStyle &style) noexcept {
 struct Appearance {
     CosmeticRecipe skater, board;
     PlayerCard card;
-    // The player has turned off what the ReSkate+ backend gives them (developer_identity.h):
+    // The player has turned off what the ReSkate backend gives them (developer_identity.h):
     // nobody shows their tag, or nobody animates their hoodie and board.
     bool hide_tag{}, hide_items{};
     MarkStyles marks{};

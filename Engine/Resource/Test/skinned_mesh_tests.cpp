@@ -1,4 +1,4 @@
-// The skinned MeshSet and SkeletonAsset readers, on made-up resources. (verified)
+// The skinned MeshSet and SkeletonAsset readers, on made-up resources.
 #include "Engine/Resource/mesh_set.h"
 #include "Engine/Resource/skeleton_asset.h"
 #include <cstring>
@@ -13,7 +13,6 @@ template <class T> void put(std::vector<std::byte>& data, std::size_t offset, T 
     if (data.size() < offset + sizeof(T)) data.resize(offset + sizeof(T));
     std::memcpy(data.data() + offset, &value, sizeof(T));
 }
-
 void pointer(std::vector<std::byte>& data, std::size_t offset, std::size_t target) {
     put<std::uint64_t>(data, offset, target - 16);
 }

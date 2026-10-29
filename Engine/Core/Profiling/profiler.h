@@ -9,9 +9,9 @@
 #include <string>
 #include <vector>
 
-// ReSkate+'s performance profiler (Extension/UI/Overlay/perf_overlay.cpp draws it, `perf` console
+// ReSkate's performance profiler (Extension/UI/Overlay/perf_overlay.cpp draws it, `perf` console
 // commands drive it):
-//  * zones: scoped timers on ReSkate+'s own work, so its cost on the game's threads is visible;
+//  * zones: scoped timers on ReSkate's own work, so its cost on the game's threads is visible;
 //  * the client update (the hooked native client tick) and presented frames, timed;
 //  * CPU use per thread of the game, which shows a runaway worker at a glance;
 //  * an in-process stack sampler for one thread, with a report the overlay lists and a file of
@@ -20,7 +20,7 @@
 namespace dingosdk::profiler {
 
 // ---- zones ----------------------------------------------------------------------------------
-// A place in ReSkate+'s code whose time is measured. Declared once (DINGO_PROFILE_ZONE makes a
+// A place in ReSkate's code whose time is measured. Declared once (DINGO_PROFILE_ZONE makes a
 // function-local static), timed on any thread. "a/b" names nest under "a" in the window.
 // Zones count CPU timestamp ticks (__rdtsc, a few nanoseconds; invariant on every CPU the game
 // runs on) rather than steady_clock (~25 ns through QueryPerformanceCounter): the hook zones run
@@ -60,7 +60,7 @@ public:
         DINGO_PROFILE_CAT(dingo_profile_site_, __LINE__)}
 
 // ---- frame timing ---------------------------------------------------------------------------
-// ReSkate+'s client tick (once per client update): its own work, timed.
+// ReSkate's client tick (once per client update): its own work, timed.
 void record_client_update(std::uint64_t own_ns) noexcept;
 // The game's whole client frame job, which the tick runs inside: the number that has to stay
 // within the sim budget (16.7 ms at 60 Hz) or the game runs in slow motion.
@@ -72,11 +72,11 @@ enum class Series { client_interval, client_frame, client_own, present_interval 
 std::size_t history(Series series, std::span<float> out) noexcept;
 
 // ---- describing a freeze ----------------------------------------------------------------------
-// Kept on while this launch sends timings (Runtime/frame_timing.cpp): zones then time ReSkate+'s
-// work whatever the profiler window shows, so a frame that froze can say what of ReSkate+'s ran in
+// Kept on while this launch sends timings (Runtime/frame_timing.cpp): zones then time ReSkate's
+// work whatever the profiler window shows, so a frame that froze can say what of ReSkate's ran in
 // it. Off again leaves them to the window.
 void keep_zones(bool on) noexcept;
-// ReSkate+'s own share of the latest client update, and how many presents there have been: both
+// ReSkate's own share of the latest client update, and how many presents there have been: both
 // counted always (a store and an add).
 std::uint64_t last_client_own_ns() noexcept;
 std::uint64_t presents() noexcept;
@@ -163,7 +163,7 @@ void stop_sampling() noexcept;
 std::shared_ptr<const SampleReport> sample_report() noexcept;
 
 // Engine function names for the sampler's report, by RVA (Engine/Game/Build/<build>/profiler.h,
-// plus any "<rva or 0x14 address> <name>" lines in ReSkate+.labels.tsv next to Skate.exe).
+// plus any "<rva or 0x14 address> <name>" lines in ReSkate.labels.tsv next to Skate.exe).
 struct Label { std::uintptr_t rva; const char* name; };
 void set_engine_labels(std::span<const Label> labels) noexcept;
 }

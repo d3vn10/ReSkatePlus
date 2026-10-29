@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <map>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -71,11 +72,20 @@ struct Variants {
     std::vector<std::string> displaces;
 };
 
+// Separate from displacement: both authors must opt into a bounded native
+// compatibility check. Exact bundle names are used, never prefixes or globs.
+struct VariantAdditions {
+    std::vector<std::string> accept, contribute;
+};
+
 struct Mod {
     std::string name;                 // folder name directly under Mods/
     std::filesystem::path directory;
     bool provides_layout{};           // has layout.toc, so it becomes a layout layer
     bool provides_levels{};           // has reskate-levels.json
+    bool provides_plugin{};           // its reskate-plugin.json names Luau code to run (an "entry")
+    bool provides_objects{};          // has reskate-objects.json (Quick Drop object names and families)
+    bool provides_music{};            // has reskate-music.json (playlists for its songs)
     // Base maps it ships a park for: parks/<map>.park.json (park editor mods).
     std::vector<std::string> park_maps;
     // Presentation, from manifest.json (or reskate-mod.json). `title` falls back to the folder
@@ -93,6 +103,12 @@ struct Mod {
     std::vector<ResidentAssets> resident;
     // From reskate-plugin.json: the variants it holds (Variants), if it declares any.
     std::optional<Variants> variants;
+    VariantAdditions variant_additions;
+    // Validated anew by the catalogue for the currently selected variant.
+    // Values are kind-qualified asset names permitted in that bundle.
+    std::map<std::string, std::set<std::string>, std::less<>> variant_projection;
+    std::map<std::string, std::string, std::less<>> variant_targets;
+    std::set<std::string> variant_authority;
     // From .reskate-studio-patch: whether the mod has one, and the Skate.exe SHA-256 it records.
     bool studio_marker{};
     std::string skate_sha256;
@@ -153,6 +169,17 @@ struct ModList {
 // shader block depot entry `name` is in that bundle, or null.
 bool resident_root(const Mod& mod, std::string_view bundle, std::string_view name) noexcept;
 const ResidentAssets::Shader* resident_shader(const Mod& mod, std::string_view bundle, std::string_view name) noexcept;
+
+// What a mod holds, for a player, what says most about it first: "Map" or "3 maps", "Park" or
+// "Parks", "Plugin", "Game data", "Objects", "Music". Empty when it holds none of these. A plugin
+// that also ships game data reads as a plugin first, since its code is what it is for.
+std::vector<std::string> mod_contents(const Mod& mod);
+// Whether a mod holds a plugin and nothing a merge puts in the game (no game data, maps, parks,
+// objects, music or variants). Such a mod is switched on or off without applying the mods: the
+// plugin host loads and unloads its plugin from the Mods folder by itself (plugin_runtime.h).
+bool plugin_only(const Mod& mod);
+// Whether the game finds anything in the mod to load: what mod_contents lists, or variants.
+bool has_content(const Mod& mod);
 
 // Folder names travel into engine paths, so only plain ASCII is accepted:
 // letters, digits, space, '_', '-' and '.', not starting with '.'.

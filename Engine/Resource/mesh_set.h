@@ -1,7 +1,7 @@
 #pragma once
 // Frostbite skinned MeshSet resources: one level of detail's triangles, and how each vertex is
 // weighted to the skeleton's bones. Only what a skinned mesh needs; the layout was worked out
-// on skate.'s costume meshes, first by gBGYo's ReSkate+ fork (github.com/gBGYo/ReSkate).
+// on skate.'s costume meshes, first by gBGYo's ReSkate fork (github.com/gBGYo/ReSkate).
 #include "binary_io.h"
 #include <array>
 #include <cstddef>

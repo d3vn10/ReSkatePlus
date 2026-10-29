@@ -21,7 +21,7 @@ int main() {
         check(blocked("gcs.ea.com."), "A trailing root dot is the same name");
         check(blocked(L"freeform-river.data.ea.com"), "Wide lookups are blocked too");
         check(blocked(L"GCS.EA.COM."), "Wide lookups compare without case and root dot");
-        // What ReSkate+ and the game still need, and names that only look like EA's.
+        // What ReSkate and the game still need, and names that only look like EA's.
         for (const auto* host : {"dingo-dev-assets.akamaized.net", "api.reskate.dev", "api.github.com",
                 "raw.githubusercontent.com", "thunderstore.io", "api.steampowered.com", "idea.com", "notea.com",
                 "xtnt-ea.com", "ea.com.example.net", "ea.co", "eacom", "com", ".", "", "159.153.1.1"})

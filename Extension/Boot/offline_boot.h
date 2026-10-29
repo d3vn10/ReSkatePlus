@@ -9,7 +9,7 @@ struct OfflineBootObservation {
     std::string json;
 };
 
-// The production offline boot path: ReSkatePlusLauncher always sets
+// The production offline boot path: ReSkateLauncher always sets
 // RESKATE_DEBUG_TEST_GLOBAL_OFFLINE=1. Hooks the inspected shared OnlineEnabled
 // function and replaces its result only for five exact, inspected caller return
 // RVAs. It requires an initialized Detours hook service and reads the variable

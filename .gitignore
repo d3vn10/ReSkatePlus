@@ -5,7 +5,6 @@
 /logs/
 /.vs/
 /CMakeUserPresets.json
-/build-work/
 __pycache__/
 *.log
 *.dll

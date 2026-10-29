@@ -19,9 +19,9 @@ namespace dingosdk {
 // game just treats each as "off" whatever is saved or sent for it (local_world_layers.cpp),
 // and no menu or console command names it.
 inline constexpr std::array<std::string_view, 8> world_layers_kept_off{
-    /*"bam_dtn_season_05_content", "bam_dtn_season_05_inactive", "bam_dtn_season_05_permacontent",
+    /* "bam_dtn_season_05_content", "bam_dtn_season_05_inactive", "bam_dtn_season_05_permacontent",
     "bam_dev_seasonal_content_season_06", "bam_dtn_season_06_content", "bam_dtn_season_06_inactive",
-    "bam_dtn_season_06_permacontent", "grom_season_05_content"*/};
+    "bam_dtn_season_06_permacontent", "grom_season_05_content" */ };
 inline bool world_layer_kept_off(std::string_view key) noexcept {
     for (const auto kept : world_layers_kept_off)
         if (kept == key) return true;

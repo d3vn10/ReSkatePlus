@@ -87,7 +87,7 @@ struct SlotFieldSpec {
 
 constexpr std::array<SlotFieldSpec, 4> slot_field_specs{{
     // Like the live game: three free presets; the rest stay locked (extra slots
-    // were bought with San Van Bucks, which ReSkate+ does not sell).
+    // were bought with San Van Bucks, which ReSkate does not sell).
     {SlotSettingsType::loadout, slot_addr::min_loadout_count_field, 0x3ac16662, 0x48,
         addr::engine::int32_type, 4, free_slot_count, "MinSkaterLoadoutCount"},
     {SlotSettingsType::loadout, slot_addr::force_own_max_slots_field, 0x2fe2d03d, 0x53,

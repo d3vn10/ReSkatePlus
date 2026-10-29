@@ -1,94 +1,69 @@
-# ReSkate+
+# ReSkate
 
-Play it offline, host your own lobbies and dedicated servers, and mod it.\
-The launcher, the runtime that loads into the game, the dedicated server, or even this repo (wink).
+play it offline, host your own lobbies and dedicated servers, and mod it.
+the launcher, the runtime that loads into the game, and the dedicated server.
 
-> ReSkate+ is a fan project of a fan project.\
-> It is not affiliated with or endorsed by Electronic Arts or Full Circle.\
+> ReSkate is a fan project. It is not affiliated with or endorsed by Electronic Arts or Full Circle.
 > You need your own copy of skate. on Steam.
 
 ## Features
 
-- **Offline Play.** No EA servers needed. Your skater, outfits, unlocks and progress are saved on your PC,
+- **Offline play.** No EA servers needed. Your skater, outfits, unlocks and progress are saved on your PC,
   and the game runs even with Steam closed.
 - **Multiplayer.**
   - Host a Steam lobby for up to 32 players: public, or joined with a code, with an optional password.
   - Join dedicated servers from the in-game server browser.
   - Proximity voice chat, and text chat with emotes and an optional bad-word filter.
   - Parties in lobbies and on dedicated servers: invite, join, leave, promote.
-  - Throwdowns with other players (Jam, Spot Battle and S.K.A.T.E.), and co-op challenges.
-- **In-Game Menu and Console.**
+  - Throwdowns with other players (Jam, Spot Battle and S.K.A.T.E.), and co-op challenges. Plugins add
+    throwdown modes of their own to the Throwdowns page ([contrib/throwdown-kit.md](contrib/throwdown-kit.md)).
+- **In-game menu and console.**
   - Map and fast travel.
   - World: time of day, population, district levels, rotating parks.
-  - **Park Editor**: place, move and save objects with freecam, snapping and undo. Save a selection as a
+  - The **Park Editor**: place, move and save objects with freecam, snapping and undo. Save a selection as a
     set and place it again anywhere, on any map.
   - Skater options: first person, movement, boosts, noclip.
-  - **Hall of Meat** (off by default): bail and see the bones you hurt, with a skate. 3 style Meat card.
-  - **Grind Exit Triggers** (off by default): press LT or RT while grinding to pick the side you pop
-    out to (toe / heel, or left / right), whatever trick and spin you do
-    ([how it works](Extension/Skater/GRIND_EXITS.md)).
-  - **Rock to Fakie** (off by default): a Board Stall or Lip Stall left with B shows and records as a
-    rock to fakie ([how it works](Extension/Skater/ROCK_TO_FAKIE.md)).
+  - Hall of Meat, grind exit triggers, Board Break, Road Rash and the FPV drone are plugin mods now,
+    installed like any other mod. Board Break and Road Rash ship inside their asset mods.
   - Progression, controls, graphics and multiplayer settings.
-- **Mods**
+- **Mods.**
   - Drop a mod in `Mods/` and it is merged into the game at launch. Mods can add custom maps, loading
     screens, cosmetics and scripts.
   - Browse and install mods from the [Thunderstore community](https://thunderstore.io/c/reskate/) in the
     launcher. A mod that needs others (a mod pack) brings them with it.
   - Save sets of mods as profiles, switch between them, and share one as a code or a file.
   - Most mod changes apply in game without a restart.
-- **Launcher**
+- **Launcher.**
   - Checks that you have the supported game build, and can download exactly that build with your Steam
     account.
-  - Keeps ReSkate+ itself up to date.
+  - Keeps ReSkate itself up to date.
 
-### Features+
+## Getting started
 
-Compatible with servers running: **2.1.2**\
-Older/newer versions _should_ work unless the packet structure or SteamAPI handshake validation has changed.
-
-- **All Cosmetics & DIY Objects**
-  - Full access to *all* content available inside the games files.
-  - Includes all *limited time* reedemable items, *skate.Pass*, and *store offers/bundles* that cost SVB.
-- **Outfit Shuffler**
-  - Show other players outfits and boards as random items (local only).
-  - Turn it on and everyone in lobby is wearing something new.
-- **Deprecated/NSFW Mods**
-  - Launcher toggles to enable showing every mod on the Thunderstore, wether they have been
-  abandoned or marked as being not safe for work.
-- **Special/Developer Menus** 
-  - Developer only *Network Activity* panel has been integrated into *Settings > Performance* tab.
-  - Tag customization is local only, each client checks independantly for a peers tag status.
-- **Multiple Protocols**
-  - Supports multiple protocols for online play allowing connections with older clients and servers.
-  - Only one protocol can be used at a time, server list can take a bit to refresh when changed.
-
-## Getting Started
-
-1. Download the latest `ReSkatePlus_<version>.zip` from
-   [Releases](https://github.com/d3vn10/ReSkatePlus/releases).
-2. Extract `ReSkatePlusLauncher.exe` and `ReSkatePlus.dll` into **a new, empty folder of their own**, for
-   example `C:\Games\ReSkatePlus`. Do **not** put them in Steam's skate. folder: ReSkate+ keeps its own
+1. Download the latest `ReSkate-<version>.zip` from
+   [Releases](https://github.com/Dingo-Shenanigans/ReSkate/releases).
+2. Extract `ReSkateLauncher.exe` and `ReSkate.dll` into **a new, empty folder of their own**, for
+   example `C:\Games\ReSkate`. Do **not** put them in Steam's skate. folder: ReSkate keeps its own
    copy of the game there, so Steam updating skate. cannot break it.
-3. Run `ReSkatePlusLauncher.exe`.
-   - It checks for ReSkate+ updates, then installs the supported build of the game into that folder
+3. Run `ReSkateLauncher.exe`.
+   - It checks for ReSkate updates, then installs the supported build of the game into that folder
      (about 14 GB of free space).
    - Sign in to Steam when asked, with the account that owns skate. You can scan a QR code with the
      Steam app, or use your username and password with Steam Guard.
    - On later runs it checks the game files and downloads only what is missing.
 4. Press **PLAY**.
 
-ReSkate+ supports one game build at a time (Steam build `25414733`).
+ReSkate supports one game build at a time (Steam build `25414733`).
 
 ### Linux (Proton)
 
-1. Install skate. with Steam, and put `ReSkatePlusLauncher.exe` and `ReSkatePlus.dll` in a new, empty folder
-   of their own, for example `~/Games/ReSkatePlus` (not Steam's skate. folder: the launcher refuses to
+1. Install skate. with Steam, and put `ReSkateLauncher.exe` and `ReSkate.dll` in a new, empty folder
+   of their own, for example `~/Games/ReSkate` (not Steam's skate. folder: the launcher refuses to
    run from there).
 2. In Steam → skate. → Properties → Launch Options, enter this with your own folder's path:
 
    ```
-   bash -c 'exec "${@/*EAAntiCheat.GameServiceLauncher.exe//home/you/Games/ReSkatePlus/ReSkatePlusLauncher.exe}"' -- %command%
+   bash -c 'exec "${@/*EAAntiCheat.GameServiceLauncher.exe//home/you/Games/ReSkate/ReSkateLauncher.exe}"' -- %command%
    ```
 
 3. Press **Play** on skate. in your Steam library. The launcher installs its own copy of the game
@@ -109,9 +84,9 @@ custom map and then join a server on another map, the screen can stay black
 ### macOS (NotProton / CrossOver)
 
 Steam for Mac with a Wine-based compatibility tool works much the same way; see
-[MACOS-SETUP.md](MACOS-SETUP.md) for its launch option.
+[macOS](https://docs.reskate.dev/macos) in the docs for its launch option.
 
-### Multiplayer Map Downloads
+### Multiplayer map downloads
 
 Missing multiplayer custom maps can be downloaded from Thunderstore after confirmation.
 The confirmation expires after two minutes. A session waits 30 minutes in all for the map to be
@@ -130,11 +105,15 @@ being forcibly interrupted. Retry after that work has finished, without restarti
 
 | Key | Opens |
 |---|---|
-| **Insert** | the ReSkate+ menu |
+| **Insert** | the ReSkate menu |
 | **~** (grave/tilde) | the command console (`help` lists the commands) |
 | **T** | chat, in multiplayer |
 
 The menu and console keys can be changed in the launcher's Settings.
+
+The music player can play Spotify, YouTube Music, your own music files, internet radio and any app
+on your PC: type `music setup` in the console, and see
+[Music sources](https://docs.reskate.dev/music-sources) in the docs.
 
 In **MAP → ROTATING PARKS** and the controller-friendly **MOD OPTIONS → PARKS** screen,
 **Load Random Parks** chooses and loads one random layout for each of
@@ -150,7 +129,7 @@ layouts without unexpectedly randomizing them.
 The console equivalents are `park random` and `park random-on-launch 0|1`. A dedicated server also
 accepts `park random` from its console or an admin.
 
-### Where Things Are
+### Where things are
 
 | What | Where |
 |---|---|
@@ -158,7 +137,7 @@ accepts `park random` from its console or an admin.
 | Logs | `logs\ReSkate.log` beside `Skate.exe` |
 | Profile (skater, progress, parks) | `%LOCALAPPDATA%\ReSkate\profiles\offline\` |
 | The game's own settings and saves | `%LOCALAPPDATA%\ReSkate\Game\` (kept apart from the normal game) |
-| Launcher settings | `ReSkatePlusLauncher.settings.json` beside the launcher |
+| Launcher settings | `ReSkateLauncher.settings.json` beside the launcher |
 
 ### Troubleshooting
 
@@ -175,7 +154,7 @@ into a new, empty folder of their own and run the launcher from there (see [Gett
 **The ReSkate menu (Insert) doesn't open.** ReSkate isn't running. On Windows, always start the game with
 **PLAY** in the ReSkate launcher: pressing Play on skate. in Steam starts the normal game, without ReSkate.
 On Linux and macOS, use the launch option in [Linux (Proton)](#linux-proton) or
-[MACOS-SETUP.md](MACOS-SETUP.md).
+[macOS](https://docs.reskate.dev/macos) in the docs.
 
 **The game crashes.** Turn your mods off and try again first: many crashes come from mods. If it still
 crashes, [open an issue](https://github.com/Dingo-Shenanigans/ReSkate/issues/new/choose) with your ReSkate
@@ -191,7 +170,7 @@ on (it is by default), the crash details have already been sent; see
   switches to it and downloads any of its mods you do not have; every mod stays installed once. **COPY CODE**
   and **SAVE FILE** share a profile, and **IMPORT CODE** and **IMPORT FILE** take one in. The codes and
   `.r2z` files are r2modman's, so the two managers read each other's.
-- In game, the **MODS** tab of the ReSkate+ menu (**Insert**) turns mods on and off and applies the changes.
+- In game, the **MODS** tab of the ReSkate menu (**Insert**) turns mods on and off and applies the changes.
 - Mods are checked against the game build they were made for. Outdated mods, or mods that can't be merged
   cleanly, are left out with a message naming them, and the rest still load.
 - A mod that adds songs can give them their own playlist in the game's music screen with a
@@ -220,17 +199,38 @@ on (it is by default), the crash details have already been sent; see
   ReSkate serves registered image bytes through a process-local HTTP endpoint bound only to `127.0.0.1`
   on an automatically selected port; no internet hosting is needed. The endpoint exposes no filesystem
   routes and retains at most 64 MiB of artwork. Existing content-cache covers keep their priority.
+- A mod that adds Quick Drop objects can name them and group them into families with a
+  `reskate-objects.json` in its folder. A family is one tile in the Object Browser, and X / Square on it
+  picks between its objects, the way the game's own sizes and colours work:
+
+  ```json
+  {
+    "schema": 1,
+    "categories": [{"id": "category_shoebox", "title": "Shoebox Pads"}],
+    "families": [{"id": "qdparent_shoebox_dc", "title": "DC Shoebox", "category": "category_shoebox"}],
+    "objects": [
+      {"key": "own_bkrails_shoebox_dc_12m", "title": "DC Shoebox 12m", "family": "qdparent_shoebox_dc"},
+      {"key": "own_bkrails_shoebox_dc_6m_red", "title": "DC Shoebox 6m, Red", "family": "qdparent_shoebox_dc"}
+    ]
+  }
+  ```
+
+  `key` is the object's owned asset key. A family can also go in one of the game's categories
+  (`category_ramp`, `category_rail`, ...), and an object in one of the game's families. Titles, a
+  `description` and `priority` (lower first) are optional. The file only adds: ids that are already taken
+  and the game's own items are left out and logged, so a mod cannot rename or regroup the game's objects.
+  The file is read when the game starts.
 
 Only install mods you trust. Mods change game data. Custom Lua scripts (`scripts/Custom`) are
 switched off in this version: nothing in that folder is read or run.
 
-## Dedicated Servers
+## Dedicated servers
 
 `ReSkateServer.exe` is a headless lobby that needs neither the game nor Steam installed. It is in the
 `ReSkateServer-<version>.zip` of each release. See [Server/README.txt](Server/README.txt) for setup,
 `ReSkateServer.json`, admin commands, votes and the anti-cheat checks.
 
-### Linux Servers
+### Linux servers
 
 Each release also ships `ReSkateServer-Linux-<version>.zip`: the same headless lobby as a native
 x86_64 Linux binary (no Wine, no game install). Setup in short:
@@ -244,7 +244,7 @@ unzip ReSkateServer-Linux-<version>.zip -d reskate-server && cd reskate-server
 Details (Steam `.so` files, `world-layers.json`, `systemd`, ports, building from source with
 `cmake --preset linux-x64`) are in [Server/README-linux.md](Server/README-linux.md).
 
-## Building From Source
+## Building from source
 
 ### Requirements
 
@@ -268,19 +268,18 @@ The files are written to `build/vs2022-x64/Release/`:
 
 | File | What it is |
 |---|---|
-| `ReSkatePlusLauncher.exe` | the launcher (also hosts crash reporting) |
-| `ReSkatePlus.dll` | the runtime the launcher loads into the game |
+| `ReSkateLauncher.exe` | the launcher (also hosts crash reporting) |
+| `ReSkate.dll` | the runtime the launcher loads into the game |
 | `ReSkateServer.exe` | the dedicated server |
 | `ReSkateEmotePacker.exe` | builds the chat emote pack in `assets/emotes` |
 
 To work in Visual Studio, open `build/vs2022-x64/DingoSDK.sln` after configuring and select
 **Release | x64**.
 
-### Running Your Build
+### Running your build
 
-Close the game. Copy `ReSkatePlusLauncher.exe` and `ReSkatePlus.dll` into your ReSkate+ folder (the one the
+Close the game. Copy `ReSkateLauncher.exe` and `ReSkate.dll` into your ReSkate folder (the one the
 launcher installed the game into, beside `Skate.exe`), then run the launcher.
-
 
 Local builds never replace themselves. They only report that an update exists, so a release can't
 overwrite the DLL you are testing.
@@ -301,11 +300,11 @@ Useful launcher flags:
 | `--no-loose-files` | ignore loose Lua and config files beside the game |
 | `--gpu-diagnostics` | record extra detail when the graphics driver crashes (DRED) |
 
-### CMake Options
+### CMake options
 
 | Option | Default | Effect |
 |---|---|---|
-| `DINGOSDK_VERSION` | `0.0.0.0` | version stamped into the binaries |
+| `DINGOSDK_VERSION` | `0.0.0` | version stamped into the binaries |
 | `DINGOSDK_LAUNCHER_AUTO_UPDATE` | `OFF` | let the launcher replace itself and `ReSkate.dll`, and the server replace itself (release builds) |
 | `DINGOSDK_RELEASE_REPO` | `Dingo-Shenanigans/ReSkate` | public GitHub repository whose latest release carries `launcher.json` and the files it pins |
 | `DINGOSDK_CRASH_REPORT_URL` | the project's endpoint | Sentry minidump endpoint URL; empty turns crash uploads off |
@@ -325,7 +324,7 @@ ctest --test-dir build/vs2022-x64 -C Release
 
 The project builds with `/W4 /WX`: warnings are errors.
 
-## Project Layout
+## Project layout
 
 The source tree loosely follows Frostbite's own layout.
 
@@ -338,8 +337,8 @@ The source tree loosely follows Frostbite's own layout.
 | `Engine/Game/` | the game's native ABI and data models |
 | `Engine/Game/Build/<build>/` | every address, fingerprint and patch tied to one `Skate.exe` build, as `addr::<area>::<name>` |
 | `Extension/` | ReSkate's features, the in-game UI and diagnostics |
-| `Runtime/` | `ReSkatePlus.dll`: entry point, startup and exports |
-| `Launcher/` | `ReSkatePlusLauncher.exe` |
+| `Runtime/` | `ReSkate.dll`: entry point, startup and exports |
+| `Launcher/` | `ReSkateLauncher.exe` |
 | `Server/` | `ReSkateServer.exe` |
 | `EmotePacker/` | `ReSkateEmotePacker.exe` |
 | `External/` | third-party libraries, pinned and hashed (see [External/README.md](External/README.md)) |
@@ -357,7 +356,7 @@ Feature code never contains addresses. Everything tied to the game's code lives 
 `Engine/Game/Build/20260929/`. Most hooks and patches check the bytes they expect before touching them,
 so a different `Skate.exe` is refused rather than patched.
 
-## Crash Reports and Privacy
+## Crash reports and privacy
 
 When the launcher or the game crashes, ReSkate uploads a minidump and that session's log to the
 project's self-hosted Sentry server, so crashes can be fixed. The log never contains your Steam password or
@@ -376,7 +375,7 @@ ReSkate also keeps the game off EA's online services: the game's own crash repor
 remote configuration requests are turned off and blocked. Fast-travel artwork still comes from EA's
 image CDN (`dingo-dev-assets.akamaized.net`), which only downloads images.
 
-## Third-Party Code
+## Third-party code
 
 ReSkate uses Dear ImGui, Microsoft Detours, RapidJSON, spdlog, SQLite, LZ4, Zstandard, miniz, bcdec and
 Valve's networking headers, and the Montserrat and Permanent Marker fonts. Versions, licenses and local
@@ -385,13 +384,13 @@ patches are in [External/README.md](External/README.md). Every release ships the
 
 ## License
 
-Copyright © 2026 the ReSkate+ contributors.
+Copyright © 2026 the ReSkate contributors.
 
-ReSkate+'s source code is free software: you can redistribute it and modify it under the terms of the
-[GNU General Public License, version 3](LICENSE). If you share a modified ReSkate+, share its source
+ReSkate's source code is free software: you can redistribute it and modify it under the terms of the
+[GNU General Public License, version 3](LICENSE). If you share a modified ReSkate, share its source
 code under the same license.
 
-The license covers ReSkate+'s own code. It does not cover:
+The license covers ReSkate's own code. It does not cover:
 
 - **Third-party libraries and fonts** in `External/`, which keep their own licenses (see
   [External/README.md](External/README.md)).
@@ -400,7 +399,7 @@ The license covers ReSkate+'s own code. It does not cover:
   else from skate. The game and its content belong to Electronic Arts, and nothing here grants any
   rights to them.
 
-## AI Disclosure
+## AI disclosure
 
 Parts of ReSkate, including code, reverse-engineering notes and documentation, were written with the
 help of AI coding assistants. The maintainers direct and test that work, but AI-written code can contain

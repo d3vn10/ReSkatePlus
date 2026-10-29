@@ -6,145 +6,134 @@
 #include "Extension/Music/local_music_playback.h"
 #include "Extension/Profile/local_profile_runtime.h"
 #include "Extension/Plugins/plugin_ui.h"
-#include "Extension/Multiplayer/Net/protocol.h"
 
 #include <algorithm>
 #include <array>
 
 // The SETTINGS and DEVELOPER pages.
 namespace dingosdk::overlay::menu {
-    using namespace theme;
-    void music_playback_card(SkateMenu& menu) {
-        begin_card(menu, "music-playback", "MUSIC PLAYBACK");
-        bool shuffle = dingosdk::profile_runtime::music_shuffle_enabled();
-        if (toggle_row(menu, "Shuffle playlists", "Off plays songs in playlist order. On shuffles.", shuffle,
+using namespace theme;
+void music_playback_card(SkateMenu& menu) {
+    begin_card(menu, "music-playback", "MUSIC PLAYBACK");
+    bool shuffle = dingosdk::profile_runtime::music_shuffle_enabled();
+    if (toggle_row(menu, "Shuffle playlists", "Off plays songs in playlist order. On shuffles.", shuffle,
             dingosdk::profile_runtime::music_playback_available())) {
-            dingosdk::profile_runtime::set_music_shuffle_enabled(shuffle);
-            dingosdk::profile_runtime::set_local_preference("MusicShuffle", shuffle);
-        }
-        end_card();
+        dingosdk::profile_runtime::set_music_shuffle_enabled(shuffle);
+        dingosdk::profile_runtime::set_local_preference("MusicShuffle", shuffle);
     }
+    end_card();
+}
 
-    // Settings > SCREEN: what shows, and how this menu looks.
-    void screen_page(SkateMenu& menu, const Model& model, const CallbacksV3& callbacks) {
-        begin_card(menu, "on-screen", "ON SCREEN");
-        bool hidden = model.debug.game_ui_hidden;
-        if (toggle_row(menu, "Hide game UI", "Keep the view clear for riding and captures.", hidden,
+// Settings > SCREEN: what shows, and how this menu looks.
+void screen_page(SkateMenu& menu, const Model& model, const CallbacksV3& callbacks) {
+    begin_card(menu, "on-screen", "ON SCREEN");
+    bool hidden = model.debug.game_ui_hidden;
+    if (toggle_row(menu, "Hide game UI", "Keep the view clear for riding and captures.", hidden,
             model.debug.available && model.debug.ui_available && callbacks.queue_debug))
-            debug_request(menu, callbacks, { DebugAction::set_game_ui_hidden, hidden });
-        const auto back = dingosdk::launcher::key_name(dingosdk::launcher::overlay_keys().menu) + " always brings ReSkate back.";
-        note(back.c_str());
-        end_card();
+        debug_request(menu, callbacks, {DebugAction::set_game_ui_hidden, hidden});
+    const auto back = dingosdk::launcher::key_name(dingosdk::launcher::overlay_keys().menu) + " always brings ReSkate back.";
+    note(back.c_str());
+    end_card();
 
-        // The size of the style this is drawn in: the window and full screen keep their own.
-        const bool full = console_style();
-        const char* command = full ? "ui scalefull " : "ui scale ";
-        begin_card(menu, "menu-scale", "MENU SIZE", full ? "Full screen" : "Window");
-        // Drag locally for an immediate preview, then save once on release: the
-        // saved value only returns through the model on a later frame.
-        if (!menu.scale_editing) menu.scale = full ? model.menu_scale_fullscreen : model.menu_scale;
-        field(menu, full ? "Full screen menu size" : "Window menu size");
-        const bool resettable = menu.scale != default_menu_scale;
-        const float reset = ImGui::CalcTextSize("Reset").x + ImGui::GetStyle().FramePadding.x * 2;
-        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - reset - ImGui::GetStyle().ItemSpacing.x);
-        ::dingosdk::overlay::menu::slider_float("##menu-scale", &menu.scale, min_menu_scale, max_menu_scale, "%.2fx",
-            ImGuiSliderFlags_AlwaysClamp);
-        menu.scale_editing = ImGui::IsItemActive();
-        if (ImGui::IsItemDeactivatedAfterEdit())
-            send_console(menu, callbacks, command + std::to_string(menu.scale));
-        if (!full) ImGui::SameLine();
-        if (button_row(menu, "scale-reset", { {full ? "RESET SIZE" : "Reset", resettable} }) == 0) {
-            menu.scale = default_menu_scale;
-            send_console(menu, callbacks, command + std::to_string(default_menu_scale));
-        }
-        note(full ? "Scales the full screen menu and its text; the window keeps its own size. Saved with your profile."
-            : "Scales this window and its text; the full screen menu keeps its own size. Saved with your profile.");
-        end_card();
-
-        begin_card(menu, "menu-style", "MENU STYLE");
-        int style = menu_fullscreen(menu, model) ? 1 : 0;
-        if (choice(menu, "menu-style", style, { "Window", "Full screen" }, callbacks.queue_console_command != nullptr, 0.0f,
-            { "A window over the game you can move and resize: made for a mouse.",
-             "Fills the screen, with bigger rows and button prompts: made for a controller." }))
-            set_menu_fullscreen(menu, callbacks, style == 1);
-        note("Also the button beside the menu's close button, F11, or View on a controller. Saved with your profile.");
-        end_card();
-        graphics_page(menu, model, callbacks);
+    // The size of the style this is drawn in: the window and full screen keep their own.
+    const bool full = console_style();
+    const char* command = full ? "ui scalefull " : "ui scale ";
+    begin_card(menu, "menu-scale", "MENU SIZE", full ? "Full screen" : "Window");
+    // Drag locally for an immediate preview, then save once on release: the
+    // saved value only returns through the model on a later frame.
+    if (!menu.scale_editing) menu.scale = full ? model.menu_scale_fullscreen : model.menu_scale;
+    field(menu, full ? "Full screen menu size" : "Window menu size");
+    const bool resettable = menu.scale != default_menu_scale;
+    const float reset = ImGui::CalcTextSize("Reset").x + ImGui::GetStyle().FramePadding.x * 2;
+    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - reset - ImGui::GetStyle().ItemSpacing.x);
+    ::dingosdk::overlay::menu::slider_float("##menu-scale", &menu.scale, min_menu_scale, max_menu_scale, "%.2fx",
+        ImGuiSliderFlags_AlwaysClamp);
+    menu.scale_editing = ImGui::IsItemActive();
+    if (ImGui::IsItemDeactivatedAfterEdit())
+        send_console(menu, callbacks, command + std::to_string(menu.scale));
+    if (!full) ImGui::SameLine();
+    if (button_row(menu, "scale-reset", {{full ? "RESET SIZE" : "Reset", resettable}}) == 0) {
+        menu.scale = default_menu_scale;
+        send_console(menu, callbacks, command + std::to_string(default_menu_scale));
     }
+    note(full ? "Scales the full screen menu and its text; the window keeps its own size. Saved with your profile."
+              : "Scales this window and its text; the full screen menu keeps its own size. Saved with your profile.");
+    end_card();
 
-    // Settings > PERFORMANCE.
-    void performance_page(SkateMenu& menu, const Model& model, const CallbacksV3& callbacks) {
-        begin_card(menu, "performance", "PERFORMANCE");
-        // The profiler is thread-safe: its state is read here directly, not through the model.
-        bool hud = dingosdk::profiler::hud();
-        if (toggle_row(menu, "Performance HUD", "Client update and frame timing, ReSkate's cost and CPU per thread.",
+    begin_card(menu, "menu-style", "MENU STYLE");
+    int style = menu_fullscreen(menu, model) ? 1 : 0;
+    if (choice(menu, "menu-style", style, {"Window", "Full screen"}, callbacks.queue_console_command != nullptr, 0.0f,
+            {"A window over the game you can move and resize: made for a mouse.",
+             "Fills the screen, with bigger rows and button prompts: made for a controller."}))
+        set_menu_fullscreen(menu, callbacks, style == 1);
+    note("Also the button beside the menu's close button, F11, or View on a controller. Saved with your profile.");
+    end_card();
+    graphics_page(menu, model, callbacks);
+}
+
+// Settings > PERFORMANCE.
+void performance_page(SkateMenu& menu, const Model&, const CallbacksV3& callbacks) {
+    begin_card(menu, "performance", "PERFORMANCE");
+    // The profiler is thread-safe: its state is read here directly, not through the model.
+    bool hud = dingosdk::profiler::hud();
+    if (toggle_row(menu, "Performance HUD", "Client update and frame timing, ReSkate's cost and CPU per thread.",
             hud, callbacks.queue_console_command != nullptr))
-            send_console(menu, callbacks, hud ? "perf hud on" : "perf hud off");
-        bool window = dingosdk::profiler::window();
-        if (toggle_row(menu, "Profiler window", "Zones, threads and a stack sampler. Shows while this menu or the console is open.",
+        send_console(menu, callbacks, hud ? "perf hud on" : "perf hud off");
+    bool window = dingosdk::profiler::window();
+    if (toggle_row(menu, "Profiler window", "Zones, threads and a stack sampler. Shows while this menu or the console is open.",
             window))
-            dingosdk::profiler::set_window(window);
-        note("Console: perf, perf sample [seconds] [client|present|thread id], perf report, perf status.");
-        end_card();
+        dingosdk::profiler::set_window(window);
+    note("Console: perf, perf sample [seconds] [client|present|thread id], perf report, perf status.");
+    end_card();
+}
 
-        begin_card(menu, "protocol", "PROTOCOL");
-        int current_protocol = dingosdk::multiplayer::protocol_version - 50; // TODO: Change this, -50 only works because it's where I started supporting multiple, these shouldn't be hardcoded
-        if (choice(menu, "protocol-version", current_protocol, {"50 (2.0.7)","51 (2.0.8)","52 (2.1.0)", "53 (2.1.2)"}, !model.multiplayer.active)) {
-            dingosdk::multiplayer::protocol_version = static_cast<uint16_t>(current_protocol + 50);
-        }
-        note("Servers can take a second to show after changing, changing while connected to someone will cause their client to disconnect from you from mismatching packet structure.");
-        end_card();
-
-        multiplayer_network_page(menu, model, callbacks);
+namespace {
+// The binds in the groups they are looked for in. An action is its number in `bind` (1..9), or
+// 10 + its place in action_binds.
+struct BindGroup {
+    const char* title;
+    std::initializer_list<int> actions;
+};
+constexpr int action_bind(std::string_view key) {
+    for (std::size_t i = 0; i < action_binds.size(); ++i)
+        if (action_binds[i].key == key) return 10 + static_cast<int>(i);
+    return 0;
+}
+const std::array<BindGroup, 4> bind_groups{{
+    {"GENERAL", {action_bind("reskate_menu"), action_bind("hide_hud"), action_bind("challenges"), action_bind("time_of_day")}},
+    {"CAMERA", {2, 1, 6, action_bind("first_person")}},
+    {"CHEATS AND BOOSTS", {3, action_bind("no_bail"), 4, 5, 7}},
+    {"ONLINE", {action_bind("voice_chat"), action_bind("nametags"), action_bind("nametag_dots"), 8, 9}},
+}};
+const char* bind_name(int action) {
+    switch (action) {
+    case 1: return "Freecam Controller";
+    case 2: return "Freecam";
+    case 3: return "Noclip";
+    case 4: return "Forward Boost";
+    case 5: return "Up Boost";
+    case 6: return "TP to Freecam";
+    case 7: return "Off-board Up Boost";
+    case 8: return "Vote yes";
+    case 9: return "Vote no";
+    default: return action >= 10 ? action_binds[static_cast<std::size_t>(action - 10)].label.data() : "";
     }
-
-    namespace {
-        // The binds in the groups they are looked for in. An action is its number in `bind` (1..9), or
-        // 10 + its place in action_binds.
-        struct BindGroup {
-            const char* title;
-            std::initializer_list<int> actions;
-        };
-        constexpr int action_bind(std::string_view key) {
-            for (std::size_t i = 0; i < action_binds.size(); ++i)
-                if (action_binds[i].key == key) return 10 + static_cast<int>(i);
-            return 0;
-        }
-        const std::array<BindGroup, 4> bind_groups{ {
-            {"GENERAL", {action_bind("reskate_menu"), action_bind("hide_hud"), action_bind("challenges"), action_bind("time_of_day")}},
-            {"CAMERA", {2, 1, 6, action_bind("first_person")}},
-            {"CHEATS AND BOOSTS", {3, action_bind("no_bail"), 4, 5, 7}},
-            {"ONLINE", {action_bind("voice_chat"), action_bind("nametags"), action_bind("nametag_dots"), 8, 9}},
-        } };
-        const char* bind_name(int action) {
-            switch (action) {
-            case 1: return "Freecam Controller";
-            case 2: return "Freecam";
-            case 3: return "Noclip";
-            case 4: return "Forward Boost";
-            case 5: return "Up Boost";
-            case 6: return "TP to Freecam";
-            case 7: return "Off-board Up Boost";
-            case 8: return "Vote yes";
-            case 9: return "Vote no";
-            default: return action >= 10 ? action_binds[static_cast<std::size_t>(action - 10)].label.data() : "";
-            }
-        }
-        std::uint32_t bind_combo(const ControllerBindingsModel& b, int action) {
-            switch (action) {
-            case 1: return b.freecam_controller_combo;
-            case 2: return b.freecam_combo;
-            case 3: return b.noclip_combo;
-            case 4: return b.forward_velocity_combo;
-            case 5: return b.up_velocity_combo;
-            case 6: return b.tp_to_freecam_combo;
-            case 7: return b.offboard_up_velocity_combo;
-            case 8: return b.vote_yes_combo;
-            case 9: return b.vote_no_combo;
-            default: return action >= 10 ? b.action_combos[static_cast<std::size_t>(action - 10)] : 0;
-            }
-        }
+}
+std::uint32_t bind_combo(const ControllerBindingsModel& b, int action) {
+    switch (action) {
+    case 1: return b.freecam_controller_combo;
+    case 2: return b.freecam_combo;
+    case 3: return b.noclip_combo;
+    case 4: return b.forward_velocity_combo;
+    case 5: return b.up_velocity_combo;
+    case 6: return b.tp_to_freecam_combo;
+    case 7: return b.offboard_up_velocity_combo;
+    case 8: return b.vote_yes_combo;
+    case 9: return b.vote_no_combo;
+    default: return action >= 10 ? b.action_combos[static_cast<std::size_t>(action - 10)] : 0;
     }
+}
+}
 
 void binds_page(SkateMenu& menu, const Model& model, const CallbacksV3& callbacks) {
     const bool available = model.bindings.available && callbacks.queue_console_command;
@@ -303,22 +292,22 @@ void binds_page(SkateMenu& menu, const Model& model, const CallbacksV3& callback
     if (!model.steam_offline) note("The push-to-talk button is set in Online > Voice.");
 }
 
-    void settings_page(SkateMenu& menu, const Model& model, const CallbacksV3& callbacks) {
-        category_tabs(menu, menu.settings_tab, { "CONTROLS", "SCREEN", "PERFORMANCE" }, "settings-tabs");
-        ImGui::PushID(menu.settings_tab);
-        ImGui::BeginChild("settings-tab", ImVec2(0, page_body_height(menu)), ImGuiChildFlags_NavFlattened);
-        switch (menu.settings_tab) {
-        case 0: binds_page(menu, model, callbacks); break;
-        case 1: screen_page(menu, model, callbacks); break;
-        case 2: performance_page(menu, model, callbacks); break;
-        }
-        ImGui::EndChild();
-        ImGui::PopID();
+void settings_page(SkateMenu& menu, const Model& model, const CallbacksV3& callbacks) {
+    category_tabs(menu, menu.settings_tab, {"CONTROLS", "SCREEN", "PERFORMANCE"}, "settings-tabs");
+    ImGui::PushID(menu.settings_tab);
+    ImGui::BeginChild("settings-tab", ImVec2(0, page_body_height(menu)), ImGuiChildFlags_NavFlattened);
+    switch (menu.settings_tab) {
+    case 0: binds_page(menu, model, callbacks); break;
+    case 1: screen_page(menu, model, callbacks); break;
+    case 2: performance_page(menu, model, callbacks); break;
     }
+    ImGui::EndChild();
+    ImGui::PopID();
+}
 
-    void developer_page(SkateMenu& menu, const Model& model, const CallbacksV3& callbacks) {
-        ImGui::BeginChild("developer", ImVec2(0, page_body_height(menu)), ImGuiChildFlags_NavFlattened);
-        multiplayer_network_page(menu, model, callbacks);
-        ImGui::EndChild();
-    }
+void developer_page(SkateMenu& menu, const Model& model, const CallbacksV3& callbacks) {
+    ImGui::BeginChild("developer", ImVec2(0, page_body_height(menu)), ImGuiChildFlags_NavFlattened);
+    multiplayer_network_page(menu, model, callbacks);
+    ImGui::EndChild();
+}
 }

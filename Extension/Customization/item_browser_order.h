@@ -11,7 +11,7 @@
 namespace dingosdk::item_browser {
 enum class Filter : std::uint8_t { all, favorites, mods, game };
 using Keys = std::set<std::string, std::less<>>;
-inline constexpr std::string_view filter_names[]{"All", "Favorites", "Mods", "Game Items"};
+inline constexpr std::string_view filter_names[]{"All", "Favorites", "Mods", "Game items"};
 
 struct Item {
     std::string key, title, category;

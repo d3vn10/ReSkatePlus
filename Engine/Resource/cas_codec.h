@@ -17,19 +17,19 @@ struct CasDecodeOptions {
     std::size_t maximumOutputSize{256ULL * 1024ULL * 1024ULL};
 };
 
-    enum class CasCompression : std::uint8_t {
-        raw = 0x00,
-        kraken = 0x11,
-        selkie = 0x15,
-        leviathan = 0x19
-    };
+enum class CasCompression : std::uint8_t {
+    raw = 0x00,
+    kraken = 0x11,
+    selkie = 0x15,
+    leviathan = 0x19
+};
 
-    struct CasEncodeOptions {
-        std::filesystem::path gameRoot;
-        CasCompression compression{ CasCompression::kraken };
-        int compressionLevel{ 4 };
-        std::size_t blockSize{ 0x10000 };
-    };
+struct CasEncodeOptions {
+    std::filesystem::path gameRoot;
+    CasCompression compression{CasCompression::kraken};
+    int compressionLevel{4};
+    std::size_t blockSize{0x10000};
+};
 
 [[nodiscard]] std::vector<std::byte> decode_cas(std::span<const std::byte> encoded,
                                                 const CasDecodeOptions& options = {});

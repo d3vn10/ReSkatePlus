@@ -178,7 +178,7 @@ Address accept_invite_hook(Address out, const Address *invite, const Address *ga
     } catch (...) {}
     return requests().accept_invite(out, invite, game, callback);
 }
-// Party voice options show while the local player is in a ReSkate+ party.
+// Party voice options show while the local player is in a ReSkate party.
 bool voice_unavailable_hook() {
     const bool native = requests().voice_unavailable();
     try {

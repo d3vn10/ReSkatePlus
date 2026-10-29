@@ -119,7 +119,7 @@ void Renderer::render() {
     barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
     list_->ResourceBarrier(1, &barrier);
 
-    // Dark slate background color matching ReSkate+ Trainer / Launcher
+    // Dark slate background color matching ReSkate Trainer / Launcher
     constexpr float clear[4]{0.035f, 0.043f, 0.059f, 1.0f};
     list_->ClearRenderTargetView(targets_[back].handle, clear, 0, nullptr);
     list_->OMSetRenderTargets(1, &targets_[back].handle, FALSE, nullptr);

@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -103,16 +104,21 @@ SiblingPaths sibling_paths(const std::filesystem::path& launcher);
 PeFileInfo inspect_pe_file(const std::filesystem::path& path);
 std::uint32_t exported_function_rva(const std::filesystem::path& path,
                                     std::string_view export_name);
+// An optional export, such as data: nullopt when the DLL does not export the name.
+std::optional<std::uint32_t> exported_rva(const std::filesystem::path& path,
+                                          std::string_view export_name);
 void validate_game_file(const std::filesystem::path& path);
 #else
 // Linux dedicated server: no PE image checks. Validation is a size/hash check
 // in launcher_pe.cpp; PE helpers are Windows-only.
 #endif
 std::string sha256_file(const std::filesystem::path& path);
+// The same for bytes in memory.
+std::string sha256_bytes(std::string_view data);
 void validate_steam_api_file(const std::filesystem::path& path);
 
 // -offline: the launcher sets RESKATE_OFFLINE=1 so the game runs without Steam,
-// as "Half-Squared Employee", with multiplayer hidden. Read once per process.
+// as "Unknown Player", with multiplayer hidden. Read once per process.
 inline constexpr const char* offline_player_name = "Half-Squared Employee";
 bool offline_mode() noexcept;
 // The SteamID offline mode reports: RESKATE_OFFLINE_STEAM_ID, the account
@@ -120,7 +126,7 @@ bool offline_mode() noexcept;
 std::uint64_t offline_steam_id() noexcept;
 
 #ifdef _WIN32
-// Keys that open ReSkate+'s menu and console in game.
+// Keys that open ReSkate's menu and console in game.
 inline constexpr unsigned default_menu_key = 0x2D;     // VK_INSERT
 inline constexpr unsigned default_console_key = 0xC0;  // VK_OEM_3
 struct OverlayKeys { unsigned menu{default_menu_key}, console{default_console_key}; };

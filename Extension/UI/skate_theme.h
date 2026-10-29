@@ -16,7 +16,7 @@ inline constexpr ImU32 tile_light = IM_COL32(61, 62, 66, 240);
 inline constexpr ImU32 blue = IM_COL32(1, 131, 255, 255);
 inline constexpr ImU32 blue_hover = IM_COL32(40, 152, 255, 255);
 inline constexpr ImU32 blue_active = IM_COL32(0, 110, 215, 255);
-// The ReSkate+ team's own servers: the logo's blue, a server tile tinted with it, and their name on it.
+// The ReSkate team's own servers: the logo's blue, a server tile tinted with it, and their name on it.
 inline constexpr ImU32 official = IM_COL32(0, 145, 255, 255);
 inline constexpr ImU32 official_tile = IM_COL32(8, 44, 82, 240);
 inline constexpr ImU32 official_text = IM_COL32(110, 190, 255, 255);

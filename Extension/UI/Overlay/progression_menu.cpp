@@ -70,8 +70,8 @@ bool contains(std::string_view value, std::string_view query) {
 } // namespace
 
 void bus_stops(SkateMenu& menu, const ProgressionModel& model, const CallbacksV3& callbacks) {
-    constexpr const char* maps[]{"All Maps", "San Vansterdam", "Isle of Grom", "Super Ultra Mega Resort"};
-    choice(menu, "bus-map", menu.bus_stop_map, {"All Maps", "San Vansterdam", "Isle of Grom", "Mega Resort"});
+    constexpr const char* maps[]{"All maps", "San Vansterdam", "Isle of Grom", "Super Ultra Mega Resort"};
+    choice(menu, "bus-map", menu.bus_stop_map, {"All maps", "San Vansterdam", "Isle of Grom", "Mega Resort"});
     std::vector<const BusStopRow*> rows;
     for (const auto& row : model.bus_stops)
         if (!menu.bus_stop_map || static_cast<int>(row.world) + 1 == menu.bus_stop_map) rows.push_back(&row);
@@ -91,7 +91,7 @@ void bus_stops(SkateMenu& menu, const ProgressionModel& model, const CallbacksV3
         if (choice(menu, "state", state, {"Hidden", "Locked", "Unlocked"}, true, states))
             progression_request(menu, callbacks, "busstop " + std::to_string(row.number) + " " + std::to_string(state));
         char title[32];
-        std::snprintf(title, sizeof(title), "Bus Stop %03u", row.number);
+        std::snprintf(title, sizeof(title), "Bus stop %03u", row.number);
         tile_text(menu, tile, title, maps[static_cast<unsigned>(row.world) + 1], right - states - px(12));
         end_tile(tile);
         ImGui::PopID();

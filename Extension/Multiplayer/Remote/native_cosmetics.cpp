@@ -8,13 +8,13 @@
 #include "Extension/Customization/local_customization_runtime.h"
 #include "Extension/Customization/local_player_card_runtime.h"
 #include "Extension/World/texture_handle_limit.h"
+#include "outfit_shuffle.h"
 #include <Windows.h>
 #include <atomic>
 #include <format>
 #include <mutex>
 #include <set>
 #include <tuple>
-#include "outfit_shuffle.h"
 
 namespace dingosdk::multiplayer {
 namespace {

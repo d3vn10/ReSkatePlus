@@ -159,7 +159,7 @@ void start() noexcept {
         running.store(false);
     }
 #else
-    say(logging::Level::info, "not built into this ReSkatePlus.dll (it needs Rust's cargo when ReSkate+ is built): Spotify is played through its own app.");
+    say(logging::Level::info, "not built into this ReSkate.dll (it needs Rust's cargo when ReSkate is built): Spotify is played through its own app.");
 #endif
 }
 void library_gave_up() noexcept {

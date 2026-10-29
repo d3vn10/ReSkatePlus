@@ -22,7 +22,7 @@ int main() {
     ServerConfig config;
     config.file = folder / "ReSkateServer.json";
 
-    // The ReSkate+ team's lists, as a server has them once the backend answers.
+    // The ReSkate team's lists, as a server has them once the backend answers.
     const std::vector<std::string> filtered{"darn"}, forbidden{"zorblat", "snarf", "snarfing"};
     set_word_lists(filtered, forbidden);
 

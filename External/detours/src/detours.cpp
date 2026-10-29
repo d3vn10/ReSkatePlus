@@ -1745,7 +1745,7 @@ static void detour_free_unused_trampoline_regions()
 
 ///////////////////////////////////////////////////////// Transaction Structs.
 //
-// ReSkate+ local patch: transactions may suspend a thread that owns the CRT
+// ReSkate local patch: transactions may suspend a thread that owns the CRT
 // or process heap lock. Thread enlistment allocates records, and commit/abort
 // delete records before every thread is resumed. Keep both record types off
 // those shared heaps, including allocation-failure and rollback paths.

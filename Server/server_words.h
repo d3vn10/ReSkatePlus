@@ -6,7 +6,7 @@
 #include <vector>
 
 namespace dingosdk::server {
-// A server's own chat words, beside the ReSkate+ team's lists (Extension/Multiplayer/word_lists.h):
+// A server's own chat words, beside the ReSkate team's lists (Extension/Multiplayer/word_lists.h):
 // data/words_filtered.txt and data/words_blocked.txt, one word to a line, with "#" starting a
 // comment. A filtered word shows as stars to players who have their chat filter on (the server
 // sends them its list); a blocked one is not allowed at all, as the team's are (config

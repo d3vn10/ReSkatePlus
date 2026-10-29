@@ -325,7 +325,7 @@ void draw_nametags() {
                 }
                 if (tag.talking) speaker(draw, ImVec2(left - size * 1.05f, name_at.y + name_size.y * 0.5f), size * 0.8f,
                                          with_alpha(animated_colour, alpha));
-                bubble_bottom = std::min(bubble_bottom, name_at.y); // above the name, or the drone label over it
+                bubble_bottom = std::min(bubble_bottom, name_at.y); // above the name, or the plugin's tag over it
             }
         }
         if (value.show_bubbles && !tag.bubbles.empty() && tag.distance <= value.bubble_distance) {

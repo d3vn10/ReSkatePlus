@@ -93,7 +93,7 @@ void draw_perf_hud() {
     double client_cpu{};
     for (const auto& thread : m.threads) if (thread.id == m.client_thread) client_cpu = thread.cpu_percent;
     text(bold, std::format("CPU  {:.0f}% of {} cores   client thread {:.0f}%", m.process_cpu_percent, m.cores, client_cpu), skate::white);
-    // A ReSkate+ thread using most of a core is never expected: name it.
+    // A ReSkate thread using most of a core is never expected: name it.
     for (const auto& thread : m.threads)
         if (thread.label == "ReSkate worker" && thread.cpu_percent >= 50)
             text(bold, std::format("ReSkate worker {} at {:.0f}%", thread.id, thread.cpu_percent), skate::danger);
@@ -159,7 +159,7 @@ void draw_perf_window() {
                 ImGui::Text("Process CPU: %.0f%% (%u cores = %u%%)", m.process_cpu_percent, m.cores, m.cores * 100);
                 ImGui::EndTabItem();
             }
-            if (ImGui::BeginTabItem("ReSkate+")) {
+            if (ImGui::BeginTabItem("ReSkate")) {
                 ImGui::TextDisabled("ReSkate's own work, timed. \"hooks/\" zones run inside the game's update.");
                 if (ImGui::BeginTable("##zones", 6, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV |
                         ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp)) {

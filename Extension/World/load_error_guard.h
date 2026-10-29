@@ -9,10 +9,10 @@
 // the game's to deal with, as it meant to. What the game wrote is put in the log, so a mod
 // whose content does not load can be found.
 namespace dingosdk::load_error_guard {
-	// Checks this build's function and hooks it; once. False when the build differs (no guard).
-	bool install(std::uintptr_t base) noexcept;
-	// How many parts were emptied since the game started.
-	std::uint64_t emptied() noexcept;
-	// How many failed loads the game has described since it started (0 without the guard).
-	std::uint64_t described() noexcept;
+// Checks this build's function and hooks it; once. False when the build differs (no guard).
+bool install(std::uintptr_t base) noexcept;
+// How many parts were emptied since the game started.
+std::uint64_t emptied() noexcept;
+// How many failed loads the game has described since it started (0 without the guard).
+std::uint64_t described() noexcept;
 }

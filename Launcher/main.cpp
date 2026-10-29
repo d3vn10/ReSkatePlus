@@ -93,7 +93,7 @@ void run_headless(const app::Session& session, std::vector<std::wstring> argumen
 }
 
 // Whether the launcher was put in a game's folder of a Steam library (...\steamapps\common\<game>),
-// which is where Steam keeps skate. and updates it: ReSkate+ has a folder of its own, with its
+// which is where Steam keeps skate. and updates it: ReSkate has a folder of its own, with its
 // own copy of the game. The same under Wine: on Proton, Steam is given the launcher's place in
 // that folder of its own (README, "Linux (Proton)").
 bool in_steam_library() {
@@ -141,22 +141,23 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     if (in_steam_library()) {
         MessageBoxW(nullptr,
             L"ReSkate+ cannot run from Steam's skate. folder.\n\n"
-            L"Move ReSkateLauncher.exe and ReSkatePlus.dll to a new, empty folder of their own (for example C:\\Games\\ReSkatePlus) "
+            L"Move ReSkatePlusLauncher.exe and ReSkatePlus.dll to a new, empty folder of their own (for example C:\\Games\\ReSkatePlus) "
             L"and run the launcher from there. It installs its own copy of the game into that folder, so a Steam update "
             L"cannot break it.\n\nThe launcher will now close.",
             L"ReSkate+ Launcher", MB_OK | MB_ICONERROR | MB_SETFOREGROUND);
         return 1;
     }
-    if (const auto folder = non_ascii_folder(); !folder.empty() &&
+    if (const auto folder = non_ascii_folder(); !folder.empty()) {
         MessageBoxW(nullptr,
             (L"ReSkate+ is in a folder whose path has letters skate. cannot read:\n\n" + folder +
              L"\n\nThe game cannot find its own files there (accented, Cyrillic, Japanese and other letters outside "
              L"A to Z; OneDrive and Desktop folders often have them) and crashes as it starts.\n\n"
              L"Move ReSkatePlusLauncher.exe and ReSkatePlus.dll, with the game the launcher installed beside them, to a folder "
              L"with only plain letters, for example C:\\Games\\ReSkatePlus, and run the launcher from there.\n\n"
-             L"Start anyway?").c_str(),
-            L"ReSkate Launcher", MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2 | MB_SETFOREGROUND) != IDYES)
+             L"The launcher will now close.").c_str(),
+            L"ReSkate+ Launcher", MB_OK | MB_ICONERROR | MB_SETFOREGROUND);
         return 1;
+    }
     auto arguments = original;
     const bool headless = take_flag(arguments, L"--no-gui");
 

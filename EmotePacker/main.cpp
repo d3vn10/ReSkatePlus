@@ -1,4 +1,4 @@
-// ReSkateEmotePacker: builds the chat emote pack ReSkatePlus.dll bakes in (assets/emotes) from a
+// ReSkateEmotePacker: builds the chat emote pack ReSkate.dll bakes in (assets/emotes) from a
 // folder of pictures and GIFs. Every file becomes one emote named after the file; animated
 // GIFs keep their frames and timing. Output: emotes.json + emotes.png in Better Chat's format
 // (Extension/UI/Overlay/chat_emotes.h), within the limits ReSkate's loader accepts.
@@ -40,7 +40,7 @@ struct Options {
     int size = 56;           // emote height in pixels (wide emotes may be shorter)
     int max_width = 2048;    // atlas width
     std::size_t max_frames = 64; // per animated emote; longer GIFs are thinned evenly
-    std::string name = "ReSkate+";
+    std::string name = "ReSkate";
 };
 struct Image {
     int width{}, height{};

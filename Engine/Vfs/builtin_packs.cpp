@@ -19,7 +19,7 @@
 namespace dingosdk::mods {
 namespace {
 namespace fs = std::filesystem;
-// Each pack: its RCDATA resource in ReSkatePlus.dll (cmake/Runtime.cmake) and its folder name.
+// Each pack: its RCDATA resource in ReSkate.dll (cmake/Runtime.cmake) and its folder name.
 struct Embedded {
     const wchar_t* resource;
     const char* name;
@@ -50,7 +50,7 @@ bool carries_packs(HMODULE module) {
         return FindResourceW(module, pack.resource, MAKEINTRESOURCEW(10) /* RT_RCDATA */) != nullptr;
     });
 }
-// ReSkatePlus.dll: this module when it is the DLL (the game), else ReSkatePlus.dll beside the program
+// ReSkate.dll: this module when it is the DLL (the game), else ReSkate.dll beside the program
 // (the launcher, which sits beside Skate.exe and the DLL), as data only.
 void open_source(Source& source) {
     HMODULE self{};

@@ -52,7 +52,7 @@
 
 // DirectX
 #include <d3d12.h>
-#include <wrl/client.h> // ReSkate+ bounded upload ownership
+#include <wrl/client.h> // ReSkate bounded upload ownership
 #include <dxgi1_4.h>
 #include <d3dcompiler.h>
 #ifdef _MSC_VER
@@ -114,7 +114,7 @@ struct VERTEX_CONSTANT_BUFFER_DX12
     float   mvp[4][4];
 };
 
-// [ReSkate+] mode, white in nits, unused, unused: see ImGui_ImplDX12_SetOutputTransfer.
+// [ReSkate] mode, white in nits, unused, unused: see ImGui_ImplDX12_SetOutputTransfer.
 static float g_ReSkateOutputTransfer[4] = { 0.0f, 200.0f, 0.0f, 0.0f };
 void ImGui_ImplDX12_SetOutputTransfer(int mode, float white_nits)
 {
@@ -176,7 +176,7 @@ static void ImGui_ImplDX12_SetupRenderState(ImDrawData* draw_data, ID3D12Graphic
     command_list->SetPipelineState(bd->pPipelineState);
     command_list->SetGraphicsRootSignature(bd->pRootSignature);
     command_list->SetGraphicsRoot32BitConstants(0, 16, &vertex_constant_buffer, 0);
-    command_list->SetGraphicsRoot32BitConstants(0, 4, g_ReSkateOutputTransfer, 16); // [ReSkate+] see ImGui_ImplDX12_SetOutputTransfer
+    command_list->SetGraphicsRoot32BitConstants(0, 4, g_ReSkateOutputTransfer, 16); // [ReSkate] see ImGui_ImplDX12_SetOutputTransfer
 
     // Setup blend factor
     const float blend_factor[4] = { 0.f, 0.f, 0.f, 0.f };
@@ -329,7 +329,7 @@ void ImGui_ImplDX12_RenderDrawData(ImDrawData* draw_data, ID3D12GraphicsCommandL
     platform_io.Renderer_RenderState = nullptr;
 }
 
-// ReSkate+ bounded upload adaptation of the upstream font texture helper.
+// ReSkate bounded upload adaptation of the upstream font texture helper.
 // See third_party/README.md. Retain in-flight objects on a failed/expired GPU
 // fence instead of hanging Present or releasing memory the GPU may still use.
 static bool ImGui_ImplDX12_CreateFontsTexture()
@@ -454,8 +454,8 @@ bool    ImGui_ImplDX12_CreateDeviceObjects()
         param[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
         param[0].Constants.ShaderRegister = 0;
         param[0].Constants.RegisterSpace = 0;
-        param[0].Constants.Num32BitValues = 20;                        // [ReSkate+] the matrix, then the output transfer
-        param[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;       // [ReSkate+] the pixel shader reads the transfer
+        param[0].Constants.Num32BitValues = 20;                        // [ReSkate] the matrix, then the output transfer
+        param[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;       // [ReSkate] the pixel shader reads the transfer
 
         param[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
         param[1].DescriptorTable.NumDescriptorRanges = 1;
@@ -629,7 +629,7 @@ bool    ImGui_ImplDX12_CreateDeviceObjects()
     }
 
     // Create the pixel shader and the pipeline
-    // [ReSkate+] The HDR-aware shader first, then ImGui's stock one. Some D3DCompile()s cannot build the HDR one (Wine's
+    // [ReSkate] The HDR-aware shader first, then ImGui's stock one. Some D3DCompile()s cannot build the HDR one (Wine's
     // builtin d3dcompiler, as under Apple's Game Porting Toolkit), and an SDR-only window beats no window at all.
     {
         static const char* pixelShaders[] =

@@ -13,7 +13,7 @@ namespace dingosdk::storage { class SaveDatabase; }
 
 namespace dingosdk::profile {
 struct PlacedObject {
-    std::uint64_t id{}; // ReSkate+ layout identity; never an ECS handle.
+    std::uint64_t id{}; // ReSkate layout identity; never an ECS handle.
     std::string item;
     std::array<float, 3> position{};
     std::array<float, 4> rotation{0, 0, 0, 1}; // x,y,z,w

@@ -46,6 +46,7 @@ add_library(dingosdk_runtime SHARED
     Extension/Multiplayer/Hud/native_party_hooks.cpp
     Extension/Multiplayer/Hud/native_party_requests.cpp
     Extension/Throwdowns/native_throwdowns.cpp
+    Extension/Localization/text_overrides.cpp
     Extension/Throwdowns/native_type_scan.cpp
     Extension/Throwdowns/throwdown_lab.cpp
     Extension/Throwdowns/native_flag_session.cpp
@@ -102,6 +103,7 @@ add_library(dingosdk_runtime SHARED
     Extension/Settings/named_settings.cpp
     Extension/World/console_commands.cpp
     Extension/World/world_entities.cpp
+    Extension/World/owned_bodies.cpp
     Extension/World/character_room.cpp
     Extension/World/guid_table_guard.cpp
     Extension/Skater/bone_cam.cpp
@@ -128,6 +130,9 @@ add_library(dingosdk_runtime SHARED
     Extension/Assets/map_icons.cpp
     Engine/Vfs/thunderstore_package.cpp
     Launcher/mod_manager.cpp
+    Launcher/thunderstore.cpp
+    Extension/Assets/mod_store.cpp
+    Extension/Assets/mod_store_view.cpp
     Extension/Assets/loose_files.cpp
     Extension/Scripting/lua_startup.cpp
     Extension/Scripting/lua_native_block.cpp
@@ -136,6 +141,8 @@ add_library(dingosdk_runtime SHARED
     Extension/Plugins/plugin_commands.cpp
     Extension/Plugins/plugin_http.cpp
     Extension/Plugins/plugin_game_runtime.cpp
+    Extension/Rendering/plugin_effects.cpp
+    Extension/Plugins/plugin_joystick.cpp
     Extension/Skater/skater_animation.cpp
     Extension/Plugins/plugin_sound.cpp
     Extension/Skater/skater_events.cpp
@@ -279,7 +286,7 @@ target_link_libraries(dingosdk_runtime PRIVATE dingosdk_custom_level_manifest)
 set_target_properties(dingosdk_runtime PROPERTIES OUTPUT_NAME "ReSkatePlus" PREFIX "")
 
 # The game as a Spotify Connect device (Extension/Music/spotify_device.h): SpotifyHelper/, a
-# Rust library on librespot, built by cargo and linked into ReSkatePlus.dll. Without cargo the DLL
+# Rust library on librespot, built by cargo and linked into ReSkate.dll. Without cargo the DLL
 # is built without it, and Spotify is played through its own app. (Not in Debug builds: the
 # library is built with the release C runtime.)
 find_program(DINGOSDK_CARGO cargo HINTS "$ENV{USERPROFILE}/.cargo/bin")
@@ -323,7 +330,7 @@ file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/generated/menu_fonts.rc"
     "FONT_BRUSH RCDATA \"${dingosdk_menu_fonts}/PermanentMarker-Regular.ttf\"\n")
 target_sources(dingosdk_runtime PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated/menu_fonts.rc")
 
-# The startup window's picture (PNG or JPEG), built into ReSkatePlus.dll when the
+# The startup window's picture (PNG or JPEG), built into ReSkate.dll when the
 # repository has one. ReSkate.Splash.png/.jpg beside the DLL still takes
 # precedence at run time.
 set(dingosdk_startup_art "${PROJECT_SOURCE_DIR}/assets/startup_splash.png")
@@ -335,7 +342,7 @@ if(EXISTS "${PROJECT_SOURCE_DIR}/assets")
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/assets")
 endif()
 # Chat emotes (Better Chat's pack format; Extension/UI/Overlay/chat_emotes.h), built into
-# ReSkatePlus.dll when the repository has assets/emotes/emotes.json and emotes.png.
+# ReSkate.dll when the repository has assets/emotes/emotes.json and emotes.png.
 set(dingosdk_emotes "${PROJECT_SOURCE_DIR}/assets/emotes")
 if(EXISTS "${dingosdk_emotes}")
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${dingosdk_emotes}")
