@@ -2218,6 +2218,39 @@ text = '''
         default: return {nametag_homie, "Homie"};
 '''
 
+[[patches]]
+[patches.pattern]
+file = "readme.md"
+operation = "before"
+search = '''
+## Install
+'''
+text = '''
+## ReSkate+ Features
+
+- **All Cosmetics & DIY Objects**
+  - Full access to *all* content available inside the games files.
+  - Includes all *limited time* reedemable items, *skate.Pass*, and *store offers/bundles* that cost SVB.
+- **Outfit Shuffler**
+  - Show other players outfits and boards as random items (local only).
+  - Turn it on and everyone in lobby is wearing something new.
+- **Deprecated/NSFW Mods**
+  - Launcher toggles to enable showing every mod on the Thunderstore, wether they have been
+  abandoned or marked as being not safe for work.
+- **Special/Developer Menus** 
+  - Developer only *Network Activity* panel has been integrated into *Settings > Performance* tab.
+  - Tag customization is local only, each client checks independantly for a peers tag status.
+- **Multiple Protocols**
+  - Supports multiple protocols for online play allowing connections with older clients and servers.
+  - Only one protocol can be used at a time, server list can take a bit to refresh when changed.
+
+> ReSkate+ is automatically built once a day if new commits have been made.
+> Experimental builds of other forks do not auto-update and will show as a dev build in launcher.
+> Builds are made using a fresh copy of the repo and applying TOML patches to it.
+> All bug-reporting is disabled in these builds.
+
+'''
+
 # ==================================================
 # Show NSFW and deprecated mods.
 # ==================================================
