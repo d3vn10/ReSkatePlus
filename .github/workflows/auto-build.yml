@@ -116,7 +116,14 @@ jobs:
         $releaseFolder = "build\vs2022-x64\Release\complete\${{ steps.versioning.outputs.VERSION }}"
         Set-Location $releaseFolder
         $zipFile = Get-ChildItem -Filter "*.zip" | Select-Object -First 1
-        gh release create "v${{ steps.versioning.outputs.VERSION }}" $zipFile.Name launcher.json --title "ReSkatePlus v${{ steps.versioning.outputs.VERSION }}" --notes "Automated track build reflecting FourthStudio updates. Check the commit history for this version to inspect the fully applied source code patches."
+        gh release create "v${{ steps.versioning.outputs.VERSION }}" `
+            $zipFile.Name `
+            launcher.json `
+            ReSkatePlusLauncher.exe `
+            ReSkatePlus.dll `
+            ReSkatePlusServer.exe `
+            --title "ReSkate+ v${{ steps.versioning.outputs.VERSION }}" `
+            --notes "Automated track build reflecting FourthStudio updates. Check the commit history for this version to inspect the fully applied source code patches."
 
     - name: Save Successful Build State
       if: steps.sync.outputs.SKIP != 'true' && steps.release.outcome == 'success'
