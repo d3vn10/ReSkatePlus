@@ -735,13 +735,13 @@ namespace dingosdk::launcher_gui::detail {
 			if (nsfw(package) && settings.nsfw_mods) {
 				const std::string label = "NSFW";
 				pill_x -= badge_width(fonts, label);
-				badge(draw, fonts, ImVec2(pill_x, pill_y), label, color::danger, color::ink);
+				badge(draw, fonts, ImVec2(pill_x, pill_y), label, IM_COL32(255, 255, 64, 129), color::ink);
 				pill_x -= S(8);
 			}
 			if (package.deprecated && settings.deprecated_mods) {
 				const std::string label = "DEPRECATED";
 				pill_x -= badge_width(fonts, label);
-				badge(draw, fonts, ImVec2(pill_x, pill_y), label, color::warning, color::ink);
+				badge(draw, fonts, ImVec2(pill_x, pill_y), label, IM_COL32(150, 152, 158, 255), color::ink);
 				pill_x -= S(8);
 			}
 			const ImVec4 details_clip(text_x, start.y + S(55), std::max(text_x, pill_x - S(8)), start.y + tall);

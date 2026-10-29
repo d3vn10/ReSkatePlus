@@ -1,0 +1,2518 @@
+[vars]
+name = "ReSkate+"
+name_safe = "ReSkatePlus"
+name_upper = "RESKATE+"
+name_lower = "reskateplus"
+github = "d3vn10/ReSkatePlus"
+
+# ==================================================
+# Replace images and icons.
+# ==================================================
+
+[[patches]]
+[patches.replace]
+file = "assets/launcher/background.jpg"
+source = "background.jpg"
+
+[[patches]]
+[patches.replace]
+file = "assets/startup_splash.jpg"
+source = "splash.jpg"
+
+[[patches]]
+[patches.replace]
+file = "assets/launcher/icon.ico"
+source = "icon.ico"
+
+# ==================================================
+# Change application version.
+# ==================================================
+
+[[patches]]
+[patches.pattern]
+file = "cmake/templates/reskate_version.h.in"
+operation = "at"
+search = '// The release version (DINGOSDK_VERSION); local builds say 0.0.0.'
+text = '// The release version (DINGOSDK_VERSION); local builds say 0.0.0.0.'
+
+[[patches]]
+[patches.pattern]
+file = "cmake/templates/reskate_version.h.in"
+operation = "at"
+search = 'inline constexpr bool reskate_release_build = reskate_version != "0.0.0";'
+text = 'inline constexpr bool reskate_release_build = reskate_version != "0.0.0.0";'
+
+[[patches]]
+[patches.pattern]
+file = "cmake/templates/version.rc.in"
+operation = "at"
+search = '''
+ FILEVERSION @version_major@,@version_minor@,@version_patch@,0
+ PRODUCTVERSION @version_major@,@version_minor@,@version_patch@,0
+'''
+text = '''
+ FILEVERSION @version_major@,@version_minor@,@version_patch@,@version_revision@
+ PRODUCTVERSION @version_major@,@version_minor@,@version_patch@,@version_revision@
+'''
+
+[[patches]]
+[patches.pattern]
+file = "cmake/templates/version.rc.in"
+operation = "at"
+search = 'VALUE "CompanyName", "Dingo Shenanigans"'
+text = 'VALUE "CompanyName", "Half-Squared Inc."'
+
+[[patches]]
+[patches.pattern]
+file = "cmake/templates/version.rc.in"
+operation = "at"
+search = 'VALUE "LegalCopyright", "Copyright (C) 2026 the ReSkate contributors. Licensed under GPL-3.0."'
+text = 'VALUE "LegalCopyright", "Copyright (C) 2026 the {{name}} contributors. Licensed under GPL-3.0."'
+
+[[patches]]
+[patches.pattern]
+file = "cmake/templates/version.rc.in"
+operation = "at"
+search = 'VALUE "ProductName", "ReSkate"'
+text = 'VALUE "ProductName", "{{name}}"'
+
+[[patches]]
+[patches.pattern]
+file = "cmake/projectoptions.cmake"
+operation = "at"
+search = '''
+# script passes its version; local builds say 0.0.0.
+set(DINGOSDK_VERSION "0.0.0" CACHE STRING "Release version stamped into the shipped binaries")
+'''
+text = '''
+# script passes its version; local builds say 0.0.0.0.
+set(DINGOSDK_VERSION "0.0.0.0" CACHE STRING "Release version stamped into the shipped binaries")
+'''
+
+[[patches]]
+[patches.pattern]
+file = "cmake/projectoptions.cmake"
+operation = "at"
+search = '''
+    if(NOT DINGOSDK_VERSION MATCHES "^([0-9]+)\\.([0-9]+)\\.([0-9]+)")
+        message(FATAL_ERROR "DINGOSDK_VERSION must look like 1.2.3, not '${DINGOSDK_VERSION}'")
+'''
+text = '''
+    if(NOT DINGOSDK_VERSION MATCHES "^([0-9]+)\\.([0-9]+)\\.([0-9]+)\\.([0-9]+)")
+        message(FATAL_ERROR "DINGOSDK_VERSION must look like 1.2.3.4, not '${DINGOSDK_VERSION}'")
+'''
+
+[[patches]]
+[patches.pattern]
+file = "cmake/projectoptions.cmake"
+operation = "after"
+search = '''
+    set(version_patch ${CMAKE_MATCH_3})
+'''
+text = '''
+    set(version_revision ${CMAKE_MATCH_4})
+'''
+
+# ==================================================
+# Rename executables.
+# ==================================================
+
+[[patches]]
+[patches.pattern]
+file = "cmake/apps.cmake"
+operation = "at"
+search = '''
+    set_target_properties(dingosdk_launcher PROPERTIES OUTPUT_NAME "ReSkateLauncher")
+    dingosdk_version_info(dingosdk_launcher "ReSkate launcher" "ReSkateLauncher.exe" VFT_APP)
+'''
+text = '''
+    set_target_properties(dingosdk_launcher PROPERTIES OUTPUT_NAME "{{name_safe}}Launcher")
+    dingosdk_version_info(dingosdk_launcher "{{name}} Launcher" "{{name_safe}}Launcher.exe" VFT_APP)
+'''
+
+[[patches]]
+[patches.pattern]
+file = "cmake/apps.cmake"
+operation = "at"
+search = 'option(DINGOSDK_LAUNCHER_AUTO_UPDATE "Let the launcher replace itself and ReSkate.dll from the launcher config" OFF)'
+text = 'option(DINGOSDK_LAUNCHER_AUTO_UPDATE "Let the launcher replace itself and {{name_safe}}.dll from the launcher config" OFF)'
+
+[[patches]]
+[patches.pattern]
+file = "cmake/apps.cmake"
+operation = "at"
+search = 'set(DINGOSDK_RELEASE_REPO "Dingo-Shenanigans/ReSkate" CACHE STRING "Public GitHub owner/repo whose releases update the launcher")'
+text = 'set(DINGOSDK_RELEASE_REPO "{{github}}" CACHE STRING "Public GitHub owner/repo whose releases update the launcher")'
+
+[[patches]]
+[patches.pattern]
+file = "cmake/apps.cmake"
+operation = "at"
+search = 'set_target_properties(dingosdk_emote_packer PROPERTIES OUTPUT_NAME "ReSkateEmotePacker")'
+text = 'set_target_properties(dingosdk_emote_packer PROPERTIES OUTPUT_NAME "{{name_safe}}EmotePacker")'
+
+[[patches]]
+[patches.pattern]
+file = "cmake/apps.cmake"
+operation = "at"
+search = 'set_target_properties(dingosdk_builtin_packer PROPERTIES OUTPUT_NAME "ReSkateBuiltinPacker")'
+text = 'set_target_properties(dingosdk_builtin_packer PROPERTIES OUTPUT_NAME "{{name_safe}}BuiltinPacker")'
+
+[[patches]]
+[patches.pattern]
+file = "cmake/apps.cmake"
+operation = "at"
+search = '''
+    set_target_properties(dingosdk_server PROPERTIES OUTPUT_NAME "ReSkateServer")
+    dingosdk_version_info(dingosdk_server "ReSkate dedicated server" "ReSkateServer.exe" VFT_APP)
+'''
+text = '''
+    set_target_properties(dingosdk_server PROPERTIES OUTPUT_NAME "{{name_safe}}Server")
+    dingosdk_version_info(dingosdk_server "{{name}} Dedicated Server" "{{name_safe}}Server.exe" VFT_APP)
+'''
+
+[[patches]]
+[patches.pattern]
+file = "cmake/apps.cmake"
+operation = "at"
+search = 'set_target_properties(dingosdk_server PROPERTIES OUTPUT_NAME "ReSkateServer")'
+text = 'set_target_properties(dingosdk_server PROPERTIES OUTPUT_NAME "{{name_safe}}Server")'
+
+[[patches]]
+[patches.pattern]
+file = "cmake/runtime.cmake"
+operation = "at"
+search = 'set_target_properties(dingosdk_runtime PROPERTIES OUTPUT_NAME "ReSkate" PREFIX "")'
+text = 'set_target_properties(dingosdk_runtime PROPERTIES OUTPUT_NAME "{{name_safe}}" PREFIX "")'
+
+[[patches]]
+[patches.pattern]
+file = "cmake/runtime.cmake"
+operation = "at"
+search = 'dingosdk_version_info(dingosdk_runtime "ReSkate mod runtime" "ReSkate.dll" VFT_DLL)'
+text = 'dingosdk_version_info(dingosdk_runtime "{{name}} Mod Runtime" "{{name_safe}}.dll" VFT_DLL)'
+
+[[patches]]
+[patches.pattern]
+file = "emotepacker/main.cpp"
+operation = "at"
+search = "Copy both into the repository's assets\\\\emotes and rebuild ReSkate.dll."
+text = "Copy both into the repository's assets\\\\emotes and rebuild {{name_safe}}.dll."
+
+[[patches]]
+[patches.pattern]
+file = "engine/core/log/banner.cpp"
+operation = "at"
+search = '''
+    write(Level::info, Channel::runtime, R"banner(  ____       ____  _         _
+ |  _ \ ___ / ___|| | ____ _| |_ ___
+ | |_) / _ \\___ \| |/ / _` | __/ _ \
+ |  _ <  __/ ___) |   < (_| | ||  __/
+ |_| \_\___||____/|_|\_\__,_|\__\___|
+                 o================o)banner");
+'''
+text = '''
+    write(Level::info, Channel::runtime, R"banner(
+8 888888888o.   8 8888888888     d888888o.   8 8888     ,88'          .8.    8888888 8888888888 8 8888888888         8 8888      
+8 8888    `88.  8 8888         .`8888:' `88. 8 8888    ,88'          .888.         8 8888       8 8888               8 8888      
+8 8888     `88  8 8888         8.`8888.   Y8 8 8888   ,88'          :88888.        8 8888       8 8888               8 8888      
+8 8888     ,88  8 8888         `8.`8888.     8 8888  ,88'          . `88888.       8 8888       8 8888               8 8888      
+8 8888.   ,88'  8 888888888888  `8.`8888.    8 8888 ,88'          .8. `88888.      8 8888       8 888888888888 8888888 8888888888
+8 888888888P'   8 8888           `8.`8888.   8 8888 88'          .8`8. `88888.     8 8888       8 8888         8888888 8888888888
+8 8888`8b       8 8888            `8.`8888.  8 888888<          .8' `8. `88888.    8 8888       8 8888               8 8888      
+8 8888 `8b.     8 8888        8b   `8.`8888. 8 8888 `Y8.       .8'   `8. `88888.   8 8888       8 8888               8 8888      
+8 8888   `8b.   8 8888        `8b.  ;8.`8888 8 8888   `Y8.    .888888888. `88888.  8 8888       8 8888               8 8888      
+8 8888     `88. 8 888888888888 `Y8888P ,88P' 8 8888     `Y8. .8'       `8. `88888. 8 8888       8 888888888888       8 8888      
+)banner");
+'''
+
+[[patches]]
+[patches.pattern]
+file = "engine/core/log/logger.cpp"
+operation = "at"
+search = 'SetConsoleTitleW(L"ReSkate Console");'
+text = 'SetConsoleTitleW(L"{{name}} Console");'
+
+[[patches]]
+[patches.pattern]
+file = "engine/core/platform/launcher_support.cpp"
+operation = "at"
+search = '''
+    return {directory, directory / L"Skate.exe", directory / L"ReSkate.dll",
+            directory / L"steam_api64.dll", directory / L"logs"};
+'''
+text = '''
+    return {directory, directory / L"Skate.exe", directory / L"{{name_safe}}.dll",
+            directory / L"steam_api64.dll", directory / L"logs"};
+'''
+
+[[patches]]
+[patches.pattern]
+file = "engine/core/platform/launcher_support.h"
+operation = "at"
+search = 'inline constexpr const char* offline_player_name = "Unknown Player";'
+text = 'inline constexpr const char* offline_player_name = "Half-Squared Employee";'
+
+[[patches]]
+[patches.pattern]
+file = "engine/core/profiling/profiler.cpp"
+operation = "at"
+search = 'if (lower == "reskate.dll") return "ReSkate worker";'
+text = 'if (lower == "{{name_lower}}.dll") return "{{name}} Worker";'
+
+[[patches]]
+[patches.pattern]
+file = "engine/vfs/builtin_packs.cpp"
+operation = "at"
+search = 'if (const auto loaded = GetModuleHandleW(L"ReSkate.dll"); carries_packs(loaded)) {'
+text = 'if (const auto loaded = GetModuleHandleW(L"{{name_safe}}.dll"); carries_packs(loaded)) {'
+
+[[patches]]
+[patches.pattern]
+file = "engine/vfs/builtin_packs.cpp"
+operation = "at"
+search = 'const auto dll = fs::path(program).parent_path() / L"ReSkate.dll";'
+text = 'const auto dll = fs::path(program).parent_path() / L"{{name_safe}}.dll";'
+
+[[patches]]
+[patches.pattern]
+file = "engine/vfs/mod_catalog.cpp"
+operation = "at"
+search = 'const auto file = fs::path(std::wstring(host.data(), length)).parent_path() / L"ReSkate.dll";'
+text = 'const auto file = fs::path(std::wstring(host.data(), length)).parent_path() / L"{{name_safe}}.dll";'
+
+[[patches]]
+[patches.pattern]
+file = "engine/vfs/mod_merge_stamp.cpp"
+operation = "at"
+search = 'return fs::path(host).parent_path() / L"ReSkate.dll";'
+text = 'return fs::path(host).parent_path() / L"{{name_safe}}.dll";'
+
+[[patches]]
+[patches.pattern]
+file = "extension/assets/mod_layers.cpp"
+operation = "at"
+search = 'startup::status("Starting ReSkate\xE2\x80\xA6");'
+text = 'startup::status("Starting {{name}}\xE2\x80\xA6");'
+
+[[patches]]
+[patches.pattern]
+file = "extension/boot/discord_presence.cpp"
+operation = "at"
+search = 'const auto launcher = game.substr(0, slash + 1) + L"ReSkateLauncher.exe";'
+text = 'const auto launcher = game.substr(0, slash + 1) + L"{{name_safe}}Launcher.exe";'
+
+[[patches]]
+[patches.pattern]
+file = "extension/boot/discord_presence.cpp"
+operation = "at"
+search = 'assets["large_text"] = "ReSkate";'
+text = 'assets["large_text"] = "{{name}}";'
+
+[[patches]]
+[patches.pattern]
+file = "extension/boot/steam_restart_guard.cpp"
+operation = "at"
+search = 'throw std::runtime_error("Cannot locate ReSkate.dll");'
+text = 'throw std::runtime_error("Cannot locate {{name_safe}}.dll");'
+
+[[patches]]
+[patches.pattern]
+file = "extension/boot/steam_restart_guard.cpp"
+operation = "at"
+search = "throw std::runtime_error(\"Loaded steam_api64.dll is not ReSkate.dll's verified sibling\");"
+text = "throw std::runtime_error(\"Loaded steam_api64.dll is not {{name_safe}}.dll's verified sibling\");"
+
+[[patches]]
+[patches.pattern]
+file = "extension/ui/overlay/overlay_notices.cpp"
+operation = "at"
+search = '''
+            dingosdk::reskate_release_build ? "ReSkate " + std::string(dingosdk::reskate_version) + " loaded"
+                                            : std::string("ReSkate loaded (development build)"),
+'''
+text = '''
+                dingosdk::reskate_release_build ? "{{name}} v" + std::string(dingosdk::reskate_version) + " loaded"
+                : "{{name}} v" + std::string(dingosdk::reskate_version) + " [DEV] loaded",
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/ui/startup/startup_window.cpp"
+operation = "at"
+search = 'std::wstring heading{L"Starting ReSkate\x2026"}, detail;'
+text = 'std::wstring heading{L"Starting {{name}}\x2026"}, detail;'
+
+[[patches]]
+[patches.pattern]
+file = "extension/ui/startup/startup_window.cpp"
+operation = "at"
+search = 'constexpr wchar_t wordmark[] = L"RESKATE";'
+text = 'constexpr wchar_t wordmark[] = L"{{name_upper}}";'
+
+[[patches]]
+[patches.pattern]
+file = "extension/ui/startup/startup_window.cpp"
+operation = "at"
+search = '''
+    self.window = CreateWindowExW(WS_EX_TOPMOST | WS_EX_APPWINDOW | WS_EX_NOACTIVATE | WS_EX_LAYERED,
+                                  class_name, L"ReSkate", WS_POPUP, monitor.rcWork.left, monitor.rcWork.top, 1, 1,
+                                  nullptr, nullptr, instance, &self);
+'''
+text = '''
+    self.window = CreateWindowExW(WS_EX_TOPMOST | WS_EX_APPWINDOW | WS_EX_NOACTIVATE | WS_EX_LAYERED,
+                                  class_name, L"{{name_safe}}", WS_POPUP, monitor.rcWork.left, monitor.rcWork.top, 1, 1,
+                                  nullptr, nullptr, instance, &self);
+'''
+
+# ==================================================
+# Add mod-dumper.
+# ==================================================
+
+[[patches]]
+[patches.pattern]
+file = "cmake/core.cmake"
+operation = "after"
+search = '''
+        Engine/Vfs/mod_catalog.cpp
+'''
+text = '''
+        Engine/Vfs/mod_dump.cpp
+'''
+
+[[patches]]
+[patches.replace]
+file = "engine/vfs/mod_dump.cpp"
+source = "mod_dump.cpp"
+
+[[patches]]
+[patches.replace]
+file = "engine/vfs/mod_dump.h"
+source = "mod_dump.h"
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_internal.h"
+operation = "after"
+search = '''
+    std::thread worker;
+    std::atomic<bool> installing{};
+    std::atomic<bool> cancel{};
+    std::atomic<float> progress{-1};
+    std::mutex mutex;
+    std::string activity;                // what the worker is doing, under mutex
+    bool finished{};
+    std::string finished_name, finished_error, finished_conflict, finished_note;
+    fs::path finished_source;
+'''
+text = '''
+	std::thread dump_worker;
+	std::atomic<bool> dumping{};
+	bool dump_finished{}, dump_dialog{};
+	std::string dump_mod_name, dump_status, dump_error;
+	fs::path dump_destination;
+'''
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_internal.h"
+operation = "after"
+search = '''
+        if (conflicts.worker.joinable()) conflicts.worker.join();
+'''
+text = '''
+		if (dump_worker.joinable()) dump_worker.join();
+'''
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_mods.cpp"
+operation = "after"
+search = '''
+#include "gui_internal.h"
+'''
+text = '''
+#include "Engine/Vfs/mod_dump.h"
+'''
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_mods.cpp"
+operation = "after"
+search = '''
+#include <system_error>
+'''
+text = '''
+#include <Engine/Core/Platform/path_text.h>
+'''
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_mods.cpp"
+operation = "before"
+search = '''
+void save(ModsPanel& panel) {
+    try {
+        mods::save_mod_order(panel.root, panel.list.entries);
+        want_conflict_check(panel);
+        panel.list.issue.clear();
+        panel.message = "Saved. Changes apply the next time Skate starts.";
+        panel.message_error = false;
+    } catch (const std::exception& failure) {
+        panel.message = failure.what();
+        panel.message_error = true;
+    }
+}
+'''
+text = '''
+void start_dump(ModsPanel& panel, const mods::Mod& mod, const fs::path& parent);
+void dump_marquee(float height) {
+	const ImVec2 size(ImGui::GetContentRegionAvail().x, height);
+	const ImVec2 position = ImGui::GetCursorScreenPos();
+	auto* draw = ImGui::GetWindowDrawList();
+	const float rounding = height * 0.5f;
+	draw->AddRectFilled(position, ImVec2(position.x + size.x, position.y + size.y),
+		ImGui::GetColorU32(ImGuiCol_FrameBg), rounding);
+	const float segment = size.x * 0.28f;
+	const float travel = std::max(0.0f, size.x - segment);
+	const float phase = std::fmod(static_cast<float>(ImGui::GetTime()) * 0.8f, 2.0f);
+	const float offset = (phase <= 1.0f ? phase : 2.0f - phase) * travel;
+	draw->AddRectFilled(ImVec2(position.x + offset, position.y),
+		ImVec2(position.x + offset + segment, position.y + size.y),
+		ImGui::GetColorU32(ImGuiCol_ButtonHovered), rounding);
+	ImGui::Dummy(size);
+}
+std::string wrap_path_components(std::string_view path, float width) {
+	std::string wrapped;
+	std::string line;
+	auto* font = ImGui::GetFont();
+	const float font_size = ImGui::GetFontSize();
+	const auto text_width = [&](std::string_view text) {
+		return font->CalcTextSizeA(font_size, FLT_MAX, 0, text.data(), text.data() + text.size()).x;
+	};
+	for (std::size_t start = 0; start < path.size();) {
+		auto end = path.find_first_of("/\\", start);
+		if (end == std::string_view::npos) end = path.size();
+		else ++end;
+		const auto component = path.substr(start, end - start);
+		if (!line.empty() && text_width(line + std::string(component)) > width) {
+			wrapped += line;
+			wrapped += '\n';
+			line.clear();
+		}
+		line.append(component);
+		start = end;
+	}
+	wrapped += line;
+	return wrapped;
+}
+std::string dump_status_label(std::string_view status) {
+	for (const auto prefix : { std::string_view("Extracting "), std::string_view("Reading bundle "),
+							  std::string_view("Reading ") }) {
+		if (!status.starts_with(prefix)) continue;
+		auto path = status.substr(prefix.size());
+		const auto source = path.find(" from ");
+		if (source != std::string_view::npos) path = path.substr(0, source);
+		const auto separator = path.find_last_of("/\\");
+		if (separator != std::string_view::npos) path.remove_prefix(separator + 1);
+		return "./" + std::string(path);
+	}
+	return std::string(status);
+}
+'''
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_mods.cpp"
+operation = "after"
+search = '''
+        ImGui::Separator();
+        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(color::danger));
+        if (ImGui::MenuItem("Uninstall")) ask(Request::Kind::uninstall);
+        ImGui::PopStyleColor();
+'''
+text = '''
+		if (!group) {
+			ImGui::Separator();
+			if (ImGui::MenuItem("Dump Mod...", nullptr, false, !panel.installing && !panel.dumping)) {
+				const auto destination = pick_path(window, true, L"Choose a folder for the mod dump", nullptr, nullptr);
+				if (!destination.empty()) {
+					start_dump(panel, mod, destination);
+					ImGui::CloseCurrentPopup();
+				}
+			}
+		}
+'''
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_mods.cpp"
+operation = "at"
+search = '''
+void installed_page(Launcher& launcher, const Fonts& fonts, ModsPanel& panel, const thunderstore::Installed& installed,
+                    const std::vector<const thunderstore::Package*>& pending, float height, bool installing) {
+'''
+text = '''
+void installed_page(Launcher& launcher, const Fonts& fonts, ModsPanel& panel, const thunderstore::Installed& installed,
+                    const std::vector<const thunderstore::Package*>& pending, float height, bool installing, HWND window) {
+'''
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_mods.cpp"
+operation = "at"
+count = 2
+search = 'installed_row(fonts, panel, installed, view, position_of[index], row - row_gap(), reorder, request);'
+text = 'installed_row(fonts, panel, installed, view, position_of[index], row - row_gap(), reorder, request, window);'
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_mods.cpp"
+operation = "before"
+search = '''
+// What PLAY shows instead of launching when the merge left mods out. The game
+// would leave them out too, silently, three minutes into a loading screen.
+void mods_broken_window(Launcher& launcher, const Fonts& fonts, ImVec2 size, Ui& ui, ModsPanel& panel,
+                        const std::vector<ModProblem>& problems) {
+'''
+text = '''
+namespace {
+	void start_dump(ModsPanel& panel, const mods::Mod& mod, const fs::path& parent) {
+		if (panel.dumping) return;
+		if (panel.dump_worker.joinable()) panel.dump_worker.join();
+		const auto name = mod.name;
+		const auto mod_directory = mod.directory;
+		const auto destination = parent / fs::path(name);
+		panel.dumping = true;
+		panel.dump_dialog = true;
+		panel.dump_mod_name = name;
+		panel.dump_error.clear();
+		panel.dump_destination.clear();
+		{
+			std::lock_guard lock(panel.mutex);
+			panel.dump_status = "Preparing dump";
+			panel.dump_finished = false;
+		}
+		logging::write(logging::Level::info, logging::Channel::launcher,
+			std::string("Starting mod dump: ") + name + " from " + path_utf8(mod_directory));
+		try {
+			panel.dump_worker = std::thread([&panel, mod_directory, destination] {
+				std::string error;
+				fs::path output;
+				try {
+					const auto report = mods::dump_mod(mod_directory, destination, [&panel](std::string_view status) {
+						{
+							std::lock_guard lock(panel.mutex);
+							panel.dump_status.assign(status);
+						}
+						logging::write(logging::Level::info, logging::Channel::launcher,
+							"Mod dump progress: " + std::string(status));
+					});
+					output = report.directory;
+					logging::write(logging::Level::info, logging::Channel::launcher,
+						std::string("Mod dump complete: ") + path_utf8(output) + " (" + std::to_string(report.ebx) + " EBX)");
+				}
+				catch (const std::exception& failure) {
+					error = failure.what();
+					logging::write(logging::Level::error, logging::Channel::launcher,
+						"Mod dump failed: " + error);
+				}
+				catch (...) {
+					error = "The mod dump failed for an unknown reason.";
+					logging::write(logging::Level::error, logging::Channel::launcher,
+						"Mod dump failed: " + error);
+				}
+				std::lock_guard lock(panel.mutex);
+				panel.dump_error = std::move(error);
+				panel.dump_destination = std::move(output);
+				panel.dump_status = panel.dump_error.empty() ? "Dump complete" : "Dump failed";
+				panel.dump_finished = true;
+			});
+		}
+		catch (const std::exception& failure) {
+			std::lock_guard lock(panel.mutex);
+			panel.dump_status = "Dump failed";
+			panel.dump_error = failure.what();
+			panel.dump_finished = true;
+			logging::write(logging::Level::error, logging::Channel::launcher,
+				"Could not start mod dump: " + panel.dump_error);
+		}
+	}
+	void collect_dump(ModsPanel& panel) {
+		{
+			std::lock_guard lock(panel.mutex);
+			if (!panel.dump_finished) return;
+			panel.dump_finished = false;
+		}
+		if (panel.dump_worker.joinable()) panel.dump_worker.join();
+		panel.dumping = false;
+	}
+	void dump_modal(const Fonts& fonts, ModsPanel& panel) {
+		if (!panel.dump_dialog) return;
+		constexpr const char* title = "Dump Mod###dump_mod";
+		if (!ImGui::IsPopupOpen(title)) ImGui::OpenPopup(title);
+		ImGui::SetNextWindowSize(ImVec2(S(520), 0));
+		if (!ImGui::BeginPopupModal(title, nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove)) return;
+
+		std::string status, error;
+		fs::path destination;
+		{
+			std::lock_guard lock(panel.mutex);
+			status = panel.dump_status;
+			error = panel.dump_error;
+			destination = panel.dump_destination;
+		}
+		ImGui::PushFont(fonts.heading);
+		ImGui::TextUnformatted(panel.dumping ? "Dumping mod" : error.empty() ? "Mod dump complete" : "Mod dump failed");
+		ImGui::PopFont();
+		ImGui::Spacing();
+		ImGui::TextWrapped("%s", panel.dump_mod_name.c_str());
+		const auto status_label = dump_status_label(status);
+		ImGui::TextDisabled("%s", status_label.c_str());
+		if (panel.dumping) {
+			ImGui::Spacing();
+			dump_marquee(S(16));
+		}
+		else if (!error.empty()) {
+			ImGui::Spacing();
+			ImGui::PushTextWrapPos(0);
+			ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(color::danger), "%s", error.c_str());
+			ImGui::PopTextWrapPos();
+		}
+		else {
+			ImGui::Spacing();
+			ImGui::TextUnformatted("Saved to:");
+			const auto path = wrap_path_components(utf8(destination.wstring()), ImGui::GetContentRegionAvail().x);
+			ImGui::TextUnformatted(path.c_str());
+		}
+		ImGui::Spacing();
+		ImGui::BeginDisabled(panel.dumping);
+		if (ImGui::Button("Close", ImVec2(S(110), 0))) {
+			panel.dump_dialog = false;
+			if (error.empty()) {
+				panel.message = "Dumped " + panel.dump_mod_name + " to " + utf8(destination.wstring());
+				panel.message_error = false;
+			}
+			else {
+				panel.message = error;
+				panel.message_error = true;
+			}
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndDisabled();
+		ImGui::EndPopup();
+	}
+} // namespace
+'''
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_mods.cpp"
+operation = "at"
+search = 'else installed_page(launcher, fonts, panel, installed, pending, body, installing);'
+text = 'else installed_page(launcher, fonts, panel, installed, pending, body, installing, window);'
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_mods.cpp"
+operation = "before"
+search = '''
+    profile_popups(panel);
+    g_drag_allowed = !ImGui::IsAnyItemHovered() && !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId);
+    ImGui::End();
+'''
+text = '''
+		dump_modal(fonts, panel);
+'''
+
+# ==================================================
+# Disable crash-reports.
+# ==================================================
+
+[[patches]]
+[patches.pattern]
+file = "cmake/crashreport.cmake"
+operation = "at"
+search = 'set(crash_report_default_url "https://sentry.reskate.dev/api/2/minidump/?sentry_key=8efcb389bdc033445093a7af0c66f9be")'
+text = 'set(crash_report_default_url "")'
+
+# ==================================================
+# Add outfit shuffle.
+# ==================================================
+
+[[patches]]
+[patches.replace]
+file = "contrib/outfit-shuffle.md"
+source = "outfit-shuffle.md"
+
+[[patches]]
+[patches.replace]
+file = "extension/multiplayer/remote/outfit_shuffle.h"
+source = "outfit_shuffle.h"
+
+[[patches]]
+[patches.replace]
+file = "extension/world/texture_handle_limit.h"
+source = "texture_handle_limit.h"
+
+[[patches]]
+[patches.replace]
+file = "extension/multiplayer/test/outfit_shuffle_tests.cpp"
+source = "outfit_shuffle_tests.cpp"
+
+[[patches]]
+[patches.pattern]
+file = "engine/game/multiplayer/session_model.h"
+operation = "after"
+search = '''
+    bool nametags_friends{};
+'''
+text = '''
+    // Local: shuffled outfits, what other players' items show as. 0: as worn (an item this PC
+    // lacks shows a stand-in), 1: every item random, 2: only the items this PC lacks random. These
+    // are the values of ShuffleMode (outfit_shuffle.h), which the profile saves too, so they never change.
+    std::uint8_t outfit_shuffle{};
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/remote/native_cosmetics.cpp"
+operation = "after"
+search = '''
+#include "Extension/Customization/local_player_card_runtime.h"
+'''
+text = '''
+#include "Extension/World/texture_handle_limit.h"
+#include "outfit_shuffle.h"
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/remote/native_cosmetics.cpp"
+operation = "after"
+search = '''
+#include <Windows.h>
+'''
+text = '''
+#include <atomic>
+#include <format>
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/remote/native_cosmetics.cpp"
+operation = "at"
+search = '''
+template <class T> void put(std::uintptr_t p, const T &value) {
+    SIZE_T done{};
+    if (!WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void *>(p), &value, sizeof(value), &done) ||
+        done != sizeof(value))
+        throw std::runtime_error("Cannot update the remote cosmetic component.");
+}
+} // namespace
+'''
+text = '''
+template <class T> void put(std::uintptr_t p, const T &value) {
+    SIZE_T done{};
+    if (!WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void *>(p), &value, sizeof(value), &done) ||
+        done != sizeof(value))
+        throw std::runtime_error("Cannot update the remote cosmetic component.");
+}
+// The catalog the shuffle draws from: what is installed, less the items only their owners may
+// wear. It is names only, so it is kept until the number of installed items changes (a mod
+// applied live). Client thread.
+template <class Memory> const ShuffleCatalog &shuffle_catalog(const Memory &memory) {
+    static ShuffleCatalog kept;
+    static std::uintptr_t manager{};
+    static std::uint32_t total{};
+    const auto now = memory.ptr(memory.base, addr::engine::cosmetics_manager);
+    const auto count = memory.template get<std::uint32_t>(now, 0x3c);
+    if (kept.size() && now == manager && count == total) return kept;
+    std::vector<ShuffleCandidate> items;
+    for (auto &item : memory.catalog())
+        if (!profile_runtime::reserved_cosmetic(item.name)) items.push_back({std::move(item.name), std::move(item.categories)});
+    kept = ShuffleCatalog(std::move(items));
+    manager = now;
+    total = count;
+    return kept;
+}
+// Every item put on a skater or board in this level, shuffled or not, and the local player's
+// own. The game keeps an item's textures once they are loaded, so near its limit of streamed
+// textures the shuffle picks only from these (loaded_items). A new level (another context) starts
+// it again: the level's load may have let them go, and a smaller pool is the safe side to err on.
+// Engine thread.
+struct Loaded {
+    std::uintptr_t context{};
+    std::set<std::string> names;
+};
+Loaded &loaded() {
+    static auto *kept = new Loaded;
+    return *kept;
+}
+void note_loaded(const CosmeticRecipe &recipe) {
+    for (const auto &item : recipe.items)
+        if (!item.asset.empty()) loaded().names.insert(item.asset);
+}
+// The items loaded this level, sorted, with whatever the local player's skater or board
+// (`local_entity`) wears now.
+template <class Memory> std::vector<std::string> loaded_items(const Memory &memory, std::uintptr_t local_entity) {
+    try {
+        note_loaded(memory.capture(local_entity));
+    } catch (const std::exception &) {
+        // (Their outfit is updating: what was noted before is still loaded.)
+    }
+    const auto &names = loaded().names;
+    return {names.begin(), names.end()};
+}
+} // namespace
+void note_cosmetics_level(std::uintptr_t context) {
+    auto &kept = loaded();
+    if (kept.context == context) return;
+    kept.context = context;
+    kept.names.clear();
+}
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/remote/native_cosmetics.cpp"
+operation = "after"
+search = '''
+std::optional<Appearance> capture_cosmetics(std::uintptr_t base, const NativeFrame &local,
+                                            std::string &detail) {
+    try {
+        if (!local.ready || !local.board_entity)
+            throw std::runtime_error("Waiting for the local skater and skateboard.");
+        const CosmeticMemory memory{readable, base};
+        Appearance out{memory.capture(local.entity), memory.capture(local.board_entity)};
+        // Read the local profile's native UI record; never serialize model handles.
+        const auto &card = profile_runtime::player_card_runtime();
+        const auto handle = card.functions.get_local_info ? profile_runtime::local_player_info_hook() : 0;
+        if (handle && card.data_model) {
+            game::ModelWriteLock lock(card.data_model);
+            const auto value = game::native_data().models.value(card.data_model, handle, 0, 0);
+            if (value) {
+                readable(value + 0xd0, &out.card.background, sizeof(out.card.background));
+                readable(value + 0xc4, &out.card.emblem, sizeof(out.card.emblem));
+                readable(value + 0xd4, &out.card.title, sizeof(out.card.title));
+            }
+        }
+        if (!valid_appearance(out))
+            throw std::runtime_error("Local cosmetic recipe exceeds the multiplayer limits.");
+        detail.clear();
+        return out;
+    } catch (const std::exception &e) {
+        detail = std::string("Cosmetics: ") + e.what();
+        return {};
+    }
+}
+'''
+text = '''
+std::string describe_cosmetic_slots(std::uintptr_t base, const NativeFrame &local) {
+    if (!local.ready || !local.board_entity) return "Waiting for the local skater and skateboard.";
+    const CosmeticMemory memory{readable, base};
+    std::string out;
+    try {
+        const auto &catalog = shuffle_catalog(memory);
+        for (const auto [what, entity] : {std::pair{"Skater", local.entity}, std::pair{"Board", local.board_entity}}) {
+            const auto resource = memory.resource(memory.component(entity));
+            const auto categories = memory.slot_categories(resource);
+            const auto recipe = memory.capture(entity);
+            const auto slots = memory.ptr(resource, 0x28);
+            out += std::format("{} (recipe key {}): {} slots, {} worn items\n", what, recipe.key, categories.size(),
+                               recipe.items.size());
+            for (std::size_t i = 0; i < categories.size(); ++i) {
+                // The template's slot id (as fit_slots reads it), and what the skater wears in it.
+                const auto id = memory.get<std::uint32_t>(memory.ptr(slots, i * 24 + 8) & ~std::uintptr_t{4}, 0x4c);
+                const auto worn = std::find_if(recipe.items.begin(), recipe.items.end(),
+                                               [&](const CosmeticSlot &item) { return item.slot == id; });
+                const auto *pool = catalog.in_category(categories[i]);
+                out += std::format("  [{:2}] slot 0x{:08x}  category 0x{:08x}  {}  fits {}{}\n", i, id, categories[i],
+                                   worn == recipe.items.end() || worn->asset.empty() ? std::string("wearing nothing")
+                                                                                     : "wearing \"" + worn->asset + "\"",
+                                   pool ? pool->size() : 0, shuffles_slot(id) ? "  shuffled" : "");
+            }
+        }
+    } catch (const std::exception &e) {
+        out += std::string("Cosmetics: ") + e.what();
+    }
+    if (!out.empty() && out.back() == '\n') out.pop_back();
+    return out;
+}
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/remote/native_cosmetics.cpp"
+operation = "at"
+search = '''
+void apply_cosmetic_recipe(std::uintptr_t base, std::uintptr_t entity, std::uintptr_t local_entity,
+                           const CosmeticRecipe &recipe) {
+'''
+text = '''
+void apply_cosmetic_recipe(std::uintptr_t base, std::uintptr_t entity, std::uintptr_t local_entity,
+                           const CosmeticRecipe &recipe, const Shuffle &shuffle) {
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/session/session_internal.h"
+operation = "after"
+search = '''
+#include "monotonic_clock.h"
+'''
+text = '''
+#include "Extension/Multiplayer/Remote/outfit_shuffle.h"
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/remote/native_cosmetics.cpp"
+operation = "after"
+search = '''
+    if (const auto [empty, left_out] = memory.fit_slots(resource, usable, own); empty || left_out) {
+        static std::mutex logged_mutex;
+        static std::set<std::tuple<std::uint32_t, std::size_t, std::size_t>> logged;
+        std::lock_guard lock(logged_mutex);
+        if (logged.size() < 32 && logged.emplace(recipe.key, empty, left_out).second)
+            logging::log(logging::Level::info, logging::Channel::runtime,
+                         "Multiplayer: a player's {} has different cosmetic slots from this game's (a mod adds or "
+                         "removes some): {} of this game's slots left empty, {} of their items left out.",
+                         recipe.key == board_recipe_key ? "board" : "skater", empty, left_out);
+    }
+'''
+text = '''
+    // Shuffled outfits: the slots whose item this PC lacks, noted before they are swapped for
+    // stand-ins below (shuffle_slots says what each mode does with them).
+    std::vector<bool> lacking;
+    if (shuffle.active()) {
+        lacking.assign(usable.items.size(), false);
+        for (std::size_t i = 0; i < usable.items.size(); ++i)
+            lacking[i] = !usable.items[i].asset.empty() && !memory.item_installed(resource, i, usable.items[i]);
+    }
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/remote/native_cosmetics.cpp"
+operation = "after"
+search = '''
+    const auto reserved = [](const std::string &asset) { return profile_runtime::reserved_cosmetic(asset); };
+    for (const auto &[missing, replacement] :
+         memory.substitute_missing(resource, usable, default_cosmetic_items, reserved)) {
+        static std::mutex logged_mutex;
+        static std::set<std::string> logged;
+        std::lock_guard lock(logged_mutex);
+        // Peers choose these names: remember (and log) a bounded number.
+        if (!reserved(missing) && logged.size() < 256 && logged.insert(missing).second)
+            logging::log(logging::Level::info, logging::Channel::runtime,
+                         "Multiplayer: a player wears \"{}\", which is not installed here; showing {} instead.",
+                         missing, replacement.empty() ? "nothing" : replacement);
+    }
+'''
+text = '''
+    // Shuffled outfits and boards: the slots the mode covers (every worn item, or just those this
+    // PC lacks) take a random installed item that fits, in place of what is there now. Near the game's limit of streamed
+    // textures, only an item already put on a skater this level: it brings no textures of its own. Whatever
+    // goes wrong, the outfit is shown with the stand-ins.
+    const auto shuffled = shuffle.active() ? shuffle_slots(shuffle.mode, usable, lacking) : std::vector<bool>{};
+    if (std::find(shuffled.begin(), shuffled.end(), true) != shuffled.end()) {
+        auto as_sent = usable;
+        try {
+            const auto textures = texture_handle_limit::use();
+            const auto &catalog = shuffle_catalog(memory);
+            if (!textures.known || shuffle_texture_room(textures.taken, textures.limit))
+                shuffle_recipe(usable, memory.slot_categories(resource), catalog, shuffle.seed, shuffled);
+            else
+                shuffle_recipe(usable, memory.slot_categories(resource), catalog.only(loaded_items(memory, local_entity)),
+                               shuffle.seed, shuffled);
+            memory.validate(resource, usable);
+        } catch (const std::exception &e) {
+            usable = std::move(as_sent);
+            static std::atomic<unsigned> reported{};
+            if (reported.fetch_add(1) < 3)
+                logging::log(logging::Level::warning, logging::Channel::runtime,
+                             "Multiplayer: a player's {} could not be shuffled, so it is shown with stand-ins: {}",
+                             recipe.key == board_recipe_key ? "board" : "outfit", e.what());
+        }
+    }
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/remote/native_cosmetics.cpp"
+operation = "after"
+search = '''
+    memory.check(memory.get<std::uint32_t>(c, 0x13c) == 2 && memory.get<std::uint8_t>(c, 0x10a) == 1 &&
+                     memory.get<std::uint8_t>(c, 0x10d) == 1 &&
+                     memory.ptr(c, 0x158) != reinterpret_cast<std::uintptr_t>(borrowed.value.items),
+                 "Native cosmetic copy did not take ownership.");
+'''
+text = '''
+    note_loaded(usable);
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/remote/native_cosmetics.h"
+operation = "at"
+search = '''
+std::optional<Appearance> capture_cosmetics(std::uintptr_t base, const NativeFrame &, std::string &detail);
+// Only called for the owned remote actor on the verified client update thread.
+void apply_cosmetic_recipe(std::uintptr_t base, std::uintptr_t entity, std::uintptr_t local_entity,
+                           const CosmeticRecipe &);
+'''
+text = '''
+std::optional<Appearance> capture_cosmetics(std::uintptr_t base, const NativeFrame &, std::string &detail);
+// Debug (mp slots): the local skater's and board's template slots, one line each, with the
+// category each takes (what the shuffle matches on), the item worn there and how many installed
+// items fit it. Client thread.
+std::string describe_cosmetic_slots(std::uintptr_t base, const NativeFrame &local);
+// Only called for the owned remote actor on the verified client update thread.
+// `shuffle` (outfit_shuffle.h; a default one is off) gives items of a skater or board recipe a
+// random item that fits their slot, instead of the usual stand-in, as its mode says.
+// One that cannot be shuffled is shown with the stand-ins.
+void apply_cosmetic_recipe(std::uintptr_t base, std::uintptr_t entity, std::uintptr_t local_entity,
+						   const CosmeticRecipe &, const Shuffle &shuffle = {});
+// The level the outfits are put on in (the local skater's context). Items put on in another
+// level are no longer counted as loaded for the shuffle. Same thread as apply_cosmetic_recipe.
+void note_cosmetics_level(std::uintptr_t context);
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/remote/native_cosmetics_layout.h"
+operation = "after"
+search = '''
+    Item lookup(std::uint32_t hash) const {
+        const auto manager = ptr(base, addr::engine::cosmetics_manager);
+        check(ptr(manager) == base + addr::engine::cosmetics_manager_vtable && get<std::uint8_t>(manager, 0xa8) == 1,
+              "Cosmetic catalog is not ready.");
+        const auto buckets = ptr(manager, 0x30);
+        const auto size = get<std::uint32_t>(manager, 0x38), total = get<std::uint32_t>(manager, 0x3c);
+        check(size && size <= 16384 && total && total <= 8192, "Cosmetic catalog exceeds bounds.");
+        auto node = ptr(buckets, (hash % size) * 8ULL);
+        for (std::uint32_t visited = 0; node && visited < total; ++visited, node = ptr(node, 0x10)) {
+            if (get<std::uint32_t>(node) != hash)
+                continue;
+            const auto asset = ptr(node, 8) & ~std::uintptr_t{4};
+            Item out{text(ptr(asset, 0x38)), {}};
+            check(!out.name.empty() && get<std::uint32_t>(asset, 0x48) == hash &&
+                      cosmetic_asset_hash(out.name) == hash,
+                  "Cosmetic catalog asset differs.");
+            for (auto category : array<std::uintptr_t>(ptr(asset, 0x20), 32))
+                out.categories.push_back(get<std::uint32_t>(category & ~std::uintptr_t{4}, 0x38));
+            return out;
+        }
+        throw std::runtime_error("Cosmetic asset is not installed.");
+    }
+'''
+text = '''
+	// Every cosmetic in the local catalog, with the categories it fits. Walks the whole table, so
+	// callers keep the result (outfit_shuffle). An entry that cannot be read is left out.
+	std::vector<Item> catalog() const {
+		const auto manager = ptr(base, addr::engine::cosmetics_manager);
+		check(ptr(manager) == base + addr::engine::cosmetics_manager_vtable && get<std::uint8_t>(manager, 0xa8) == 1,
+			"Cosmetic catalog is not ready.");
+		const auto buckets = ptr(manager, 0x30);
+		const auto size = get<std::uint32_t>(manager, 0x38), total = get<std::uint32_t>(manager, 0x3c);
+		check(size && size <= 16384 && total && total <= 8196, "Cosmetic catalog exceeds bounds.");
+		std::vector<Item> out;
+		std::uint32_t visited{};
+		for (std::uint32_t bucket = 0; bucket < size && visited < total; ++bucket) {
+			auto node = ptr(buckets, bucket * 8ULL);
+			for (std::uint32_t chain = 0; node && chain < total && visited < total; ++chain, ++visited, node = ptr(node, 0x10)) {
+				const auto asset = ptr(node, 8) & ~std::uintptr_t{ 4 };
+				if (!asset) continue;
+				try {
+					Item item{ text(ptr(asset, 0x38)), {} };
+					// The same check lookup() makes: the name must be the item's own.
+					if (item.name.empty() || get<std::uint32_t>(asset, 0x48) != cosmetic_asset_hash(item.name)) continue;
+					for (auto category : array<std::uintptr_t>(ptr(asset, 0x20), 32))
+						item.categories.push_back(get<std::uint32_t>(category & ~std::uintptr_t{ 4 }, 0x38));
+					out.push_back(std::move(item));
+				}
+				catch (const std::exception&) {
+				}
+			}
+		}
+		return out;
+	}
+	// The category each slot of a resource's template takes, in the template's order: the one
+	// an item must list to fit it (see validate).
+	std::vector<std::uint32_t> slot_categories(std::uintptr_t res) const {
+		const auto slots = ptr(res, 0x28);
+		std::vector<std::uint32_t> out(count(slots, 24, max_cosmetic_slots));
+		for (std::size_t i = 0; i < out.size(); ++i) {
+			const auto slot = ptr(slots, i * 24 + 8) & ~std::uintptr_t{ 4 };
+			out[i] = get<std::uint32_t>(ptr(slot, 0x30) & ~std::uintptr_t{ 4 }, 0x38);
+		}
+		return out;
+	}
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/remote/native_skater.h"
+operation = "at"
+search = '''
+void update_remote_cosmetics(std::uintptr_t base, const NativeFrame &, const Appearance &,
+                             std::string &detail);
+'''
+text = '''
+void update_remote_cosmetics(std::uintptr_t base, const NativeFrame&, const Appearance&,
+                             std::string& detail, const Shuffle& shuffle = {});
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/remote/native_skater.h"
+operation = "after"
+search = '''
+#include "Extension/Multiplayer/Net/protocol.h"
+'''
+text = '''
+#include "Extension/Multiplayer/Remote/outfit_shuffle.h"
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/remote/native_skater_internal.h"
+operation = "after"
+search = '''
+    std::optional<CosmeticRecipe> skater_appearance, board_appearance;
+'''
+text = '''
+	Shuffle skater_shuffle, board_shuffle;
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/remote/native_skater_spawn.cpp"
+operation = "at"
+search = '''
+void update_remote_cosmetics(std::uintptr_t base, const NativeFrame &local, const Appearance &appearance,
+                             std::string &detail) {
+'''
+text = '''
+void update_remote_cosmetics(std::uintptr_t base, const NativeFrame& local, const Appearance& appearance,
+                             std::string& detail, const Shuffle& shuffle) {
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/remote/native_skater_spawn.cpp"
+operation = "after"
+search = '''
+        require(valid_appearance(appearance), "Peer cosmetic recipe is invalid.");
+        require(r.entity && r.context == local.context && r.local_entity == local.entity &&
+                    GetCurrentThreadId() == shared().engine_thread,
+                "Waiting for the remote cosmetic actors.");
+        std::lock_guard lock(r.mutex);
+'''
+text = '''
+		note_cosmetics_level(local.context);
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/remote/native_skater_spawn.cpp"
+operation = "at"
+search = '''
+            if (!r.skater_appearance || *r.skater_appearance != appearance.skater) {
+                apply_cosmetic_recipe(base, r.entity, local.entity, appearance.skater);
+                r.skater_appearance = appearance.skater;
+            }
+            r.rejected_appearance.reset();
+            if (!r.board_entity || !local.board_entity) {
+                r.board_appearance.reset();
+                detail = "Cosmetics: skater recipe applied; waiting for the skateboard.";
+                return;
+            }
+            if (!r.board_appearance || *r.board_appearance != appearance.board) {
+                apply_cosmetic_recipe(base, r.board_entity, local.board_entity, appearance.board);
+                r.board_appearance = appearance.board;
+            }
+'''
+text = '''
+			// An inactive shuffle is always the default one, so "off" compares equal whatever seed came with it.
+			const Shuffle skater_shuffle = shuffle.active() ? shuffle : Shuffle{};
+			if (!r.skater_appearance || *r.skater_appearance != appearance.skater || r.skater_shuffle != skater_shuffle) {
+				apply_cosmetic_recipe(base, r.entity, local.entity, appearance.skater, skater_shuffle);
+				r.skater_appearance = appearance.skater;
+				r.skater_shuffle = skater_shuffle;
+			}
+			r.rejected_appearance.reset();
+			if (!r.board_entity || !local.board_entity) {
+				r.board_appearance.reset();
+				detail = "Cosmetics: skater recipe applied; waiting for the skateboard.";
+				return;
+			}
+			// The board has a seed of its own, so its picks do not follow the clothes'.
+			const Shuffle board_shuffle = skater_shuffle.board();
+			if (!r.board_appearance || *r.board_appearance != appearance.board || r.board_shuffle != board_shuffle) {
+				apply_cosmetic_recipe(base, r.board_entity, local.board_entity, appearance.board, board_shuffle);
+				r.board_appearance = appearance.board;
+				r.board_shuffle = board_shuffle;
+			}
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/session/session.cpp"
+operation = "after"
+search = '''
+#include "Extension/Multiplayer/Remote/native_skater.h"
+'''
+text = '''
+#include "Extension/Multiplayer/Remote/outfit_shuffle.h"
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/session/session.cpp"
+operation = "after"
+search = '''
+        s.display_preferences_loaded = true;
+        s.nametags = profile_runtime::local_preference("Nametags").value_or(true);
+'''
+text = '''
+		if (const auto saved = profile_runtime::local_value("ShuffleMode"); saved && saved->is_number())
+			s.shuffle_mode = shuffle_mode_from(static_cast<long long>(saved->get<double>()));
+		s.shuffle_epoch = now_us();
+		logging::log(logging::Level::info, logging::Channel::runtime,
+			"Multiplayer: shuffled outfits mode {} loaded from the profile (epoch {}).",
+			static_cast<int>(s.shuffle_mode), s.shuffle_epoch);
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/session/session.cpp"
+operation = "at"
+search = '''
+    const auto apply_cosmetics = [&](Peer &p, bool spawned) {
+        if (now - p.last_cosmetic_apply < 500000) return;
+        if (p.applied_cosmetics != p.cosmetic_revision && !spawned) {
+            if (native_pass) return;
+            native_pass = true;
+        }
+        update_remote_cosmetics(s.base, local, *p.appearance.value(), p.cosmetic_status);
+        // The effects their costume and board items come with follow the outfit.
+        if (p.applied_cosmetics != p.cosmetic_revision && s.sync_effects) note_remote_outfit(now);
+        p.last_cosmetic_apply = now;
+        p.applied_cosmetics = p.cosmetic_revision;
+    };
+'''
+text = '''
+	// Near the game's limit of textures shuffled outfits pick only items already loaded.
+	check_shuffle_room(s);
+	const auto shuffle_for = [](std::uint64_t id, ShuffleMode mode, std::uint64_t epoch) {
+		return mode == ShuffleMode::off ? Shuffle{} : Shuffle{ mode, shuffle_seed(id, epoch) };
+	};
+	const auto apply_cosmetics = [&](Peer& p, bool spawned) {
+		if (now - p.last_cosmetic_apply < 500000) return;
+		// A spawn or a real outfit change takes the current shuffle with it. A new mode or reroll
+		// alone waits its turn (shuffle_redress_interval_us); until then the player keeps theirs.
+		bool adopt = spawned;
+		if (p.applied_cosmetics != p.cosmetic_revision && !spawned) {
+			if (native_pass) return;
+			native_pass = true;
+			adopt = true;
+		}
+		else if (!spawned && !native_pass && now >= s.next_shuffle_redress &&
+			shuffle_for(p.member.id, p.shuffle_mode, p.shuffle_epoch) !=
+			shuffle_for(p.member.id, s.shuffle_mode, s.shuffle_epoch)) {
+			native_pass = true;
+			s.next_shuffle_redress = now + shuffle_redress_interval_us;
+			adopt = true;
+		}
+		if (adopt) {
+			p.shuffle_mode = s.shuffle_mode;
+			p.shuffle_epoch = s.shuffle_epoch;
+		}
+		update_remote_cosmetics(s.base, local, *p.appearance.value(), p.cosmetic_status,
+			shuffle_for(p.member.id, p.shuffle_mode, p.shuffle_epoch));
+		// The effects their costume and board items come with follow the outfit.
+		if (p.applied_cosmetics != p.cosmetic_revision && s.sync_effects) note_remote_outfit(now);
+		p.last_cosmetic_apply = now;
+		p.applied_cosmetics = p.cosmetic_revision;
+	};
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/session/session.cpp"
+operation = "after"
+search = '''
+    auto &s = session();
+    struct VoicePlaybackTick {
+        VoiceChat &voice;
+        std::uintptr_t base;
+        ~VoicePlaybackTick() { voice.process_native(base); }
+    } voice_playback_tick{s.voice, base};
+    s.base = base;
+'''
+text = '''
+	s.client = client;
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/session/session_commands.cpp"
+operation = "after"
+search = '''
+#include "Extension/Objects/ParkEditor/park_editor_runtime.h"
+'''
+text = '''
+#include "Extension/World/texture_handle_limit.h"
+#include "Engine/Core/Log/logging.h"
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/session/session_commands.cpp"
+operation = "after"
+search = '''
+// The Special page's commands. They are a player's own offline as well, where their hoodie and
+// board still animate.
+bool own_mark_command(std::string_view action) {
+    return action == "mark-tag" || action == "mark-items" || action == "mark-style";
+}
+} // namespace
+'''
+text = '''
+void session_detail::check_shuffle_room(Session& s) {
+	if (s.shuffle_mode == ShuffleMode::off) return;
+	const auto use = texture_handle_limit::use();
+	if (!use.known) return;
+	if (s.shuffle_loaded_only) {
+		// Told again only once well clear of the line, so the notice does not repeat around it.
+		if (std::uint64_t{ use.taken } * 100 < std::uint64_t{ use.limit } * (shuffle_texture_ceiling - 5)) s.shuffle_loaded_only = false;
+		return;
+	}
+	if (shuffle_texture_room(use.taken, use.limit)) return;
+	s.shuffle_loaded_only = true;
+	logging::log(logging::Level::info, logging::Channel::runtime,
+		"Multiplayer: shuffled outfits pick only items already loaded, with {} of {} streamed textures in use.", use.taken,
+		use.limit);
+	add_chat(s, 0, "{{name}}",
+		"The game is close to its limit of textures, so shuffled outfits now only use items the game has already loaded.");
+}
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/session/session_internal.h"
+operation = "after"
+search = '''
+// The party the echo test shows its mirrored player in (a real lobby has none until its
+// players form one).
+inline constexpr std::uint32_t lobby_party = 1;
+'''
+text = '''
+// How often a new shuffle mode or reroll re-dresses the next player: four a second, so a full
+// server takes about a minute, and the textures the new items bring arrive a few at a time.
+inline constexpr std::uint64_t shuffle_redress_interval_us = 250000;
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/session/session_internal.h"
+operation = "after"
+search = '''
+    // Bumped per accepted outfit; render compares it with the one its actor wears
+    // (0 after a spawn) to spread native recipe applies over frames.
+    std::uint64_t cosmetic_revision{}, applied_cosmetics{};
+'''
+text = '''
+	// The shuffle (mode and epoch) their skater wears. A new mode or reroll reaches them in
+	// turn, one player per shuffle_redress_interval_us (session.cpp).
+	ShuffleMode shuffle_mode{};
+	std::uint64_t shuffle_epoch{};
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/session/session_internal.h"
+operation = "after"
+search = '''
+    // Local display preferences, loaded once from the profile. Never sent to peers.
+    bool nametags = true, chat_visible = true, display_preferences_loaded{};
+'''
+text = '''
+	// Shuffled outfits (outfit_shuffle.h) A new epoch is a re-roll. Never sent to peers.
+	ShuffleMode shuffle_mode{};
+	std::uint64_t shuffle_epoch{ 1 };
+	bool shuffle_loaded_only{};
+	// A new mode or reroll re-dresses one player at a time, no sooner than this: every
+	// re-dressed player can bring textures of their own. Spawns and real outfit changes are not held.
+	std::uint64_t next_shuffle_redress{};
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/session/session_internal.h"
+operation = "at"
+search = 'std::uintptr_t base{}, context{}, parent{};'
+text = 'std::uintptr_t base{}, client{}, context{}, parent{};'
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/session/session_internal.h"
+operation = "after"
+search = '''
+// `marks`: whether the line may show the badge the backend gives its sender (player_role).
+void add_chat(Session &s, std::uint64_t sender, std::string name, std::string text, bool local = false, bool marks = true);
+'''
+text = '''
+// Tells the player once when the game's streamed textures come close to their limit
+// (shuffle_texture_ceiling), where shuffled outfits pick only items already loaded
+// (native_cosmetics.cpp), and again only after use has fallen well below it. Client thread.
+void check_shuffle_room(Session& s);
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/session/session_view.cpp"
+operation = "after"
+search = '''
+    view.nametags_friends = s.nametags_friends;
+'''
+text = '''
+	view.outfit_shuffle = static_cast<std::uint8_t>(s.shuffle_mode);
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/test/mesh_tests.cpp"
+operation = "after"
+search = '''
+    void fresh(unsigned count) {
+        for (unsigned i = 0; i < count; ++i)
+            for (unsigned j = 0; j < count; ++j)
+                if (i != j) {
+                    auto *p = find_peer(*nodes[i], nodes[j]->transport.status().local_id);
+                    if (!p || !p->handshaken) {
+                        std::cerr << "Missing source " << j << " at node " << i << " count=" << count
+                                  << " time=" << now << " status=" << nodes[i]->status << "\n";
+                        for (std::size_t k = 0; k < nodes.size(); ++k)
+                            std::cerr << k << ": " << nodes[k]->status << "\n";
+                        throw std::runtime_error("Admitted player missing from roster");
+                    }
+                    check(p->appearance.value().has_value(),
+                          "Player cosmetic recipe missing after route transition");
+                    const auto sound = p->audio.sample(now);
+                    check(sound && sound->values[1] == static_cast<float>(j) + .5f,
+                          "Player sound missing or attributed to wrong source");
+                    const auto pose = p->poses.sample(now);
+                    const auto lag = pose ? local.pose.root.position[0] - pose->root.position[0] : 999.f;
+                    const auto bound = .25f + 3.f * static_cast<float>(p->received_pose_interval) / 1000000.f;
+                    if (lag >= bound) std::cerr << "Lag: receiver=" << i << " sender=" << j << " seconds=" << lag
+                        << " cadence=" << p->received_pose_interval << " arrival_age=" << (now - p->pose_arrival) << "\n";
+                    check(pose && lag < bound, "Remote pose fell behind sender time");
+                }
+    }
+};
+'''
+text = '''
+	// Near the texture limit shuffled outfits pick only loaded items (native_cosmetics.cpp): the
+	// session tells the player once, keeps everyone as dressed, and still takes modes and rerolls.
+	void shuffle_room_checks() {
+		auto& limit = texture_handle_limit::simulated_use;
+		limit = { true, 20480, 1000 };
+		auto storage = std::make_unique<Session>();
+		auto& s = *storage;
+		s.used_slots = 1;
+		s.epoch = 1;
+		auto outfit = packet(s, PacketKind::cosmetics, now_us());
+		outfit.appearance = { {skater_recipe_key, 2, {}, {{1, "Outfit", {}}}}, {board_recipe_key, 1, {}, {{2, "Deck", {}}}} };
+		check(s.peers[0].appearance.push(outfit), "Shuffle fixture appearance rejected");
+		auto& revision = s.peers[0].cosmetic_revision;
+		const auto told = [&] {
+			return std::count_if(s.chat.begin(), s.chat.end(),
+				[](const auto& line) { return line.text.find("only use items the game has already loaded") != std::string::npos; });
+		};
+
+		limit.taken = 18000; // past 80%, with the shuffle off
+		check_shuffle_room(s);
+		check(!s.shuffle_loaded_only && !told(), "The player was told about a shuffle that is off");
+
+		limit.taken = 1000;
+		(void)edit_shuffle_outfits(s, "all");
+		const auto before = revision;
+		check_shuffle_room(s);
+		check(!s.shuffle_loaded_only && !told(), "The player was told with room to spare");
+
+		limit.taken = 16384; // 80%
+		check_shuffle_room(s);
+		check(s.shuffle_loaded_only && told() == 1 && revision == before && s.shuffle_mode == ShuffleMode::everything,
+			"Near the texture limit the player was not told once, or everyone was re-dressed");
+		check_shuffle_room(s);
+		limit.taken = 15500; // under 80%, not well under (75%)
+		check_shuffle_room(s);
+		limit.taken = 16384;
+		check_shuffle_room(s);
+		check(told() == 1, "The notice repeated around the line");
+
+		const auto epoch = s.shuffle_epoch;
+		// A reroll is a new epoch; render re-dresses players in turn (shuffle_redress_interval_us),
+		// so their outfit revision is left alone.
+		check(edit_shuffle_outfits(s, "reroll") == "Everyone's items were shuffled again." && s.shuffle_epoch != epoch &&
+			revision == before,
+			"A reroll near the texture limit was refused");
+		(void)edit_shuffle_outfits(s, "missing");
+		check(s.shuffle_mode == ShuffleMode::not_installed, "A mode near the texture limit was refused");
+
+		limit.taken = 1000; // well under: told again next time
+		check_shuffle_room(s);
+		check(!s.shuffle_loaded_only, "Well under the limit the notice was not re-armed");
+		limit.taken = 16384;
+		check_shuffle_room(s);
+		check(told() == 2, "The player was not told again after use fell and rose");
+
+		s.shuffle_loaded_only = false;
+		limit.known = false, limit.taken = 20480;
+		check_shuffle_room(s);
+		check(!s.shuffle_loaded_only, "The player was told before the game's texture streaming was there");
+		limit = {};
+	}
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/test/mesh_tests.cpp"
+operation = "after"
+search = '''
+        dingosdk::multiplayer::throwdown_routing_checks();
+'''
+text = '''
+        dingosdk::multiplayer::shuffle_room_checks();
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/console_commands.cpp"
+operation = "after"
+search = '''
+                          Command{"nametags", "Show or hide player nametags (on, off, toggle)"},
+'''
+text = '''
+						  Command{"shuffle-outfits", "Other players' outfits and boards as random items, for you only: off, all (every item), missing (only items you don't have installed), cycle, or reroll for new picks"},
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/console_commands.cpp"
+operation = "at"
+search = '''
+                          Command{"status", "Show multiplayer connection and animation status"}}) {
+'''
+text = '''
+						  Command{"status", "Show multiplayer connection and animation status"},
+						  Command{"slots", "Debug: your skater's and board's cosmetic slots, the category each takes "
+										   "(what shuffled outfits match on), the item worn and how many installed items fit"}}) {
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/console_commands.cpp"
+operation = "at"
+search = 'std::string_view(c.name) == "voice-chat" ||'
+text = 'std::string_view(c.name) == "voice-chat" || std::string_view(c.name) == "shuffle-outfits" ||'
+
+[[patches]]
+[patches.pattern]
+file = "extension/ui/overlay/multiplayer_menu.cpp"
+operation = "after"
+search = '''
+    if (toggle_row(menu, "Friends' nametags only", "Only your Steam friends have a name or dot. Chat bubbles still show for everyone.",
+                   friends_only, mp.nametags, "OFF")) {
+        std::array<char, 65> unused{};
+        send_private(menu, "nametags-friends", friends_only ? "on" : "off", unused, false);
+    }
+'''
+text = '''
+    constexpr std::array<const char *, 3> words{"off", "all", "missing"};
+    field(menu, "Shuffle outfits",
+          "Randomise other players outfits and boards, "
+          "Everything: every item. Not installed: only the items you don't have installed.");
+    int mode = mp.outfit_shuffle < words.size() ? static_cast<int>(mp.outfit_shuffle) : 0;
+    if (choice(menu, "shuffle-outfits", mode, {"Nothing", "Everything", "Not installed"})) {
+        std::array<char, 65> unused{};
+        send_private(menu, "shuffle-outfits", words[static_cast<std::size_t>(mode)], unused, false);
+    }
+'''
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_launcher.cpp"
+operation = "at"
+search = '''
+        set(Phase::update_available, "A ReSkate update is ready",
+            std::format("{} {} will be downloaded and installed.", config->prerelease ? "Pre-release" : "Version",
+'''
+text = '''
+		set(Phase::update_available, "A {{name}} update is ready",
+			std::format("Version {}{} will be downloaded and installed.", config->prerelease ? "PRE-" : "",
+'''
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_launcher.cpp"
+operation = "at"
+search = 'fail("ReSkate.dll is missing from the game folder.");'
+text = 'fail("{{name}}.dll is missing from the game folder.");'
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_launcher.cpp"
+operation = "at"
+search = ': !settings_.updates ? (newer ? "ReSkate updates are off; keeping your ReSkate files." : "ReSkate updates are off.")'
+text = ': !settings_.updates ? (newer ? "{{name}} updates are off; keeping your {{name}} files." : "{{name}} updates are off.")'
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_launcher.cpp"
+operation = "at"
+search = '''
+    set(Phase::updating, "Updating ReSkate");
+    if (runtime_outdated(*config))
+        update::replace_file(session_.paths.dll, config->runtime, progress_for("ReSkate.dll"));
+'''
+text = '''
+	set(Phase::updating, "Updating {{name}}");
+	if (runtime_outdated(*config))
+		update::replace_file(session_.paths.dll, config->runtime, progress_for("{{name_safe}}.dll"));
+'''
+
+# ==================================================
+# Remove restrictions.
+# ==================================================
+
+[[patches]]
+[patches.pattern]
+file = "engine/game/world/world_layers.h"
+operation = "at"
+search = '''
+inline constexpr std::array<std::string_view, 8> world_layers_kept_off{
+    "bam_dtn_season_05_content", "bam_dtn_season_05_inactive", "bam_dtn_season_05_permacontent",
+    "bam_dev_seasonal_content_season_06", "bam_dtn_season_06_content", "bam_dtn_season_06_inactive",
+    "bam_dtn_season_06_permacontent", "grom_season_05_content"};
+'''
+text = '''
+inline constexpr std::array<std::string_view, 8> world_layers_kept_off{
+    /* "bam_dtn_season_05_content", "bam_dtn_season_05_inactive", "bam_dtn_season_05_permacontent",
+    "bam_dev_seasonal_content_season_06", "bam_dtn_season_06_content", "bam_dtn_season_06_inactive",
+    "bam_dtn_season_06_permacontent", "grom_season_05_content" */ };
+'''
+
+[[patches]]
+[patches.pattern]
+file = "engine/vfs/content_catalogs.cpp"
+operation = "at"
+search = '''
+bool Catalogs::reserved(const std::string& key) const {
+    if (!items.contains(key) || open_items.contains(key)) return false;
+    // Build-kit objects nothing offers, sells or grants are taken as everyday
+    // park pieces; brand collabs stay with the store. Many basic objects (A
+    // frames, quarter pipes, bowl pieces, Pole Jam M) have no source record in
+    // the cache, so without this the Object Browser and park editor hid them.
+    // Cosmetics are not covered: unsourced ones include past store and pass items.
+    if (key.starts_with("own_bk") && !granted_items.contains(key) && !collab_items.contains(key)) return false;
+    return !key.starts_with("dev_") && key.find("_dev_") == std::string::npos && !key.ends_with("_dev");
+}
+'''
+text = '''
+bool Catalogs::reserved(const std::string& /*key*/) const {
+    //if (!items.contains(key) || open_items.contains(key)) return false;
+    // Build-kit objects nothing offers, sells or grants are taken as everyday
+    // park pieces; brand collabs stay with the store. Many basic objects (A
+    // frames, quarter pipes, bowl pieces, Pole Jam M) have no source record in
+    // the cache, so without this the Object Browser and park editor hid them.
+    // Cosmetics are not covered: unsourced ones include past store and pass items.
+    /*if (key.starts_with("own_bk") && !granted_items.contains(key) && !collab_items.contains(key)) return false;
+    return !key.starts_with("dev_") && key.find("_dev_") == std::string::npos && !key.ends_with("_dev");*/
+	return false;
+}
+'''
+
+[[patches]]
+[patches.pattern]
+file = "engine/vfs/mod_store_copies.h"
+operation = "at"
+search = '''
+inline constexpr std::string_view store_copies_problem = "merge error 0x5343";
+inline constexpr std::string_view store_copies_check = "merge check 0x5343";
+'''
+text = '''
+inline constexpr std::string_view store_copies_problem = "uses store cosmetics (0x5343)";
+inline constexpr std::string_view store_copies_check = "uses store cosmetics (0x5343)";
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/customization/local_customization_runtime.cpp"
+operation = "at"
+search = '''
+bool reserved_cosmetic(std::string_view asset) {
+    const auto& catalogs = content_cache::catalogs();
+    if (!catalogs.available || asset.empty()) return false;
+    std::string folded(asset);
+    for (auto& letter : folded) if (letter >= 'A' && letter <= 'Z') letter = static_cast<char>(letter + ('a' - 'A'));
+    return catalogs.reserved(folded);
+}
+'''
+text = '''
+bool reserved_cosmetic(std::string_view /*asset*/) {
+    /*const auto& catalogs = content_cache::catalogs();
+    if (!catalogs.available || asset.empty()) return false;
+    std::string folded(asset);
+    for (auto& letter : folded) if (letter >= 'A' && letter <= 'Z') letter = static_cast<char>(letter + ('a' - 'A'));
+    return catalogs.reserved(folded);*/
+	return false;
+}
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/customization/local_customization_runtime.cpp"
+operation = "at"
+search = '''
+bool reserved_cosmetic_hash(std::uint32_t hash) {
+    std::lock_guard lock(reserved_hash_mutex);
+    return hash && reserved_hashes.contains(hash);
+}
+'''
+text = '''
+bool reserved_cosmetic_hash(std::uint32_t /*hash*/) {
+    /*std::lock_guard lock(reserved_hash_mutex);
+    return hash && reserved_hashes.contains(hash);*/
+	return false;
+}
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/customization/local_customization_runtime.cpp"
+operation = "at"
+search = '''
+bool installed_item_owned(const profile::Snapshot& snapshot, std::string_view key, std::uint32_t hash, bool build_kit) {
+    if (cosmetic_runtime().ownership_unavailable || reserved_cosmetic_hash(hash)) return false;
+'''
+text = '''
+bool installed_item_owned(const profile::Snapshot& snapshot, std::string_view key, std::uint32_t /*hash*/, bool build_kit) {
+	//if (cosmetic_runtime().ownership_unavailable || reserved_cosmetic_hash(hash)) return false;
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/session/session_internal.h"
+operation = "at"
+search = '''
+// Whether a player shows the tag the backend gives them, and whether the items that come with
+// it animate: not until their appearance has arrived, and not when it says they turned that
+// off (Appearance::hide_tag, Appearance::hide_items).
+inline bool shows_tag(const Peer &peer) {
+    const auto &look = peer.appearance.value();
+    return look && !look->hide_tag;
+}
+inline bool shows_items(const Peer &peer) {
+    const auto &look = peer.appearance.value();
+    return look && !look->hide_items;
+}
+'''
+text = '''
+// Whether a player shows the tag the backend gives them, and whether the items that come with
+// it animate: not until their appearance has arrived, and not when it says they turned that
+// off (Appearance::hide_tag, Appearance::hide_items).
+inline bool shows_tag(const Peer /*&peer*/) {
+	/*const auto &look = peer.appearance.value();
+	return look && !look->hide_tag;*/
+	return true;
+}
+inline bool shows_items(const Peer /*&peer*/) {
+	/*const auto &look = peer.appearance.value();
+	return look && !look->hide_items;*/
+	return true;
+}
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/scripting/custom_script_loader.cpp"
+operation = "at"
+search = '''
+constexpr bool custom_scripts_enabled = false;
+'''
+text = '''
+constexpr bool custom_scripts_enabled = true;
+'''
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/developer_identity.h"
+operation = "at"
+search = 'inline constexpr std::string_view identity_lists_url = "https://api.reskate.dev/api/v1/steam-ids";'
+text = 'inline constexpr std::string_view identity_lists_url = "https://raw.githubusercontent.com/{{github}}/refs/heads/main/External/steam_networking/config";'
+
+[[patches]]
+[patches.replace]
+file = "external/steam_networking/config"
+source = "id_config"
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui.cpp"
+operation = "at"
+search = 'if (kind == L"ReSkateStartupWindow" || kind == L"Skate") { target.found = true; return FALSE; }'
+text = 'if (kind == L"{{name_safe}}StartupWindow" || kind == L"Skate") { target.found = true; return FALSE; }'
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui.cpp"
+operation = "at"
+search = 'window_class.lpszClassName = L"ReSkateLauncher";'
+text = 'window_class.lpszClassName = L"{{name_safe}}Launcher";'
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui.cpp"
+operation = "at"
+search = '''
+    const HWND window = CreateWindowExW(WS_EX_APPWINDOW, window_class.lpszClassName, L"ReSkate",
+        WS_POPUP | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU, work.left + (work.right - work.left - width) / 2,
+        work.top + (work.bottom - work.top - height) / 2, width, height, nullptr, nullptr, instance, nullptr);
+'''
+text = '''
+	const HWND window = CreateWindowExW(WS_EX_APPWINDOW, window_class.lpszClassName, L"{{name_safe}}",
+		WS_POPUP | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU, work.left + (work.right - work.left - width) / 2,
+		work.top + (work.bottom - work.top - height) / 2, width, height, nullptr, nullptr, instance, nullptr);
+'''
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_home.cpp"
+operation = "at"
+search = '''
+        if (update::binary_updates_enabled())
+            facts.push_back({state.phase == Phase::update_available ? Icon::warning : Icon::check,
+                "ReSkate " + state.config->runtime.version});
+'''
+text = '''
+        if (update::binary_updates_enabled())
+			facts.push_back({ state.phase == Phase::update_available ? Icon::warning : Icon::check,
+				"{{name}} " + state.config->runtime.version });
+'''
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_home.cpp"
+operation = "before"
+search = 'check_legal_versions(ui, launcher.settings());'
+text = '//'
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_home.cpp"
+operation = "at"
+search = '''
+    std::string version = "Development build";
+    if (update::binary_updates_enabled() && state.config && !state.config->launcher.version.empty())
+        version = "Launcher " + state.config->launcher.version;
+    const bool greet = !launcher.settings().offline && !ui.steam_name.empty();
+    draw_plate(draw, fonts, ImVec2(S(50), S(40)), greet ? "Welcome, " + ui.steam_name : std::string("ReSkate"), version,
+        launcher.settings().offline ? ImTextureID{} : ui.steam_avatar);
+    page_title(draw, fonts, ImVec2(S(52), S(88)), "RESKATE");
+'''
+text = '''
+	std::string version = "Launcher v";
+	version += reskate_version;
+	if (!(update::binary_updates_enabled() && state.config && !state.config->launcher.version.empty()))
+		version += " [DEV]";
+	const bool greet = !launcher.settings().offline && !ui.steam_name.empty();
+	draw_plate(draw, fonts, ImVec2(S(50), S(40)), greet ? "Welcome, " + ui.steam_name : "{{name}}", version, launcher.settings().offline ? ImTextureID{} : ui.steam_avatar);
+	page_title(draw, fonts, ImVec2(S(52), S(88)), "{{name_upper}}");
+'''
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_home.cpp"
+operation = "at"
+search = 'case Phase::update_available: label = "UPDATE"; detail = "New ReSkate files are ready"; break;'
+text = 'case Phase::update_available: label = "UPDATE"; detail = "New {{name}} files are ready"; break;'
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_home.cpp"
+operation = "at"
+search = '''
+        detail = !state.config ? std::string("Offline")
+               : !update::binary_updates_enabled() ? std::string("ReSkate development build")
+               : state.config->runtime.version.empty() ? std::string("ReSkate")
+               : "ReSkate " + state.config->runtime.version;
+'''
+text = '''
+		detail = !state.config ? std::string("Offline")
+			: !update::binary_updates_enabled() ? std::string("{{name}} Development Build")
+			: state.config->runtime.version.empty() ? std::string("{{name}}")
+			: "{{name}} " + state.config->runtime.version;
+'''
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_settings.cpp"
+operation = "at"
+search = '''
+            setting_check("Install ReSkate updates",
+                          "Turn off to keep the ReSkate.dll and launcher you have, such as a test build someone gave you. "
+'''
+text = '''
+            setting_check("Install {{name}} updates",
+                          "Turn off to keep the {{name_safe}}.dll and launcher you have, such as a test build someone gave you. "
+'''
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_settings.cpp"
+operation = "at"
+search = '''
+    ImGui::TextDisabled("%s", !update::binary_updates_enabled() ? "Development build: ReSkate files are never replaced."
+                              : settings.updates ? "Release build: updates install automatically."
+                                                 : "Updates are off: ReSkate files are never replaced.");
+'''
+text = '''
+    ImGui::TextDisabled("%s", !update::binary_updates_enabled() ? "[DEV] build, auto-updates disabled."
+                              : settings.updates ? "Updates will automatically be installed."
+                                                 : "Auto-updates are disabled.");
+'''
+
+[[patches]]
+[patches.pattern]
+file = "launcher/launch.cpp"
+operation = "at"
+search = 'throw std::runtime_error("Injected ReSkate.dll is not present in the child module list");'
+text = 'throw std::runtime_error("Injected {{name_safe}}.dll is not present in the child module list");'
+
+[[patches]]
+[patches.pattern]
+file = "launcher/launch.cpp"
+operation = "at"
+search = 'written != byte_count) win32_failure(L"WriteProcessMemory(ReSkate.dll path)");'
+text = 'written != byte_count) win32_failure(L"WriteProcessMemory({{name_safe}}.dll path)");'
+
+[[patches]]
+[patches.pattern]
+file = "launcher/launch.cpp"
+operation = "at"
+search = 'loaded << L"ReSkate.dll loaded at 0x" << std::hex << module.base'
+text = 'loaded << L"{{name_safe}}.dll loaded at 0x" << std::hex << module.base'
+
+[[patches]]
+[patches.pattern]
+file = "launcher/launch.cpp"
+operation = "at"
+search = 'session.self = canonical_file(module_path(), L"ReSkateLauncher.exe");'
+text = 'session.self = canonical_file(module_path(), L"{{name_safe}}Launcher.exe");'
+
+[[patches]]
+[patches.pattern]
+file = "launcher/launch.cpp"
+operation = "at"
+search = 'paths.dll = canonical_file(paths.dll, L"ReSkate.dll");'
+text = 'paths.dll = canonical_file(paths.dll, L"{{name_safe}}.dll");'
+
+[[patches]]
+[patches.pattern]
+file = "launcher/launch.cpp"
+operation = "at"
+search = '''
+        throw std::runtime_error(
+            "Skate.exe, ReSkate.dll, and the original steam_api64.dll must be beside ReSkateLauncher.exe");
+'''
+text = '''
+        throw std::runtime_error(
+            "Skate.exe, {{name_safe}}.dll, and the original steam_api64.dll must be beside {{name_safe}}Launcher.exe");
+'''
+
+[[patches]]
+[patches.pattern]
+file = "launcher/launch.cpp"
+operation = "at"
+search = 'throw std::runtime_error("ReSkate.dll is not an x64 Windows DLL");'
+text = 'throw std::runtime_error("{{name_safe}}.dll is not an x64 Windows DLL");'
+
+[[patches]]
+[patches.pattern]
+file = "launcher/launch.cpp"
+operation = "at"
+search = 'logging::write(logging::Level::info, logging::Channel::launcher, L"ReSkate.dll initialization confirmed");'
+text = 'logging::write(logging::Level::info, logging::Channel::launcher, L"{{name_safe}}.dll initialization confirmed");'
+
+[[patches]]
+[patches.pattern]
+file = "launcher/main.cpp"
+operation = "at"
+search = 'dingosdk::logging::log(Level::info, Channel::launcher, "ReSkate.dll updated to {}.", config.runtime.version);'
+text = 'dingosdk::logging::log(Level::info, Channel::launcher, "{{name_safe}}.dll updated to {}.", config.runtime.version);'
+
+[[patches]]
+[patches.pattern]
+file = "launcher/main.cpp"
+operation = "at"
+search = 'dingosdk::logging::log(Level::warning, Channel::launcher, "ReSkate.dll update failed: {}", exception.what());'
+text = 'dingosdk::logging::log(Level::warning, Channel::launcher, "{{name_safe}}.dll update failed: {}", exception.what());'
+
+[[patches]]
+[patches.pattern]
+file = "launcher/main.cpp"
+operation = "at"
+search = '"Open ReSkateLauncher.exe without --no-gui to download it from Steam.");'
+text = '"Open {{name_safe}}Launcher.exe without --no-gui to download it from Steam.");'
+
+[[patches]]
+[patches.pattern]
+file = "launcher/main.cpp"
+operation = "at"
+search = '''
+    if (in_steam_library()) {
+        MessageBoxW(nullptr,
+            L"ReSkate cannot run from Steam's skate. folder.\n\n"
+            L"Move ReSkateLauncher.exe and ReSkate.dll to a new, empty folder of their own (for example C:\\Games\\ReSkate) "
+            L"and run the launcher from there. It installs its own copy of the game into that folder, so a Steam update "
+            L"cannot break it.\n\nThe launcher will now close.",
+            L"ReSkate Launcher", MB_OK | MB_ICONERROR | MB_SETFOREGROUND);
+        return 1;
+    }
+    if (const auto folder = non_ascii_folder(); !folder.empty()) {
+        MessageBoxW(nullptr,
+            (L"ReSkate is in a folder whose path has letters skate. cannot read:\n\n" + folder +
+             L"\n\nThe game cannot find its own files there (accented, Cyrillic, Japanese and other letters outside "
+             L"A to Z; OneDrive and Desktop folders often have them) and crashes as it starts.\n\n"
+             L"Move ReSkateLauncher.exe and ReSkate.dll, with the game the launcher installed beside them, to a folder "
+             L"with only plain letters, for example C:\\Games\\ReSkate, and run the launcher from there.\n\n"
+             L"The launcher will now close.").c_str(),
+            L"ReSkate Launcher", MB_OK | MB_ICONERROR | MB_SETFOREGROUND);
+        return 1;
+    }
+'''
+text = '''
+    if (in_steam_library()) {
+        MessageBoxW(nullptr,
+            L"{{name}} cannot run from Steam's skate. folder.\n\n"
+            L"Move {{name_safe}}Launcher.exe and {{name_safe}}.dll to a new, empty folder of their own (for example C:\\Games\\{{name_safe}}) "
+            L"and run the launcher from there. It installs its own copy of the game into that folder, so a Steam update "
+            L"cannot break it.\n\nThe launcher will now close.",
+            L"{{name}} Launcher", MB_OK | MB_ICONERROR | MB_SETFOREGROUND);
+        return 1;
+    }
+    if (const auto folder = non_ascii_folder(); !folder.empty()) {
+        MessageBoxW(nullptr,
+            (L"{{name}} is in a folder whose path has letters skate. cannot read:\n\n" + folder +
+             L"\n\nThe game cannot find its own files there (accented, Cyrillic, Japanese and other letters outside "
+             L"A to Z; OneDrive and Desktop folders often have them) and crashes as it starts.\n\n"
+             L"Move {{name_safe}}Launcher.exe and {{name_safe}}.dll, with the game the launcher installed beside them, to a folder "
+             L"with only plain letters, for example C:\\Games\\{{name_safe}}, and run the launcher from there.\n\n"
+             L"The launcher will now close.").c_str(),
+            L"{{name}} Launcher", MB_OK | MB_ICONERROR | MB_SETFOREGROUND);
+        return 1;
+    }
+'''
+
+[[patches]]
+[patches.pattern]
+file = "launcher/main.cpp"
+operation = "at"
+search = 'MessageBoxW(nullptr, dialog.c_str(), L"ReSkate Launcher", MB_OK | MB_ICONERROR | MB_SETFOREGROUND);'
+text = 'MessageBoxW(nullptr, dialog.c_str(), L"{{name}} Launcher", MB_OK | MB_ICONERROR | MB_SETFOREGROUND);'
+
+[[patches]]
+[patches.pattern]
+file = "server/gui/server_gui.cpp"
+operation = "after"
+search = '''
+#include "Extension/UI/Overlay/role_badge.h"
+'''
+text = '''
+#include <reskate_version.h>
+'''
+
+[[patches]]
+[patches.pattern]
+file = "server/gui/server_gui.cpp"
+operation = "after"
+search = 'stat_row("Installed Server Build", "ReSkate v2.0.3 (Protocol " + std::to_string(multiplayer::protocol_version) + ")", good);'
+text = 'stat_row("Installed Server Build", std::format("{{name}} v{}", dingosdk::reskate_version), good);'
+
+[[patches]]
+[patches.pattern]
+file = "server/gui/server_gui.cpp"
+operation = "at"
+search = '''
+        draw->AddText(g_fonts.title, S(38), ImVec2(at.x + S(2), at.y + S(2)), IM_COL32(0, 0, 0, 160), "RESKATE");
+        draw->AddText(g_fonts.title, S(38), at, white, "RESKATE");
+        const auto extent = g_fonts.title->CalcTextSizeA(S(38), FLT_MAX, 0, "RESKATE");
+'''
+text = '''
+        draw->AddText(g_fonts.title, S(38), ImVec2(at.x + S(2), at.y + S(2)), IM_COL32(0, 0, 0, 160), "{{name_upper}}");
+        draw->AddText(g_fonts.title, S(38), at, white, "{{name_upper}}");
+        const auto extent = g_fonts.title->CalcTextSizeA(S(38), FLT_MAX, 0, "{{name_upper}}");
+'''
+
+[[patches]]
+[patches.pattern]
+file = "server/gui/server_gui.cpp"
+operation = "at"
+search = 'WS_EX_APPWINDOW, wc.lpszClassName, L"ReSkate Dedicated Server",'
+text = 'WS_EX_APPWINDOW, wc.lpszClassName, L"{{name}} Dedicated Server",'
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_home.cpp"
+operation = "after"
+search = '''
+#include <format>
+'''
+text = '''
+#include <reskate_version.h>
+'''
+
+# ==================================================
+# Text changes.
+# ==================================================
+
+[[patches]]
+[patches.pattern]
+file = "extension/multiplayer/session/session_view.cpp"
+operation = "at"
+search = '''
+    case IdentityList::developer: return {nametag_developer, "Dev"};
+    case IdentityList::content_creator: return {nametag_creator, "Content Creator"};
+    case IdentityList::centrix: return {nametag_centrix, "Centrix"};
+    case IdentityList::staff: return {nametag_staff, "ReSkate Admin"};
+    default: return {nametag_homie, "Homie"};
+'''
+text = '''
+    case IdentityList::developer: return {nametag_developer, "Developer"};
+    case IdentityList::content_creator: return {nametag_creator, "Content Creator"};
+    case IdentityList::centrix: return {nametag_centrix, "Centrix"};
+    case IdentityList::staff: return {nametag_staff, "Staff"};
+    default: return {nametag_homie, "Homie"};
+'''
+
+[[patches]]
+[patches.pattern]
+file = "server/gui/server_gui.cpp"
+operation = "at"
+search = '''
+        case multiplayer::IdentityList::developer: return {nametag_developer, "Dev"};
+        case multiplayer::IdentityList::content_creator: return {nametag_creator, "Content Creator"};
+        case multiplayer::IdentityList::centrix: return {nametag_centrix, "Centrix"};
+        case multiplayer::IdentityList::staff: return {nametag_staff, "ReSkate Admin"};
+        default: return {nametag_homie, "Homie"};
+'''
+text = '''
+        case multiplayer::IdentityList::developer: return {nametag_developer, "Developer"};
+        case multiplayer::IdentityList::content_creator: return {nametag_creator, "Content Creator"};
+        case multiplayer::IdentityList::centrix: return {nametag_centrix, "Centrix"};
+        case multiplayer::IdentityList::staff: return {nametag_staff, "Staff"};
+        default: return {nametag_homie, "Homie"};
+'''
+
+# ==================================================
+# Show NSFW and deprecated mods.
+# ==================================================
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_internal.h"
+operation = "after"
+search = '''
+inline const ImU32 danger = rgba(255, 92, 92);
+'''
+text = '''
+inline const ImU32 nsfw = rgba(255, 69, 255);
+'''
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_internal.h"
+operation = "after"
+search = '''
+    bool windowed{};
+    int width{1920};
+    int height{1080};
+    bool loose_files{true};
+'''
+text = '''
+	bool deprecated_mods{};
+	bool nsfw_mods{};
+'''
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_internal.h"
+operation = "at"
+search = 'void browse_page(Launcher& launcher, const Fonts& fonts, ModsPanel& panel, float height, bool installing);'
+text = 'void browse_page(Launcher& launcher, const Fonts& fonts, ModsPanel& panel, float height, bool installing, Settings& settings);'
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_launcher.cpp"
+operation = "after"
+search = '''
+    json["windowed"] = settings.windowed;
+    json["width"] = settings.width;
+    json["height"] = settings.height;
+    json["loose_files"] = settings.loose_files;
+'''
+text = '''
+	json["deprecated_mods"] = settings.deprecated_mods;
+	json["nsfw_mods"] = settings.nsfw_mods;
+'''
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_mods.cpp"
+operation = "at"
+search = '''
+void installed_row(const Fonts& fonts, ModsPanel& panel, const thunderstore::Installed& installed,
+                   const std::vector<int>& view, int position, float tall, bool reorder, Request& request) {
+'''
+text = '''
+void installed_row(const Fonts& fonts, ModsPanel& panel, const thunderstore::Installed& installed,
+                   const std::vector<int>& view, int position, float tall, bool reorder, Request& request, HWND window) {
+'''
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_mods.cpp"
+operation = "after"
+search = '''
+        } else if (broken(panel, mod.name)) {
+            label = "NOT LOADED", fill = color::danger;
+            tip = "The game could not merge it cleanly, so none of it is used. Open it to see why.";
+        }
+'''
+text = '''
+		if (package) {
+			ImVec2 at2(start.x + r.type - S(14), at.y);
+			if (update)
+				at2.x -= S(30) + badge_width(fonts, "UPDATE");
+			if (package->nsfw || std::any_of(package->categories.begin(), package->categories.end(), [](const std::string& category) { return folded(category) == "nsfw"; })) {
+				at2.x -= badge_width(fonts, "NSFW");
+				badge(draw, fonts, at2, "NSFW", color::nsfw, fill == color::tile_grey ? color::text : color::ink);
+				at2.x -= S(12);
+			}
+			if (package->deprecated) {
+				at2.x -= badge_width(fonts, "DEPRECATED");
+				badge(draw, fonts, at2, "DEPRECATED", color::tile_grey, color::text);
+			}
+		}
+'''
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_mods.cpp"
+operation = "at"
+search = 'if (panel.tab == 1) browse_page(launcher, fonts, panel, body, installing);'
+text = 'if (panel.tab == 1) browse_page(launcher, fonts, panel, body, installing, launcher.settings());'
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_mods_browse.cpp"
+operation = "at"
+search = 'std::vector<const ts::Package*> visible_packages(const Store& store, const ts::Installed& installed, const ts::CategoryFilter& categories) {'
+text = 'std::vector<const ts::Package*> visible_packages(const Store& store, const ts::Installed& installed, const ts::CategoryFilter& categories, Settings& settings) {'
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_mods_browse.cpp"
+operation = "at"
+search = '''
+        if (nsfw(package)) continue;
+        if (package.deprecated && !have) continue;
+'''
+text = '''
+		if (nsfw(package) && !(settings.nsfw_mods || have)) continue;
+		if (package.deprecated && !(settings.deprecated_mods || have)) continue;
+'''
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_mods_browse.cpp"
+operation = "at"
+search = 'void browse_page(Launcher& launcher, const Fonts& fonts, ModsPanel& panel, float height, bool installing) {'
+text = 'void browse_page(Launcher& launcher, const Fonts& fonts, ModsPanel& panel, float height, bool installing, Settings& settings) {'
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_mods_browse.cpp"
+operation = "at"
+search = 'const auto packages = visible_packages(store, installed, {launcher.settings().mod_categories_only, launcher.settings().mod_categories_hidden});'
+text = 'const auto packages = visible_packages(store, installed, { launcher.settings().mod_categories_only, launcher.settings().mod_categories_hidden }, launcher.settings());'
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_mods_browse.cpp"
+operation = "after"
+search = '''
+        draw->AddText(fonts.body, fonts.body->FontSize, ImVec2(text_x, start.y + S(32)), color::text, line.c_str(),
+            nullptr, 0, &clip);
+'''
+text = '''
+		float pill_x = button_x - S(14);
+		const float pill_y = start.y + (tall - fonts.caption->FontSize - S(8)) * 0.5f;
+		if (nsfw(package) && settings.nsfw_mods) {
+			const std::string label = "NSFW";
+			pill_x -= badge_width(fonts, label);
+			badge(draw, fonts, ImVec2(pill_x, pill_y), label, IM_COL32(255, 255, 64, 129), color::ink);
+			pill_x -= S(8);
+		}
+		if (package.deprecated && settings.deprecated_mods) {
+			const std::string label = "DEPRECATED";
+			pill_x -= badge_width(fonts, label);
+			badge(draw, fonts, ImVec2(pill_x, pill_y), label, IM_COL32(150, 152, 158, 255), color::ink);
+			pill_x -= S(8);
+		}
+		const ImVec4 details_clip(text_x, start.y + S(55), std::max(text_x, pill_x - S(8)), start.y + tall);
+'''
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_settings.cpp"
+operation = "after"
+search = '''
+        if (start_map_choice(settings, launcher.session(), ui)) launcher.save();
+'''
+text = '''
+        ImGui::Spacing();
+        section_caption(fonts, "MOD BROWSER");
+        setting_check("Show deprecated mods", "Show mods that authors have abandoned or no longer support.", settings.deprecated_mods);
+        setting_check("Show NSFW mods", "Show mods that have been marked as not safe for work.", settings.nsfw_mods);
+'''
+
+# ==================================================
+# Actual auto-updater instead of just checking if current exe is current.
+# ==================================================
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_launcher.cpp"
+operation = "at"
+search = 'return !relaunched_ && !config.launcher.url.empty() && !update::file_matches(session_.self, config.launcher);'
+text = 'return !relaunched_ && !config.launcher.url.empty() && !update::file_matches(session_.self, config.launcher) && update::is_newer(config.launcher.version);'
+
+[[patches]]
+[patches.pattern]
+file = "launcher/gui_launcher.cpp"
+operation = "at"
+search = 'return !config.runtime.url.empty() && !update::file_matches(session_.paths.dll, config.runtime);'
+text = 'return !config.runtime.url.empty() && !update::file_matches(session_.paths.dll, config.runtime) && update::is_newer(config.runtime.version);'
+
+[[patches]]
+[patches.pattern]
+file = "launcher/updater.cpp"
+operation = "after"
+search = '''
+#include "Engine/Core/Platform/path_text.h"
+'''
+text = '''
+#include <reskate_version.h>
+'''
+
+[[patches]]
+[patches.pattern]
+file = "launcher/updater.cpp"
+operation = "at"
+search = '''
+ReleaseNote fetch_release_note(bool prereleases) {
+    // The description as it was written, markdown, from GitHub's API.
+    try {
+        const auto release = release_to_use(prereleases).release;
+        // (A release made without a title or a description has null there.)
+        const auto field = [&](std::string_view key) {
+            return release.contains(key) && release.at(key).is_string() ? release.at(key).string() : std::string();
+        };
+        ReleaseNote note{field("tag_name"), field("name"), field("published_at").substr(0, 10), field("body"),
+                         release.value("prerelease", false)};
+        if (!note.tag.empty() && note.notes.find_first_not_of(" \t\r\n") != std::string::npos) return note;
+    } catch (const std::exception& exception) {
+        logging::log(logging::Level::info, logging::Channel::launcher,
+            "Latest release's notes not available from GitHub's API ({}); reading the releases feed.", exception.what());
+    }
+    // Else what the releases page shows, from its feed: a release published without a
+    // description shows its commit's message there, and the feed has no hourly limit.
+    const auto url = std::wstring(L"https://github.com/") + launcher_release_repo + L"/releases.atom";
+'''
+text = '''
+ReleaseNote fetch_release_note(bool /*prereleases*/) {
+	// The description as it was written, markdown, from GitHub's API.
+	/*try {
+		const auto release = release_to_use(prereleases).release;
+		// (A release made without a title or a description has null there.)
+		const auto field = [&](std::string_view key) {
+			return release.contains(key) && release.at(key).is_string() ? release.at(key).string() : std::string();
+		};
+		ReleaseNote note{field("tag_name"), field("name"), field("published_at").substr(0, 10), field("body"),
+						 release.value("prerelease", false)};
+		if (!note.tag.empty() && note.notes.find_first_not_of(" \t\r\n") != std::string::npos) return note;
+	} catch (const std::exception& exception) {
+		logging::log(logging::Level::info, logging::Channel::launcher,
+			"Latest release's notes not available from GitHub's API ({}); reading the releases feed.", exception.what());
+	}*/
+	// Else what the releases page shows, from its feed: a release published without a
+	// description shows its commit's message there, and the feed has no hourly limit.
+	const auto url = std::wstring(L"https://github.com/") + L"/Dingo-Shenanigans/ReSkate/releases.atom";
+'''
+
+[[patches]]
+[patches.pattern]
+file = "launcher/updater.cpp"
+operation = "before"
+search = '''
+bool file_matches(const fs::path& path, const RemoteFile& file) {
+    std::error_code error;
+    return fs::is_regular_file(path, error) && fs::file_size(path, error) == file.size && !error &&
+           launcher::sha256_file(path) == file.sha256;
+}
+'''
+text = '''
+class Version {
+public:
+	std::array<int, 4> digits{ 0, 0, 0, 0 };
+	Version() = default;
+	Version(const std::string& str) {
+		std::stringstream ss(str);
+		std::string segment;
+		int idx = 0;
+		while (std::getline(ss, segment, '.') && idx < 4) {
+			digits[idx++] = std::stoi(segment);
+		}
+	}
+	auto operator<=>(const Version& other) const = default;
+};
+bool is_newer(const std::string& version) { return Version(version) > Version(std::string(dingosdk::reskate_version)); }
+'''
+
+[[patches]]
+[patches.pattern]
+file = "launcher/updater.h"
+operation = "after"
+search = '''
+#include <vector>
+'''
+text = '''
+#include <sstream>
+'''
+
+[[patches]]
+[patches.pattern]
+file = "launcher/updater.h"
+operation = "before"
+search = '''
+// True when the file on disk already has the pinned SHA-256.
+bool file_matches(const std::filesystem::path& path, const RemoteFile& file);
+'''
+text = '''
+bool is_newer(const std::string& version);
+'''

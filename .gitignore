@@ -4,8 +4,8 @@
 /artifacts/
 /logs/
 /.vs/
-/.github/
 /CMakeUserPresets.json
+/build-work/
 __pycache__/
 *.log
 *.dll

@@ -1,0 +1,146 @@
+name: Automated Upstream Build & Release
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Automatically runs every night at midnight to check for updates
+  workflow_dispatch: # Allows you to manually trigger it with a "Run workflow" button on GitHub
+
+jobs:
+  check-commit-and-release:
+    runs-on: windows-2022
+
+    steps:
+    - name: Checkout Personal Fork
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Run Upstream Sync & Apply Patches
+      id: sync
+      shell: powershell
+      run: |
+        $uri = "https://api.github.com/repos/Dingo-Shenanigans/ReSkate/commits?per_page=1"
+        $headers = @{
+            "Accept" = "application/vnd.github+json"
+            "X-GitHub-Api-Version" = "2022-11-28"
+        }
+        $latestUpstream = Invoke-RestMethod -Uri $uri -Headers $headers
+        $latestSha = $latestUpstream[0].sha
+        Write-Host "Latest upstream commit: $latestSha"
+        if (Test-Path "last-build.json") {
+            $lastBuild = Get-Content "last-build.json" -Raw | ConvertFrom-Json
+
+            if ($lastBuild.commit -eq $latestSha) {
+                Write-Host "No new updates found upstream. Skipping build."
+                "SKIP=true" >> $env:GITHUB_OUTPUT
+                exit 0
+            }
+        }
+        python main.py
+        if ($LASTEXITCODE -ne 0) {
+            throw "Python upstream sync failed with exit code $LASTEXITCODE."
+        }
+
+    - name: Dynamically Calculate Incremental Version Suffix
+      if: steps.sync.outputs.SKIP != 'true'
+      id: versioning
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      shell: powershell
+      run: |
+        $upstreamBase = (Get-Content "current.version" -Raw).Trim()
+        Write-Host "Upstream Live API Base Version: $upstreamBase"
+        $allTags = gh release list --limit 100 | ForEach-Object { ($_ -split "`t") }
+        $revision = 0
+        $prefix = "v$upstreamBase."
+        $matchingTags = $allTags | Where-Object { $_ -like "$prefix*" }
+        if ($matchingTags) {
+            $highestRevision = $matchingTags | ForEach-Object {
+                [int]($_ -replace [regex]::Escape($prefix), "")
+            } | Measure-Object -Maximum | Select-Object -ExpandProperty Maximum
+            
+            $revision = $highestRevision + 1
+        }
+        $finalVersion = "$upstreamBase.$revision"
+        Write-Host "Target Suffix Version Output: $finalVersion"
+        echo "VERSION=$finalVersion" >> $env:GITHUB_OUTPUT
+        Set-Content -Path "current.version" -Value $finalVersion -Force
+
+    - name: Push Patched Source Code to Repository for Public Review
+      if: steps.sync.outputs.SKIP != 'true'
+      shell: powershell
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        $sourcePath = (Get-ChildItem -Path "build-work\ReSkate-*\source" -Directory).FullName
+        Copy-Item -Path "$sourcePath\*" -Destination "." -Recurse -Force -ErrorAction Ignore
+        git add .
+        git diff-index --quiet HEAD
+        if ($LASTEXITCODE -ne 0) {
+            git commit -m "Automated Sync v${{ steps.versioning.outputs.VERSION }} - Applied TOML patches to latest upstream"
+        }
+        git push origin main
+
+    - name: Compile Code via CMake
+      if: steps.sync.outputs.SKIP != 'true'
+      shell: powershell
+      run: |
+        Write-Host "Building project components..."
+        cargo fetch --manifest-path SpotifyHelper/Cargo.toml
+        if ($LASTEXITCODE -ne 0) { throw "Cargo dependency fetch failed." }
+        cmake --preset vs2022-x64 -DDINGOSDK_VERSION="${{ steps.versioning.outputs.VERSION }}" -DDINGOSDK_LAUNCHER_AUTO_UPDATE=ON
+        if ($LASTEXITCODE -ne 0) { throw "CMake configuration failed." }
+        cmake --build --preset release --parallel 4
+        if ($LASTEXITCODE -ne 0) { throw "CMake build failed." }
+
+    - name: Package Release Assets
+      if: steps.sync.outputs.SKIP != 'true'
+      shell: powershell
+      run: |
+        $sourceBuild = "build\vs2022-x64\Release"
+        .\build.ps1 -Version "${{ steps.versioning.outputs.VERSION }}" -BuildPath $sourceBuild
+
+    - name: Publish Automatically to GitHub Releases
+      if: steps.sync.outputs.SKIP != 'true'
+      id: release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      shell: powershell
+      run: |
+        $releaseFolder = "build\vs2022-x64\Release\complete\${{ steps.versioning.outputs.VERSION }}"
+        Set-Location $releaseFolder
+        $zipFile = Get-ChildItem -Filter "*.zip" | Select-Object -First 1
+        gh release create "v${{ steps.versioning.outputs.VERSION }}" $zipFile.Name launcher.json --title "ReSkatePlus v${{ steps.versioning.outputs.VERSION }}" --notes "Automated track build reflecting FourthStudio updates. Check the commit history for this version to inspect the fully applied source code patches."
+
+    - name: Save Successful Build State
+      if: steps.sync.outputs.SKIP != 'true' && steps.release.outcome == 'success'
+      shell: powershell
+      run: |
+        $uri = "https://api.github.com/repos/Dingo-Shenanigans/ReSkate/commits?per_page=1"
+        $headers = @{
+            "Accept" = "application/vnd.github+json"
+            "X-GitHub-Api-Version" = "2022-11-28"
+        }
+        $latestUpstream = Invoke-RestMethod -Uri $uri -Headers $headers
+        $latestCommit = $latestUpstream[0]
+        $stateObj = @{
+            repo = "Dingo-Shenanigans/ReSkate"
+            branch = "main"
+            commit = $latestCommit.sha
+            date = $latestCommit.commit.committer.date
+            version = "${{ steps.versioning.outputs.VERSION }}"
+            built_at = (Get-Date -Format "o")
+        }
+        $stateObj | ConvertTo-Json | Set-Content -Path "last-build.json" -Force
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git add last-build.json
+        git commit -m "Automated System: Track compiled release tracking point update [skip ci]"
+        git push origin main
+        
