@@ -2516,3 +2516,28 @@ bool file_matches(const std::filesystem::path& path, const RemoteFile& file);
 text = '''
 bool is_newer(const std::string& version);
 '''
+
+# ==================================================
+# Plugin modifications.
+# ==================================================
+
+[[patches]]
+[patches.pattern]
+file = "extension/plugins/plugin_vm.h"
+operation = "at"
+search = 'double call_ms = 50;'
+text = 'double call_ms = 250;'
+
+[[patches]]
+[patches.pattern]
+file = "extension/plugins/plugin_vm.h"
+operation = "at"
+search = 'double unload_ms = 20;'
+text = 'double unload_ms = 100;'
+
+[[patches]]
+[patches.pattern]
+file = "extension/plugins/plugin_vm.h"
+operation = "at"
+search = 'double tick_ms = 2;'
+text = 'double tick_ms = 5;'
