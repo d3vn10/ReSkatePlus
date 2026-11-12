@@ -1,0 +1,39 @@
+/build/
+/.patch-files/
+/SpotifyHelper/target/
+/out/
+/artifacts/
+/logs/
+/.vs/
+/CMakeUserPresets.json
+__pycache__/
+*.log
+*.dll
+*.exe
+*.pdb
+*.ilk
+*.lib
+*.exp
+*.keys
+*.pcap
+*.pcapng
+*.pdml
+*.mitm
+analysis/raw/**/*.ebx
+analysis/raw/**/*.res
+
+# Optional developer utilities stay local. CMake is self-contained.
+/tools/
+/tests/
+
+# Local research and extended documentation are not shipped.
+/analysis/
+/docs/
+/release
+
+# Plugin mods are kept on this machine, out of the repository.
+/contrib/plugins/
+
+# vtf's linux development configuration
+.vscode/
+.clangd

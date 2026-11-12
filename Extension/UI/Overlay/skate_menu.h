@@ -1,0 +1,171 @@
+#pragma once
+#include <array>
+
+#include "overlay.h"
+#include "park_editor.h"
+#include <imgui.h>
+#include <optional>
+#include <map>
+#include <string>
+#include <vector>
+
+namespace dingosdk::overlay
+{
+    struct AtmosphereEdit
+    {
+        AtmosphereValue value;
+        std::optional<AtmosphereValue> pending;
+        bool waiting{}, editing{}, dirty{};
+        double deadline{};
+    };
+    struct SkateMenu
+    {
+        int page = 0;
+        int multiplayer_tab = 0;
+        bool multiplayer_session_seen{};
+        bool multiplayer_host_seeded{}; // host drafts filled from the saved host settings
+        int multiplayer_capacity = multiplayer_lobby_player_limit;
+        unsigned multiplayer_tps = multiplayer_default_tps;
+        int multiplayer_visibility = 1;
+        int multiplayer_lobbies_frame = -2; // last frame the Lobbies tab drew
+        bool multiplayer_password_enabled = false;
+        bool multiplayer_same_map_only = false;
+        bool multiplayer_dedicated_only = false;
+        std::array<char, 321> server_command{}; // an admin's command for the dedicated server
+        std::map<std::string, std::pair<bool, double>>
+            map_pool_pending;                    // asset -> {ticked, until}, until the server agrees
+        std::optional<int> map_rotation_pending; // the rotation slider, likewise
+        double map_rotation_until{};
+        bool ban_confirm_on_server{};      // the Ban popup bans from a dedicated server
+        int multiplayer_lobby_sort = 1;    // most players first
+        float multiplayer_code_height = 0; // what the join-by-code card took last frame
+        // Bans: the manual add form, and the player a Ban button is asking about.
+        std::array<char, 24> ban_id{};
+        std::array<char, 65> ban_name{};
+        std::uint64_t ban_confirm_id{};
+        std::string ban_confirm_name;
+        bool ban_confirm_requested{};
+        bool multiplayer_password_popup_requested = false, multiplayer_password_show = false;
+        std::optional<MultiplayerLobby> multiplayer_password_lobby;
+        std::string multiplayer_password_code, multiplayer_password_error;
+        std::array<char, 65> multiplayer_host_password{}, multiplayer_join_password{};
+        std::array<char, 96> multiplayer_join_code{};
+        std::array<char, 128> multiplayer_lobby_search{};
+        std::array<char, 129> multiplayer_lobby_name{};
+        MultiplayerDistances multiplayer_distance_draft, multiplayer_distance_applied;
+        bool multiplayer_distance_initialized{}, multiplayer_distance_hosting{};
+        int voice_bind_capture{};
+        ControllerComboCapture voice_controller_capture;
+        double voice_capture_until{}, voice_pending_until{};
+        std::optional<VoiceSettings> voice_pending;
+        std::optional<float> voice_range_pending; // the host's range slider while dragged / until the model agrees
+        double voice_range_until{};
+        // Chat bubble distance/duration/history sliders, likewise held while dragged.
+        std::optional<float> chat_bubbles_distance_pending, chat_bubbles_duration_pending, nametag_distance_pending;
+        double nametag_distance_until{};
+        std::optional<float> player_distance_pending;
+        double player_distance_until{};
+        std::optional<int> chat_bubbles_history_pending;
+        double chat_bubbles_distance_until{}, chat_bubbles_duration_until{}, chat_bubbles_history_until{};
+        std::map<std::uint64_t, std::pair<float, double>> voice_volume_pending;
+        std::array<bool, 256> voice_keys_down{};
+        std::string multiplayer_distance_lobby;
+        int recording_bind = 0;
+        ControllerComboCapture bind_capture;
+        double bind_capture_until = 0;
+        int last_menu_frame = -1;
+        // Live while the scale slider is held; the saved value is authoritative otherwise.
+        float scale = default_menu_scale;
+        bool scale_editing{};
+        // Selected tab on each page; see the Page list in skate_menu_internal.h.
+        int map_tab = 0, build_tab = 0, skater_tab = 0, settings_tab = 0;
+        bool close_requested{}; // a page closes the menu: OPEN ANIMATION STUDIO, as F8 does nothing while the menu is
+                                // open
+        std::string
+            plugin_page; // the plugin whose page PLUGINS shows, by its id (menu::plugin_manager_entry: the list)
+        // The pages opened lately this run, newest first, at most three, HOME left out (HOME's PICK UP WHERE
+        // YOU LEFT OFF): the page, the tab it was on (-1: none), what to call it, and a plugin's page by its id.
+        struct RecentPage
+        {
+            int page = -1, tab = -1;
+            std::string label, plugin;
+        };
+        std::vector<RecentPage> recent;
+        // The layout, the side sheet's width and the window's size as just chosen or dragged (the last two in
+        // pixels at 1080 lines and scale 1), until the saved setting comes back through the model.
+        std::optional<int> layout_pending;
+        double layout_until = 0;
+        int layout_drawn = -1; // the layout the last frame was drawn in
+        // The park editor's layout as just chosen on BUILD > PARK EDITOR, until `editor layout` comes back
+        // through the model.
+        std::optional<int> editor_layout_pending;
+        double editor_layout_until = 0;
+        std::optional<float> sheet_width_pending;
+        double sheet_width_until = 0;
+        bool sheet_dragging{};    // the sheet's left edge is held
+        float sheet_drag_width{}; // its width while held, in screen pixels
+        std::optional<ImVec2> hub_size_pending;
+        double hub_size_until = 0;
+        ImVec2 hub_size_applied{}; // the window size last given to ImGui, in screen pixels: a different one is the
+                                   // player's drag
+        std::array<std::optional<int>, 3> graphics_pending{};
+        std::array<double, 3> graphics_pending_until{};
+        std::array<char, 128> object_search{};
+        // Map > Travel: which maps it shows (all, stock, custom) and how they are ordered (A to Z, newest installed).
+        int map_show = 0, map_sort = 0;
+        int world_layer_category = 0;
+        std::array<char, 128> world_layer_search{};
+        int progression_tab = 0;
+        int bus_stop_map = 0;
+        int challenge_type = 0;
+        std::array<char, 128> challenge_search{};
+        bool score_dirty = false;
+        std::int64_t score_edit = 0, score_cap_edit = 1;
+        int score_level_edit = 1;
+        std::array<int, 4> district_edit{};
+        std::array<bool, 4> district_dirty{};
+        std::string destination = "levels/game/BAM_LevelRoot/BAM_LevelRoot";
+        std::string feedback;
+        std::array<char, 128> mission_search{};
+        int mission_group = 0;
+        ParkChoices park_edit, park_seen;
+        std::array<char, 128> atmosphere_search{};
+        std::array<AtmosphereEdit, dingosdk::atmosphere_controls.size()> atmosphere_edit{};
+        double feedback_until = 0;
+        ImFont *body = nullptr;
+        ImFont *bold = nullptr;
+        ImFont *title = nullptr;      // brushed page titles
+        ImFont *heading = nullptr;    // tile and section headers
+        ImFont *countdown = nullptr;  // full-resolution fallback countdown digits
+        ImFont *hud = nullptr;        // plugins' larger text, 72 pixels (plugin_overlay.cpp)
+        ImFont *hud_digits = nullptr; // and their largest: digits and GO, 220 pixels
+        ImFont *mono = nullptr;
+        // The same faces drawn larger (large_font_ratio times), swapped in while the menu is scaled up (a
+        // large screen or a large menu size): text stays sharp instead of stretched. The big titles always
+        // draw from title_large, and plugins draw with it too (reskate.ui's "title_large").
+        ImFont *body_large = nullptr;
+        ImFont *bold_large = nullptr;
+        ImFont *heading_large = nullptr;
+        ImFont *title_large = nullptr;
+        ImFont *logo = nullptr; // the Animator Studio's loading screen: big lowercase, as the reskate. wordmark
+        // The Animator Studio's MARKET and ABOUT: their faces made at the screen's own scale (studio_scale, the
+        // studio's page scale when the overlay was set up), each at a few sizes (on the 1080p page), so words are drawn
+        // at the size they were made at or a little under - sharp - rather than stretched. Anton for the headlines,
+        // Montserrat, the brush face for stamps; and the cover designer's fonts for their buttons (Bebas Neue, Rubik
+        // Dirt, Sedgwick Ave Display, Knewave).
+        struct StudioFace
+        {
+            std::array<float, 6> sizes{};
+            std::array<ImFont *, 6> fonts{};
+            int count = 0;
+        };
+        float studio_scale = 1;
+        StudioFace studio_anton, studio_heading, studio_body, studio_marker;
+        std::array<ImFont *, 4> studio_covers{};
+    };
+    inline constexpr float large_font_ratio = 30.0f / 17.0f;
+    // `studio_scale`: the Animator Studio's page scale on this screen (its 1080p page to the screen), which its faces
+    // are made at.
+    void load_skate_fonts(SkateMenu &menu, float studio_scale = 1);
+    void draw_skate_menu(SkateMenu &menu, const Model &model, const CallbacksV3 &callbacks, bool &visible);
+} // namespace dingosdk::overlay
