@@ -1699,3 +1699,76 @@ Consumer status: no direct runtime consumer was identified in the inspected sour
 **Observed defect:** the probe loop terminates only when a matching key is found. A missing GUID can therefore walk empty slots indefinitely rather than returning not-found. Two hang dumps from 2026-10-17 associated this with a custom-map server and a Throwdown asset-pack GUID.
 
 **Compatibility requirement:** this is a behaviorally important native algorithm, but the current header does not establish an active SDK hook or complete caller set. Preserve the distinction between a matching lookup function and a corrected lookup algorithm. A future compatibility fix must establish a bounded probe/termination condition and verify the table's capacity/probe invariants without assuming this exact implementation is already consumed by ReSkatePlus.
+
+
+## 50. `lua_natives.h` — restricting unsafe stock Lua native-library operations
+
+Consumer: `Extension/Scripting/lua_native_block.cpp`.
+
+| Symbol / field | Contract | Compatibility significance |
+|---|---|---|
+| `load_library` | Lua's `ll_loadfunc`, used by `package.loadlib` and C-module require searchers. | Replaced with a Lua-compatible failure result and message; DLL loading is refused before any Lua state can retain the original function. |
+| `push_format` | Native `lua_pushfstring` helper. | Used to construct the refusal message on the Lua stack. |
+| `parse_chunk`, `parser_mode_offset` | Lua chunk parser; parser mode pointer at +0x48. | Detour forces text-only mode before forwarding to the original parser, rejecting precompiled bytecode through Lua's own validation. |
+| `os_execute`, `io_popen` | Process execution entry points. | Replaced with functions returning no values (Lua nil). |
+| `io_open`, `io_output`, `os_remove`, `os_rename` | Filesystem open/write/delete/rename entry points. | Replaced with functions returning no values; blocks scripts from writing/deleting/renaming arbitrary disk files. |
+
+**Installation contract:** all eight hooked entry points plus `push_format` are fingerprint-checked before hooks are prepared. The implementation prepares the DLL-load refusal, parser detour and six library refusals, then enables them in one queued hook transaction. If preparation or activation fails, prepared hooks are removed and the feature reports failure. The original parser trampoline is retained; other refusals intentionally do not call their original native functions.
+
+The header's comment identifies stock Lua 5.2 with the standard libraries open. The block is installed before any Lua state exists, preventing scripts from racing startup or retaining an unmodified native function. Refusal logs are bounded per operation to avoid a script filling the log by retrying every frame.
+
+**Compatibility requirement:** preserve the Lua C-function ABI, parser object layout/mode offset, stack behavior of refusal messages and all-or-nothing hook activation. A match for `load_library` does not establish that the remaining process/filesystem operations or bytecode parser are still covered.
+
+## 51. `lua_startup.h` — post-native-startup callback registration
+
+Consumer: `Extension/Scripting/lua_startup.cpp`.
+
+| Symbol / field | Contract | Compatibility significance |
+|---|---|---|
+| `startup_contract` | Native post-startup routine, hooked with a one-argument native context. | Detour calls stock startup first, then runs registered callbacks. |
+| `execute_contract` | Executes a Lua source buffer in a context; ABI used as bool(context, source, unsigned length, extra). | Exposed through `Context::execute`; source length is bounded to unsigned range. |
+| `get_context_contract` | Returns the live Lua context. | Callback execution requires a non-null context after native startup. |
+| `reload_settings_contract` | Reloads the settings manager. | Called once after callbacks if any callback reports that settings changed. |
+| Callback registry | Fixed array of four callbacks, registered in order. | Duplicate callbacks are ignored; registration is limited to four and bound to one image base. |
+
+**Execution flow:** the first callback registration validates all four fingerprints, resolves the helper functions and settings-manager global, prepares the startup detour and enables it. The detour forwards to native startup, obtains the Lua context, then invokes callbacks in registration order on the same thread. Exceptions from individual callbacks are logged without preventing later callbacks. If any callback returns true, settings are reloaded once after the callback loop.
+
+**Compatibility requirement:** preserve the stock-startup-before-callback ordering, context acquisition timing, callback thread, maximum registry size, function signatures and settings reload behavior. This is a lifecycle hook, not a replacement Lua initialization routine.
+
+## 52. `script_natives.h` — authored-graph error logging and board-wear SetFields interception
+
+Consumers: `Extension/Progression/script_error_log.cpp` and `Extension/Progression/board_wear.cpp`.
+
+| Symbol / field | Contract | Compatibility significance |
+|---|---|---|
+| `script_error_record` | Native table row identified by hash 0xa5910db3. | Only slots still bound to the known shared no-op stub are redirected. |
+| `script_error_stub` | Shared no-op native function at RVA 0x58ada50. | Expected original binding for the error logger slots. |
+| `set_fields_entry` | Native table row identified by hash 0xbdc6524d. | The row's function slot is patched only when it still contains the expected SetFields function. |
+| `set_fields` | Native SetFields function at RVA 0x4681170. | Detour forwards all calls except the narrowly identified authored board-wear reset. |
+| Ownable-context resolve note | Native 0xdbfa3b23 is an observed stub that always reports failure. | Explains why the authored UpdateBoardWear graph resets its wear block every tick; this is a semantic observation, not a declared hook target. |
+
+**Script error logging:** the retail graph error native is bound to a no-op. The consumer checks the table-row hash and attempts to redirect slots +0x30, +0x40 and +0x48 only when each still points to the shared stub. The replacement examines up to four arguments for readable text, associates the current expression with a challenge graph when possible, and logs each distinct message once. Argument and message-address caches are bounded.
+
+**Board-wear behavior:** the SetFields row is checked by hash, and its slot is patched only if it still points to the expected native SetFields function. The detour identifies the authored per-tick reset only when the currently executing expression is one of two known graph IDs, the arguments describe a single field at observer component +0x120, and the incoming 32 bytes are all zero. That one reset is held so the authored accumulator carries across ticks. A queued explicit reset allows exactly one authored zeroing write through. Every other SetFields call is forwarded.
+
+**Compatibility requirement:** these are native-table binding contracts rather than ordinary function-entry hooks. Preserve row hashes, slot offsets, expected original pointer checks, argument decoding and graph identity. Never redirect an arbitrary table slot or suppress a SetFields call based only on the target address.
+
+## 53. `world_controls.h` — environment component and population manager hooks
+
+Consumers: `Extension/World/local_world_controls.cpp` and `Extension/World/local_population_controls.cpp`; data model in `Engine/Game/World/world_controls.h`.
+
+| Symbol / field | Contract | Compatibility significance |
+|---|---|---|
+| `world_control_sites` | Fifteen 32-byte fingerprints for environment constructors/destructors/property calls and population manager lifecycle/tick/enable sites. | All sites are checked before any world-control hooks are installed. |
+| `environment_vtables` | Fog, sky and wind component vtables. | Each component must match the expected native class. |
+| `environment_types` | Corresponding data TypeInfos. | The component's data object is validated against the correct type. |
+| Environment vtable slots | +0x08 destructor and +0x18 property function, checked against the expected fingerprint-site RVAs. | Hooked constructor/destructor and property call ABIs must agree with the vtable layout. |
+| Population hooks | Two realm managers, construct/destroy, per-realm tick and enable sites. | Managers are checked against the realm global, vtable and realm ID before use. |
+
+**Environment flow:** the runtime hooks constructors and destructors for fog, sky and wind components. It records a component only after validating its data pointer, TypeInfo, parent collection and parent identity. Updates run on the validated client thread, no more frequently than every 250 ms, and only for components belonging to the current map. The environment property mapping is separately defined by the world-control runtime: 14 fields, their hashes, cache offsets, masks and type. Atmosphere-specific sites and field contracts are additionally validated through the atmosphere subsystem.
+
+**Population flow:** traffic and pedestrian managers are tracked by realm. Each manager must still be the object held by the corresponding native global and must match its expected vtable and realm number. The traffic-system config is checked by TypeInfo and identifier before fields are read or written. Original values are retained and restored only when the current field still equals the value the SDK applied, avoiding overwriting a later native/plugin change. Population enable hooks preserve the original realm-specific state when a control returns to default.
+
+**Installation:** all 15 world-control sites and the separate atmosphere property sites are fingerprint-checked. Vtable property/destructor pointers are checked against the expected site addresses. The runtime then prepares environment and population hooks and enables them; on failure it disables the hooks it prepared and reports the controls unavailable.
+
+**Compatibility requirement:** preserve all 15 site identities, vtable slot relationships, environment TypeInfos, parent/component lifetime, field masks and population manager/config identity. The model's accepted ranges and sentinel -1 semantics are part of the public control contract, but do not prove the underlying native component layout by themselves.
