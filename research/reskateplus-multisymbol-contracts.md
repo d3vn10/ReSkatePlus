@@ -1222,3 +1222,89 @@ Audit basis: recursive Git tree of `d3vn10/ReSkatePlus` on `main`, compared with
 - Headers that have no dedicated section may still have been mentioned in earlier high-level notes in the project history. They remain unexpanded here until their actual consumer and contract are traced.
 - The `profile.h` section is broad and high-density; it needs a separate completeness audit against all declarations and the actual profile consumers.
 - The existing sections contain explicit ABI gaps. Those remain unresolved and must not be upgraded to confirmed candidate matches solely because a fingerprint or structural match exists.
+
+
+## 24. `initfs.h` — encrypted InitFS archive key extraction
+
+Consumer: `Engine/Vfs/initfs.cpp`.
+
+| Symbol / data | Contract | Compatibility significance |
+|---|---|---|
+| `key` | RVA of a 16-byte AES key embedded in the executable image. | Data identity, not a callable function. Key bytes are extracted from the on-disk executable only after the launcher validates the full executable identity. |
+| `decrypt_reference` / `decrypt_reference_prefix` | RVA and 18-byte instruction prefix of the decryptor's reference to the key. | The reference bytes are checked before reading the key. A moved key with a stale reference or a matching reference with changed key semantics must not be accepted. |
+
+**Consumer behavior:** the loader parses the executable PE section table, maps the key RVA into a file-backed section, verifies the 18-byte decrypt-reference sequence, and reads exactly 16 key bytes. AES-CBC decryption uses that key as both AES key and initial IV, with PKCS padding. Secret buffers and AES key material are zeroed on destruction. Archive input is capped at 64 MiB, validated as a native DB envelope, parsed with full-consumption checks, and merged into an effective entry map.
+
+**Compatibility contract:** the key is build-specific data and the decrypt-reference prefix is its locator guard. There is no function ABI to relocate. A new executable requires independently recovering the key and verifying the encryption mode/IV/padding and native DB envelope. Do not infer compatibility from the key RVA alone.
+
+## 25. `global_offline.h` — shared OnlineEnabled leaf and caller-specific offline behavior
+
+Consumer: `Extension/Boot/offline_boot.cpp`.
+
+| Symbol / site | Contract | Compatibility significance |
+|---|---|---|
+| `online_enabled` | Shared leaf, ABI `uint8_t()`, currently returns true natively. | Hook target and trampoline. The body is only `MOV AL,1; RET`; the 16-byte prefix includes inspected INT3 padding needed by the hook service. |
+| `backend_predicate_return` | Exact caller return address for backend-online predicate. | This caller receives the offline-specific false result. |
+| `async_prepare_character_return` | Exact caller return address for async character preparation. | Caller-specific behavior is applied only at this native decision point. |
+| `character_readiness_return` | Exact caller return address for character readiness. | Separately classified so offline boot does not globally falsify every OnlineEnabled query. |
+| `flow_adapter_return` | Return address in reflected Flow getIsOnlineEnabled adapter. | Tail-JMP thunk means the leaf observes the adapter return address rather than the apparent outer callsite. |
+| `post_spawn_progression_return` | Post-spawn progression guard caller. | Offline-specific result suppresses a progression path that expects online backend state. |
+
+**Activation contract:** opt-in is explicit through `RESKATE_GLOBAL_OFFLINE=1` or the legacy debug variable. The consumer verifies the supported image, checks the leaf prefix, probes the backend singleton before enabling the hook, and refuses activation if boot has progressed too far. Hook states distinguish opt-out, image/fingerprint mismatch, backend probe failure, late activation, create/enable/disable failures, activation in progress and active. The hook preserves GetLastError.
+
+**Caller filtering:** the detour classifies the exact return address and only substitutes results for the five enumerated call paths. Unmatched callers are forwarded to the original. The distinction is essential: globally returning false would alter unrelated engine online checks and may break offline UI or local profile initialization.
+
+**Compatibility requirement:** preserve both the tiny leaf ABI and its caller-specific semantics. A replacement candidate must be paired with freshly identified callsites and thunk behavior. Matching the three-byte body alone is insufficient; the current 16-byte prefix includes padding used by the detour implementation.
+
+## 26. `world_model.h` — level registry and server sublevel manager globals
+
+Consumer: `Engine/Game/World/world_model.cpp`; the world catalog is used by map/level discovery.
+
+| Symbol / data | Contract | Compatibility significance |
+|---|---|---|
+| `level_registry` | Image global containing pointer to level registry. Registry begin/end pointers are at +0x20/+0x28. | Global pointer and container layout; not a function. |
+| `sublevel_manager` | Image global containing pointer to server sublevel manager. | Global pointer and manager/tree layout; not a function. |
+
+**Level registry layout:** the registry points to begin/end pointers at +0x20/+0x28. The range is an array of 8-byte metadata pointers, bounded to 128 entries. Each metadata object has a start-point array pointer at +0x20, asset-name pointer at +0x48 and level flag at +0x68. Start-point rows are 0x18 bytes; name pointer +8 and default flag +0x10. Start-point count is read from the array header at data pointer -4, high bit masked, and capped at 64. Asset names must be safe `levels/...` paths without `..`.
+
+**Sublevel manager layout:** manager +0x40 is current root, +0x58 is tree root, +0xb0 is active byte; +0x48 is the sentinel. Tree nodes have left/right links at +0/+8, state at +0x28 and asset-name pointer at +0x30. Traversal rejects cycles, duplicate nodes and more than 128 nodes. The manager header is reread after traversal and must remain unchanged, preventing a torn catalog while the tree mutates.
+
+**Consumer behavior:** reads are performed against a target process handle with ReadProcessMemory and strict pointer/range/alignment/count checks. The resulting catalog is descriptive only; it does not own native level objects or retain pointers after the read. Failure returns an unavailable catalog with a diagnostic reason rather than partially trusting malformed metadata.
+
+**Compatibility requirement:** the two RVAs, registry offsets, metadata/row strides, string pointer offsets, and sublevel tree layout must be validated as one contract. A match on either global alone is insufficient.
+
+## 27. `launches.h` — launch trajectory interception and grind-pop classification
+
+Consumer: `Extension/Skater/launches.cpp`; related measurements and trainer integration in `Extension/Trainer/trainer_jump.cpp`.
+
+| Symbol / site | Contract | Compatibility significance |
+|---|---|---|
+| `set_trajectory` | Native jump-trajectory setter, declared `void(trajectory, parameters)`; 32-byte prefix guard. | Hook target. The consumer's detour modifies the three-float launch velocity in the parameter object and forwards native behavior. |
+| `grind_pop_call`, `ollie_call`, `boneless_call` | Exact direct callsites of the trajectory setter. | Caller return RVA classifies launch origin: grind pop/no-comply, flat-ground ollie, boneless. Grind pop and no-comply share a callsite and are disambiguated by recent physics state. |
+| `grind_states_first/end`, `other_grind_state`, `pop_state` | Physics-state classification: grind states [400,500), plus 701; pop state 200. | Used with a fresh physics-step timestamp to decide whether the shared callsite is a grind pop or no-comply. |
+| `query_manager` / `query_manager_load` | Global trajectory query manager pointer and its load instruction. | Related landing/trajectory query system and gravity source; not directly hooked by this consumer. |
+| `stance_flags_offset`, `stance_switch_mask` | Skater context stance flags at +0x13c4, switch bit 0x20. | Used to expose stance state alongside launch measurements. |
+| `foot_gravity` / `foot_gravity_prefix`, `foot_speed_cap` | On-foot gravity instruction and walking speed cap. | Trainer-facing build data; not the main launches detour. Retain separately from launch setter compatibility. |
+
+**Physics-thread data flow:** each local skater physics step reads the current physics state, stance flag and board root-body velocity. Horizontal board velocity is averaged over six recent steps and published atomically with a QPC timestamp. The launch hook classifies the caller, checks whether the physics state is a fresh grind state, snapshots the plugin-selected launch shape under a mutex, then conditionally changes vertical, along-rail and across-rail velocity components. Along/across modifications are applied only when the native launch velocity is consistent with the current travel direction and speed. Unmatched or stale launches are recorded but left unchanged.
+
+**Threading and lifetime:** physics state and travel samples are physics-thread-owned; client tick publishes the skater's right axis; plugin shape configuration is shared under mutex. Hook control is process-lifetime because detours may still execute until process exit. The launch record list is bounded to 32.
+
+**Compatibility requirement:** preserve caller return-address classification, state freshness window, board-body resolution, velocity vector layout, and physics-thread synchronization. The setter function match does not establish that the three callsites still call it or that their launch meanings remain the same. The `foot_gravity_prefix` is documented here only as a separate trainer contract; it is not a reason to reopen the earlier gravity-prefix investigation.
+
+## 28. `grind_target.h` — temporary native rail-candidate selection override
+
+Consumer: `Extension/Skater/grind_target.cpp`.
+
+| Symbol / field | Contract | Compatibility significance |
+|---|---|---|
+| `select` / `select_prefix` | Native rail-candidate selection function, detour ABI `void(object, output)`. | Hook preserves original selection algorithm and only modifies a narrow temporary request window. |
+| `context` | Object +0x98 points to skater context. | Must match the active local skater context. |
+| `request_gate` | Object +0xaec float gate. | Must be finite and below 5 for override eligibility. |
+| `alignment` | Object +0xb10 five-byte scratch/cache region. | Temporarily replaced with cached alignment bytes during original call and restored afterward. |
+| `requested` / `request_flags` / `requested_mask` | Context fields +0x17d0 and +0x13dc; request bit 0x20000. | Temporarily sets desired grind type and request flag, then restores prior state if the native call left the injected value in place. |
+| `root`, `target`, `targeting`, `direction` | Core +0x3b8 -> target object; target direction +0xc0 and targeting byte +0x1fb. | Eligibility check ensures the active target is valid and direction values are finite/bounded. |
+
+**Eligibility and behavior:** override is only active for the owner of a 100 ms request lease, while gameplay input is allowed, overlay is closed, local skater/context match, physics state is 201, target is active, gate is sane, requested type is in [0,7], and all memory fields validate. It writes the requested type, request bit and five-byte alignment cache, forwards the original selector, reads the native-produced alignment result, then restores the previous bytes and request fields. Any write/restore failure clears ownership or cache so stale temporary state is not retained.
+
+**Compatibility requirement:** this is not a replacement rail-selection algorithm. It is a scoped mutation around the native algorithm. A candidate must preserve object/context relationships, exact caller object layout, request mask semantics, native output cache behavior and restoration conditions. The 16-byte prefix is only a guard for the entry point; field offsets and the original call's side effects are equally important.
