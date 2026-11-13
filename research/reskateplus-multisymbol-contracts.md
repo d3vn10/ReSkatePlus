@@ -1075,3 +1075,150 @@ Consumers: `Extension/Travel/local_location_travel.cpp`, `Engine/Game/World/loca
 **Local travel dispatch:** the prepare hook replaces both native output CString slots with the local destination ID so both menu submission branches resolve locally. The two request hooks detect local IDs (including two exact VM layouts for scenario requests), enqueue the target map through an atomic callback, and suppress native matchmaking requests. A queue failure is logged and the request remains local rather than falling through to matchmaking. Non-local destinations retain the native path.
 
 **Unknowns:** full native TravelLocation/AccessPoint field schemas beyond the offsets written here, exact constructors' argument prototypes, travel request callsite arguments and event consumer semantics remain unresolved. The local queue callback's implementation and level transition contract are tracked under level loading/runtime, not duplicated here.
+
+
+## 23. Full 20260929 header inventory audit (initial pass)
+
+Audit basis: recursive Git tree of `d3vn10/ReSkatePlus` on `main`, compared with this document's contract sections. The tree contains exactly **137** headers in `Engine/Game/Build/20260929/`. The 24 headers already expanded are listed below. The remaining 113 are inventoried in the table with a first-pass priority and any source files whose paths share the header stem.
+
+**Status definitions**
+- **Expanded:** a dedicated contract section exists above. This means the declaration surface and important consumer behavior have been documented, not that every ABI/layout is solved.
+- **Source located:** a same-stem source/header exists in the tree. This is only a lead; actual include/call-site usage still needs verification.
+- **No same-stem source found:** not evidence of dead code. It may be included by a differently named consumer, used through a shared address namespace, or be declaration-only. Search include references and call sites before classifying it as unused.
+
+**Expanded (24):** `engine.h`, `runtime.h`, `level_loading.h`, `native_party.h`, `profile.h`, `no_bail.h`, `park_editor.h`, `native_throwdowns.h`, `loose_files.h`, `live_mods.h`, `mod_layers.h`, `world_layers.h`, `streaming_reads.h`, `native_skater.h`, `native_indicators.h`, `native_player_ui.h`, `replay_export.h`, `fixed_stop_entitlement.h`, `entitlement_trace.h`, `placement_adapters.h`, `placement_physics.h`, `mission_progression.h`, `local_location_travel.h`, `location_travel.h`.
+
+**Priority meaning:** P0 = startup, core runtime, world/asset boot, core skater or physics correctness; P1 = major gameplay, multiplayer, progression, rendering/resource, or world behavior; P2 = optional presentation, diagnostics, peripheral systems. This is an investigation order, not a claim that every symbol in a header is equally important.
+
+| Header | Priority | Same-stem consumer leads (not yet verified as complete call graph) |
+|---|---:|---|
+| `ai_skaters.h` | P2 / unranked | `Extension/Skater/ai_skaters.cpp`, `Extension/Skater/ai_skaters.h` |
+| `animation_values.h` | P2 / unranked | `Engine/Game/Skater/animation_values.h` |
+| `atmosphere.h` | P1 | `Engine/Game/World/atmosphere_controls.h`, `Extension/UI/Overlay/atmosphere_color.h` |
+| `audio_core.h` | P2 | No same-stem source found; include/call graph still needs inspection |
+| `body_contact.h` | P1 | `Engine/Game/World/Test/body_contact_read_tests.cpp`, `Engine/Game/World/body_contact_read.h` |
+| `buildkit_limits.h` | P2 | `Extension/Objects/local_buildkit_limits.cpp`, `Extension/Objects/local_buildkit_limits.h` |
+| `camera_observer.h` | P2 / unranked | `Extension/Skater/Test/camera_observer_tests.cpp`, `Extension/Skater/camera_observer.cpp` |
+| `client_source_spawn.h` | P2 / unranked | `Extension/Skater/client_source_spawn.cpp`, `Extension/Skater/client_source_spawn.h` |
+| `debug_settings_access.h` | P2 | No same-stem source found; include/call graph still needs inspection |
+| `decals.h` | P2 | `Extension/Decals/native_decals.h` |
+| `descriptor_heap_size.h` | P2 / unranked | `Extension/Boot/descriptor_heap_size.cpp`, `Extension/Boot/descriptor_heap_size.h` |
+| `eadp_errors_arena.h` | P2 / unranked | `Extension/Boot/eadp_errors_arena.cpp`, `Extension/Boot/eadp_errors_arena.h` |
+| `effect_surface.h` | P2 | `Extension/Rendering/effect_surface.h` |
+| `effects.h` | P2 | `Extension/Multiplayer/Net/effects.h`, `Extension/Plugins/plugin_api_effects.cpp` |
+| `engine_tweaks.h` | P2 / unranked | `Extension/Settings/engine_tweaks.cpp`, `Extension/Settings/engine_tweaks.h` |
+| `entity_pages.h` | P1 | `Extension/World/native_entity_pages.cpp`, `Extension/World/native_entity_pages.h` |
+| `frame_generation.h` | P2 | `Extension/Rendering/frame_generation_retain.cpp`, `Extension/Rendering/frame_generation_retain.h` |
+| `game_data_files.h` | P0 | No same-stem source found; include/call graph still needs inspection |
+| `game_fatal_dump.h` | P2 / unranked | `Extension/Boot/game_fatal_dump.cpp`, `Extension/Boot/game_fatal_dump.h` |
+| `game_state_values.h` | P0 | No same-stem source found; include/call graph still needs inspection |
+| `game_states.h` | P0 | No same-stem source found; include/call graph still needs inspection |
+| `gameplay_settings.h` | P2 / unranked | `Extension/Settings/gameplay_settings_internal.h`, `Extension/Settings/gameplay_settings_leases.cpp` |
+| `global_offline.h` | P0 | No same-stem source found; include/call graph still needs inspection |
+| `graph_throttle.h` | P2 / unranked | `Extension/Throwdowns/graph_throttle.cpp`, `Extension/Throwdowns/graph_throttle.h` |
+| `graphics_controls.h` | P2 / unranked | `Engine/Game/Rendering/graphics_controls.h`, `Extension/Rendering/local_graphics_controls.cpp` |
+| `graphics_labels.h` | P2 | `Extension/Rendering/graphics_labels.cpp`, `Extension/Rendering/graphics_labels.h` |
+| `grind_target.h` | P1 | `Extension/Skater/grind_target.cpp`, `Extension/Skater/grind_target.h` |
+| `guid_table_lookup.h` | P1 | No same-stem source found; include/call graph still needs inspection |
+| `hud_corner.h` | P2 | `Extension/UI/hud_corner.cpp`, `Extension/UI/hud_corner.h` |
+| `initfs.h` | P0 | `Engine/Vfs/initfs.cpp`, `Engine/Vfs/initfs.h` |
+| `job_system.h` | P0 | No same-stem source found; include/call graph still needs inspection |
+| `launches.h` | P1 | `Extension/Skater/launches.cpp`, `Extension/Skater/launches.h` |
+| `light_tables.h` | P1 | No same-stem source found; include/call graph still needs inspection |
+| `load_errors.h` | P2 / unranked | No same-stem source found; include/call graph still needs inspection |
+| `loading_screen.h` | P2 / unranked | `Engine/Game/UI/loading_screen_selection.h`, `Extension/World/Test/loading_screen_tests.cpp` |
+| `local_challenge.h` | P1 | `Extension/Progression/local_challenge_runtime.cpp`, `Extension/Progression/local_challenge_runtime.h` |
+| `local_cosmetic_catalog.h` | P1 | `Extension/Customization/local_cosmetic_catalog.cpp`, `Extension/Customization/local_cosmetic_catalog.h` |
+| `local_customization.h` | P1 | `Extension/Customization/local_customization.cpp`, `Extension/Customization/local_customization.h` |
+| `local_music.h` | P2 / unranked | `Extension/Music/Test/local_music_favorites_tests.cpp`, `Extension/Music/Test/local_music_playback_policy_tests.cpp` |
+| `local_native_settings.h` | P2 / unranked | `Extension/Settings/local_native_settings.cpp`, `Extension/Settings/local_native_settings.h` |
+| `local_neighborhood.h` | P1 | `Extension/Progression/local_neighborhood_runtime.cpp`, `Extension/Progression/local_neighborhood_runtime.h` |
+| `local_object.h` | P1 | `Extension/Objects/local_object_runtime.cpp`, `Extension/Objects/local_object_runtime.h` |
+| `local_placements.h` | P1 | `Extension/Objects/local_placements_runtime.cpp`, `Extension/Objects/local_placements_runtime.h` |
+| `local_player_card.h` | P2 / unranked | `Extension/Customization/local_player_card_runtime.cpp`, `Extension/Customization/local_player_card_runtime.h` |
+| `local_rip_score.h` | P2 / unranked | `Extension/Progression/local_rip_score_runtime.cpp`, `Extension/Progression/local_rip_score_runtime.h` |
+| `localization.h` | P1 | `Extension/Localization/text_overrides.cpp`, `Extension/Localization/text_overrides.h` |
+| `lua_natives.h` | P0 | No same-stem source found; include/call graph still needs inspection |
+| `lua_startup.h` | P0 | `Extension/Scripting/lua_startup.cpp`, `Extension/Scripting/lua_startup.h` |
+| `media_catalog.h` | P1 | No same-stem source found; include/call graph still needs inspection |
+| `mesh_settings.h` | P1 | `Extension/World/mesh_settings_guard.cpp`, `Extension/World/mesh_settings_guard.h` |
+| `mesh_variations.h` | P1 | No same-stem source found; include/call graph still needs inspection |
+| `morph_memory_pool.h` | P2 / unranked | `Extension/Assets/morph_memory_pool.cpp`, `Extension/Assets/morph_memory_pool.h` |
+| `named_settings.h` | P2 / unranked | `Engine/Game/Settings/named_settings.h`, `Extension/Settings/named_settings.cpp` |
+| `native_audio.h` | P1 | `Extension/Multiplayer/Remote/native_audio.cpp`, `Extension/Multiplayer/Remote/native_audio.h` |
+| `native_cosmetics.h` | P1 | `Extension/Multiplayer/Remote/native_cosmetics.cpp`, `Extension/Multiplayer/Remote/native_cosmetics.h` |
+| `native_menu.h` | P1 | `Extension/UI/NativeMenu/Test/native_menu_lifetime_tests.cpp`, `Extension/UI/NativeMenu/Test/native_menu_view_tests.cpp` |
+| `native_patch_support.h` | P0 | `Extension/Assets/native_patch_support.cpp`, `Extension/Assets/native_patch_support.h` |
+| `native_vfx.h` | P1 | `Extension/Multiplayer/Remote/native_vfx.cpp`, `Extension/Multiplayer/Remote/native_vfx.h` |
+| `native_voice.h` | P1 | `Extension/Multiplayer/Voice/native_voice.cpp`, `Extension/Multiplayer/Voice/native_voice.h` |
+| `neighborhood_unlock.h` | P1 | `Extension/Progression/neighborhood_unlock_override.cpp`, `Extension/Progression/neighborhood_unlock_override.h` |
+| `offboard_flight.h` | P2 / unranked | `Extension/Skater/offboard_flight.cpp`, `Extension/Skater/offboard_flight.h` |
+| `park_rotation.h` | P2 | `Engine/Game/World/park_rotation.h`, `Extension/World/local_park_rotation.cpp` |
+| `pending_updates.h` | P1 | No same-stem source found; include/call graph still needs inspection |
+| `physics_bodies.h` | P0 | No same-stem source found; include/call graph still needs inspection |
+| `physics_tuning.h` | P1 | `Extension/Skater/Test/physics_tuning_tests.cpp`, `Extension/Skater/physics_tuning.cpp` |
+| `physics_wake.h` | P1 | `Extension/World/physics_wake_guard.cpp`, `Extension/World/physics_wake_guard.h` |
+| `physics_world_size.h` | P1 | `Extension/World/physics_world_size.cpp`, `Extension/World/physics_world_size.h` |
+| `population.h` | P1 | `Extension/World/local_population_controls.cpp`, `Extension/World/local_population_controls.h` |
+| `profiler_labels.h` | P2 | No same-stem source found; include/call graph still needs inspection |
+| `progression_service_guard.h` | P2 / unranked | `Extension/Progression/progression_service_guard.cpp`, `Extension/Progression/progression_service_guard.h` |
+| `protossl.h` | P2 | No same-stem source found; include/call graph still needs inspection |
+| `puppet_cost.h` | P2 | `Extension/Multiplayer/Remote/puppet_cost.cpp`, `Extension/Multiplayer/Remote/puppet_cost.h` |
+| `ragdoll_bodies.h` | P2 | No same-stem source found; include/call graph still needs inspection |
+| `reference_lists.h` | P1 | No same-stem source found; include/call graph still needs inspection |
+| `remote_collision.h` | P0 | `Extension/Multiplayer/Remote/remote_collision.cpp`, `Extension/Multiplayer/Remote/remote_collision.h` |
+| `render_resource_pool.h` | P2 / unranked | `Extension/Assets/native_render_resource_pool.cpp`, `Extension/Assets/native_render_resource_pool.h` |
+| `replay_activity.h` | P2 | No same-stem source found; include/call graph still needs inspection |
+| `replay_keyframes.h` | P1 | `Extension/ReplayKeyframes/Test/replay_keyframes_tests.cpp`, `Extension/ReplayKeyframes/replay_keyframes.cpp` |
+| `replay_recorder.h` | P1 | No same-stem source found; include/call graph still needs inspection |
+| `rigid_bodies.h` | P0 | No same-stem source found; include/call graph still needs inspection |
+| `route_lookahead.h` | P2 | `Extension/World/native_route_lookahead.cpp`, `Extension/World/native_route_lookahead.h` |
+| `score_hud.h` | P2 | `Extension/Skater/score_hud.cpp`, `Extension/Skater/score_hud.h` |
+| `script_natives.h` | P0 | `Extension/Progression/script_natives.h` |
+| `shader_permutations.h` | P1 | No same-stem source found; include/call graph still needs inspection |
+| `shader_registry.h` | P1 | `Extension/World/shader_registry_guard.cpp`, `Extension/World/shader_registry_guard.h` |
+| `skater_body.h` | P1 | `Engine/Game/Skater/skater_body.h` |
+| `skater_entities.h` | P0 | No same-stem source found; include/call graph still needs inspection |
+| `skater_lead_foot.h` | P2 / unranked | No same-stem source found; include/call graph still needs inspection |
+| `skater_model.h` | P1 | `Extension/Skater/skater_model.cpp` |
+| `skater_movement.h` | P1 | `Extension/Plugins/plugin_skater_movement.h`, `Extension/Skater/skater_movement.cpp` |
+| `skater_observer.h` | P1 | `Extension/Skater/skater_observer.cpp`, `Extension/Skater/skater_observer.h` |
+| `skater_render.h` | P1 | No same-stem source found; include/call graph still needs inspection |
+| `skater_skeleton.h` | P1 | `Extension/Skater/skater_skeleton.h` |
+| `skater_slot_override.h` | P2 / unranked | `Extension/Skater/skater_slot_override.cpp`, `Extension/Skater/skater_slot_override.h` |
+| `skater_state.h` | P0 | No same-stem source found; include/call graph still needs inspection |
+| `spatial_buckets.h` | P2 | No same-stem source found; include/call graph still needs inspection |
+| `spatial_cull_ids.h` | P2 | `Extension/World/spatial_cull_ids.cpp`, `Extension/World/spatial_cull_ids.h` |
+| `startup_interventions.h` | P0 | `Extension/Boot/startup_interventions.cpp`, `Extension/Boot/startup_interventions.h` |
+| `texture_handles.h` | P1 | No same-stem source found; include/call graph still needs inspection |
+| `texture_streaming.h` | P1 | No same-stem source found; include/call graph still needs inspection |
+| `throwdown_debug_text.h` | P2 | `Extension/Throwdowns/throwdown_debug_text.cpp`, `Extension/Throwdowns/throwdown_debug_text.h` |
+| `traffic_vehicles.h` | P1 | `Extension/World/traffic_vehicles.cpp`, `Extension/World/traffic_vehicles.h` |
+| `trick_rewrite.h` | P2 / unranked | `Extension/Skater/trick_rewrite.cpp`, `Extension/Skater/trick_rewrite.h` |
+| `ui_model.h` | P1 | No same-stem source found; include/call graph still needs inspection |
+| `ui_pointer.h` | P2 / unranked | `Extension/UI/ui_pointer_skip.cpp`, `Extension/UI/ui_pointer_skip.h` |
+| `ui_textures.h` | P1 | No same-stem source found; include/call graph still needs inspection |
+| `ui_values.h` | P2 / unranked | `Extension/Plugins/plugin_ui_values.cpp`, `Extension/Plugins/plugin_ui_values.h` |
+| `unload_guard.h` | P2 / unranked | `Extension/World/mesh_unload_guard.cpp`, `Extension/World/mesh_unload_guard.h` |
+| `visual_environment.h` | P1 | `Extension/World/visual_environment.cpp`, `Extension/World/visual_environment.h` |
+| `world_controls.h` | P0 | `Engine/Game/World/world_controls.h`, `Extension/World/local_world_controls.cpp` |
+| `world_model.h` | P0 | `Engine/Game/World/world_model.cpp`, `Engine/Game/World/world_model.h` |
+| `world_pool_usage.h` | P2 | `Extension/World/world_pool_usage.cpp`, `Extension/World/world_pool_usage.h` |
+| `world_props.h` | P2 / unranked | No same-stem source found; include/call graph still needs inspection |
+
+### Audit conclusions and next investigation order
+
+1. **Boot and asset foundations (P0):** `initfs.h`, `global_offline.h`, `game_states.h`, `game_state_values.h`, `startup_interventions.h`, `job_system.h`, `game_data_files.h`, `native_patch_support.h`, `guid_table_lookup.h`, `media_catalog.h`, `reference_lists.h`, `entity_pages.h`, `pending_updates.h`. These may determine whether the game reaches a usable world and whether mod assets resolve. `initfs` has `Engine/Vfs/initfs.cpp`; several others have no same-stem source and need include/call-site discovery.
+2. **World and skater core (P0/P1):** `world_model.h`, `world_controls.h`, `skater_entities.h`, `skater_state.h`, `skater_body.h`, `skater_movement.h`, `skater_model.h`, `skater_skeleton.h`, `skater_observer.h`, `skater_render.h`, `launches.h`, `grind_target.h`, `physics_bodies.h`, `rigid_bodies.h`, `remote_collision.h`, `physics_tuning.h`, `physics_wake.h`, `physics_world_size.h`, `body_contact.h`.
+3. **Multiplayer runtime (P1):** `native_audio.h`, `native_cosmetics.h`, `native_vfx.h`, `native_voice.h`, plus `remote_collision.h` and puppet/skater support. The same-stem consumer paths exist for all four native multiplayer headers, so these should be traced before low-impact UI and diagnostic headers.
+4. **Progression, local services and customization (P1):** `local_neighborhood.h`, `local_challenge.h`, `local_cosmetic_catalog.h`, `local_customization.h`, `local_object.h`, `local_placements.h`, `neighborhood_unlock.h`, `local_player_card.h`, `local_music.h`, `local_rip_score.h`.
+5. **UI, replay and presentation (P1/P2):** `native_menu.h`, `ui_model.h`, `ui_pointer.h`, `ui_textures.h`, `ui_values.h`, `localization.h`, `replay_recorder.h`, `replay_keyframes.h`, `replay_activity.h`, `hud_corner.h`, `score_hud.h`, `graphics_controls.h`, `graphics_labels.h`, `frame_generation.h`.
+6. **Remaining lower-priority systems:** diagnostics, profiler labels, throwdown debug text, audio core, decals/effects, route lookahead, park rotation, buildkit limits, ProtoSSL and remaining specialized resource/physics helpers.
+
+### Coverage caveats
+
+- This is a **header inventory audit**, not yet a complete declaration-level coverage audit. The next pass must count each header's functions, globals, offsets, callsite constants and byte-prefix guards, then compare those identifiers with documented rows.
+- Same-stem source matching is intentionally conservative and may miss consumers whose filenames differ. Conversely, a matching source filename does not prove it includes or calls the build-specific header.
+- Headers that have no dedicated section may still have been mentioned in earlier high-level notes in the project history. They remain unexpanded here until their actual consumer and contract are traced.
+- The `profile.h` section is broad and high-density; it needs a separate completeness audit against all declarations and the actual profile consumers.
+- The existing sections contain explicit ABI gaps. Those remain unresolved and must not be upgraded to confirmed candidate matches solely because a fingerprint or structural match exists.
