@@ -714,3 +714,136 @@ The following prefix symbols are independent validation records paired with thei
 - `array_release_prefix` -> `array_release`
 
 Each guard is an entry-byte validation contract. For changed builds, instruction matching should be performed on the target function independently of the guard bytes, then validate the inferred behavior and call-site relationships before accepting a hook.
+
+
+---
+
+## 9. `loose_files.h` — native VFS overlay
+
+Consumer: `Extension/Assets/loose_files.cpp`.
+
+| Symbol | ReSkate-side contract | Inputs / outputs / side effects | Priority / status |
+|---|---|---|---|
+| `vfs_open` | Hooked VFS open entry. | ABI is `void*(vfs, unsigned flags, const char* name)`. ReSkate redirects only read requests (flag bit 0 set, write bit 1 clear); writes/saves and recursive overlay reads are forwarded unchanged. For an existing loose path it calls the original open on the mounted overlay VFS and returns the engine's native file object. Missing loose files fall through to the original VFS/path. | P1, ABI and behavior traced |
+| `vfs_exists` | Hooked VFS existence query. | ABI is `bool(vfs, const char* name)`. Returns true for a validated loose-file candidate, otherwise forwards to the original VFS. Recursive overlay queries are forwarded to avoid re-entering the overlay. | P1, ABI and behavior traced |
+| `create_directory` | Creates the engine directory filesystem. | ABI is `void*(const char* root)`. Root is the executable directory encoded as UTF-8 with a trailing slash. Returned object is an engine-owned filesystem object with an intrusive reference count at +8. | P1, ABI described |
+| `vfs_mount` | Mounts directory filesystem into the global VFS. | ABI is `bool(vfs, file_system, const char* mount_point)`; mount point is `/__reskate_loose`. On success the VFS resolves redirected paths through the mounted directory. | P1, ABI described |
+| `global_vfs` | Retrieves global VFS. | No arguments; returns null before VFS initialization, in which case mount creation is retried on a later read. | P1, ABI described |
+| `mount_reference` | Intrusive reference increment instruction site. | Interlocked increment of the directory object's 32-bit reference count at +8. ReSkate deliberately retains one process-lifetime reference independent of the mount. This is a data/ownership contract, not a callable function. | P1, instruction/data identity |
+
+**Coupled behavior:** the two hooks, directory factory, mount, global VFS, mount point and reference increment form one overlay contract. Replacing only open/exists is insufficient. The native file object must remain engine-created so allocator, refcount, read/seek/close behavior and flags remain compatible. Path normalization is delegated to `initfs::loose_relative_path`; only safe paths beneath the executable root are considered. The overlay is session-gated and does not make writes loose-file-backed.
+
+**Important distinction:** the factory and mount are called directly by ReSkate, while open/exists are detoured and their trampolines retained. A behaviorally equivalent candidate for the factory/mount still needs a compatible filesystem object layout and reference ownership.
+
+## 10. `live_mods.h` — runtime superbundle and TOC mutation
+
+Consumer: `Extension/Assets/live_mods.cpp`.
+
+| Symbol / field | ReSkate-side contract | Inputs / outputs / side effects | Priority / status |
+|---|---|---|---|
+| `register_superbundle` | Adds a named superbundle to the layer-set registry. | ABI: `void(registry, const char* name)`. The engine retains the name pointer; ReSkate stores names in a process-lifetime deque so reallocation does not invalidate them. Called while holding the layout manager critical section at manager +0x130. | P1, call ABI described |
+| `find_superbundle` | Finds a registered superbundle. | ABI: `void*(registry, const char* name, char prefixed)`; ReSkate uses prefixed=0 before/after registration and while locating mounted TOCs. | P1, call ABI described |
+| `attach_superbundle` | Associates superbundle with an install chunk. | ABI: `void*(superbundle, unsigned kind, void* chunk, int mode)`; ReSkate calls kind=0 and mode=1. This makes the bundle discoverable through the selected install chunk. Return value is not used as an owned object by the caller. | P1, call ABI described |
+| `prepare_toc` | Converts TOC data words to native byte order. | ABI: `void*(data)` in the header's call-site use (actual declaration is `void(void*)`). Called on bytes immediately after the 0x22c-byte file header before comparing format and swapping the live TOC backing. Mutates the supplied buffer in place. | P1, call ABI described |
+| `manager_lock` | Layout manager critical section offset +0x130. | ReSkate enters it around registry, superbundle and mount-TOC operations. Must be the lock protecting these structures; matching a similarly shaped lock elsewhere is unsafe. | P1, data identity |
+| `layers_registry` | Layer set +0x58 -> superbundle registry. | Pointer field used to reach registry from the layout objects captured by the mod-layer hook. | P1, field identity |
+| `registry_manifest` | Registry +0x28 -> install manifest. | Pointer field; null/unreadable means no chunk registration can proceed. | P1, field identity |
+| `manifest_chunks` | Manifest +0x28 -> begin/end pointer vector. | ReSkate iterates qword pointers, bounded to 1024 entries, and compares each chunk's name. | P1, field/layout identity |
+| `chunk_name` | Install chunk +0x100 -> engine string. | ReSkate reads Frostbite small-string representation: inline up to 15 bytes, otherwise pointer selected by bit 0x80 at +0xf. | P1, field/layout identity |
+| `superbundle_mounts` | Superbundle +0x30 -> begin/end vector. | ReSkate walks mounted layer pointers while holding manager lock. | P1, field/layout identity |
+| `mount_tocs` | Mount +0x50 -> TOC entry vector. | ReSkate selects a TOC whose format matches the merged file and rewrites its backing pointers. | P1, field/layout identity |
+| `toc_entry_size` | TOC row size 0x28. | Used to interpret TOC-entry records. | P1, layout constant |
+| `toc_entry_file` / `toc_entry_data` | Entry +0x10 file object; +0x18 data pointer. | The data pointer must equal file-object bytes pointer +0x22c before replacement. The two entry qwords at +0x18/+0x20 are both rewritten to the new data address. | P1, layout identity |
+| `toc_file_bytes` / `toc_file_size` | File object +0x28 backing bytes; +0x30 and +0x38 size fields. | ReSkate allocates a process-lifetime copy with VirtualAlloc and updates backing pointer and both sizes. Old backing memory is intentionally not freed because native readers may still hold it. | P1, layout/ownership identity |
+| `toc_header` | 0x22c-byte TOC file header. | Separates the file header from the TOC data passed to prepare_toc. | P1, layout constant |
+| `root_description` | Root LevelDescriptionAsset path. | Asset lookup searches domain owners for this exact asset. | P1, asset identity |
+| `description_on_demand` | Root description +0x40 on-demand list pointer. | The pointer targets rows; count is a u32 at pointer-4. ReSkate copies old rows, appends {name pointer, bundle hash, padding}, allocates a replacement array and writes the new pointer. | P1, field/layout identity |
+| `on_demand_entry_size` | On-demand row size 0x10. | Each row begins with retained name pointer and u32 case-insensitive djb2 bundle hash. | P1, layout constant |
+
+**Coupled behavior and ownership:** registry registration, chunk attachment, root on-demand registration and TOC replacement are distinct but coordinated operations. ReSkate keeps superbundle and level-name strings alive for the process because native objects retain their pointers. Replacement TOC buffers and root-list allocations are also intentionally not freed. Any candidate mapping must preserve lock coverage, registry/list topology, TOC row layout, format selection, native-endian conversion and pointer lifetime. A function match alone does not recover these object contracts.
+
+**Dependency edge:** `mod_layers::layout_objects()` supplies the manager and layer set; `engine::domain_owners` plus native asset lookup locates the root description. The root on-demand list makes newly registered map bundles discoverable during later level loads.
+
+## 11. `mod_layers.h` — merged Patch/Data layer interception
+
+Consumer: `Extension/Assets/mod_layers.cpp`.
+
+| Symbol | ReSkate-side contract | Inputs / outputs / side effects | Priority / status |
+|---|---|---|---|
+| `classify` | Native layout.toc path classifier. | ABI: `uint8_t(const char* path)`. ReSkate returns the native Patch kind (2) for paths under `/native_data/Mods/`; all other paths are forwarded to the original classifier. | P1, call ABI traced |
+| `load_layer` | Layout manager layer loader. | ABI: `void(self, manager, const char* path)`. ReSkate intercepts the first stock Patch or Data layer, substitutes the merged Mods layout.toc if present, records manager/layer-set objects for live-mod operations, and forwards stock loading when no merged file exists. It ensures the merged layer is loaded once and avoids a second Patch-kind layer. | P1, call ABI traced |
+| `load_layer_slot` | Layout manager vtable slot at +0x60. | Validation requires the slot's function pointer to equal `load_layer`. This couples the hook to the expected class/vtable method identity, not merely to matching bytes at the function RVA. | P1, vtable-slot identity |
+| `layout_bootstrap` | Startup layer bootstrap. | Performs LCU, Patch and Data loads in that order. ReSkate validates its prefix because the substitution logic relies on the startup order and on Patch being optional while Data is always loaded. | P1, patch/call-order dependency |
+
+**Behavioral constraints:** every mod is merged into one extra Patch-kind layer. Two layers with the same kind can desynchronize bundle reads, so the old Patch directory is not mounted separately once the merged Mods layer replaces it. Classifier and loader hooks are enabled in one Detours transaction before startup. The loader hook's `expanded` state permits only one substitution. A candidate that classifies Mods correctly but changes bootstrap order or the +0x60 virtual dispatch is not compatible.
+
+**Failure behavior:** invalid mod catalog/content is treated as user content failure and startup continues with stock layers; a mismatched native contract prevents installing the hooks and reports a startup error. Keep these distinct in a behavioral port.
+
+## 12. `world_layers.h` — SubWorldReference lifecycle and event clone
+
+Consumer: `Extension/World/local_world_layers.cpp`.
+
+| Symbol / site | ReSkate-side contract | Inputs / outputs / side effects | Priority / status |
+|---|---|---|---|
+| `sites[0]` | SubWorldReference constructor. | Hook receives the entity being constructed plus native construction arguments; the original constructor is called first. ReSkate then inspects the initialized entity to capture its data, owner, context and bundle identity. | P1, hook role described; exact prototype must be verified at call sites |
+| `sites[1]` | SubWorldReference destructor. | Hook removes the entity from seasonal observation and world-layer tracking before forwarding destruction. The flags argument is observed in the consumer hook. | P1, hook role described; exact prototype needs ABI confirmation |
+| `sites[2]` | SubWorldReference event handler. | Native handler ABI is described as `void(entity, event*)`. ReSkate observes event identity/state at the native boundary and forwards exactly once. It does not hold its observer lock across native dispatch because dispatch can re-enter. | P1, call ABI described |
+| `sites[3]` | Subworld load/unload event clone. | Clone function for a 16-byte event, referenced by event vtable slot +0x18. The clone copies the event into its own arena; it must not retain the caller's event pointer. | P1, data/ownership contract described |
+| `subworld_reference_vtable` | SubWorldReference entity vtable. | ReSkate validates entity identity before reading fields at +0x30 (owner), +0x38 (data), +0x80 (handle), +0x148 (flags). | P1, vtable and field-layout identity |
+| `subworld_event_vtable` | Subworld load/unload event vtable. | Slot +0x18 is the clone function at sites[3]. | P1, vtable-slot identity |
+
+**Lifecycle/data contract:** captured node identity includes entity, data, context and a generation number. Bundle identifier is read from data +0xd8. The owner/context chain is entity +0x30 -> owner +0x20 -> context. Seasonal-state observation treats a nonzero handle at entity +0x80 as requested and bit 0 of entity +0x148 as loaded. Destruction erases observations before the native object is released. The runtime resets session state on world transitions.
+
+**Unknowns retained:** the header supplies 16-byte prefixes and semantic roles, but this document does not yet claim a fully reconstructed constructor argument layout, destructor flag semantics, event payload schema beyond 16 bytes, or arena allocator ABI. Those require native call-site/callee tracing before an adapter can be written.
+
+## 13. `streaming_reads.h` — staged streaming scatter-copy guard
+
+Consumer: `Extension/World/streaming_copy_guard.cpp`.
+
+| Symbol / field | ReSkate-side contract | Inputs / outputs / side effects | Priority / status |
+|---|---|---|---|
+| `finish` | End of a staged streaming read. | Hook ABI: `void(scheduler, request)`. ReSkate inspects request flags and scatter-copy descriptors before forwarding once to the original function. Runs on the I/O thread. | P1, hook ABI traced |
+| `places_offset` | Request +0x20 pointer to Place array. | ReSkate reads the native array pointer. | P1, field identity |
+| `flags_offset` | Request +0x34 u32 flags. | Bits 0 and 1 indicate staged data; bits 2..23 encode number of Place entries. | P1, field/bitfield identity |
+| `Place` | Scatter-copy descriptor, size 0x18. | Fields: destination pointer, size, stride, staging-buffer offset, count. The engine copies count pieces of size bytes from staging offset to destination using stride. | P1, structure layout |
+| `staging_size` | Staging buffer capacity 0x10000 bytes. | ReSkate validates offset + size * max(count,1) against 64 KiB. | P1, layout constant |
+| `staged_flags`, `place_count_shift`, `place_count_mask` | Request flag interpretation. | Exact values are 3, 2 and 0x3fffff. | P1, bitfield constants |
+
+**Side effect:** if a descriptor would read beyond the 64 KiB staging buffer, ReSkate logs it and writes zero to that descriptor's `size`. The native loop still iterates count times but copies zero bytes, preventing an out-of-bounds read while allowing the rest of the request to complete. It does not rewrite the request count or skip the original function.
+
+**Compatibility requirement:** a candidate finish function is not sufficient unless the request layout, staged flag semantics, scatter descriptor layout and copy arithmetic remain equivalent. The guard changes a descriptor in place, so the descriptor must be writable and belong to the request being processed. The original must be called exactly once after validation. The 32-byte fingerprint is only the pinned-build gate, not the semantic match criterion.
+
+## 14. `native_skater.h` — remote skater and skateboard entity/pose integration
+
+Consumer: `Extension/Multiplayer/Remote/native_skater.cpp`.
+
+| Symbol / site | ReSkate-side contract | Inputs / outputs / side effects | Priority / status |
+|---|---|---|---|
+| `animation_update` | Skater animation component update hook. | Hook receives component and update context. ReSkate forwards native animation evaluation, then applies the latest session pose to the remote skater's native skeleton buffer when the component belongs to the watched peer. | P1, function identity known; exact hook prototype/call order must be verified from remaining consumer code |
+| `board_render_pose_prefix` / `board_render_pose_interface_vtable` | Board render-pose interface method identity. | Vtable slot +0x10 must resolve to the native board render-pose method. ReSkate hooks this publication boundary, calls original first, then notifies registered render listeners with animation interface and render data. | P1, vtable/call boundary |
+| `submit_render_pose` | Renderer submission thunk. | Signature in header comment: (slot, render_data) -> uintptr_t. It dispatches through renderer interface slot +0xd8. It is used as a reference to establish when render data/bones are consumed, not directly called by the remote-skater adapter. | P1, call relationship described |
+| `render_animation_interface_offset` | Animation holder +0xc0. | Evaluated render interface embedded at this offset. ReSkate recognizes a board holder's interface by comparing animation_interface to holder +0xc0. | P1, field/layout identity |
+| `board_embedded_holder_offset` | Entity block +0xd10. | Measured location of the embedded animation holder in local/menu board actors. Reverse lookup must validate all ownership links; offset alone is not sufficient. | P1, measured layout, guarded |
+| `entity_helper` | Entity helper associated with creation functions. | Header marks it as a verified helper but consumer does not call it directly. Retain as a related symbol, not a direct runtime dependency. | P2, reference identity |
+| `set_blueprint_transform` | Updates skateboard blueprint world transform. | ABI used by consumer: `void(transform, matrix)`. ReSkate writes the board's transform before native entity placement to keep render-space transforms coherent. | P1, direct call |
+| `blueprint_transform_vtable` | Blueprint transform object vtable. | Validates the board's transform object before mutation; transform object must not alias the local skater's transform. | P1, object identity |
+| `place_board` | Native skateboard source placement setter. | ABI used by consumer: `void(entity, matrix)`. Places the board entity and updates rig input through its native call path. | P1, direct call |
+| `place_board_rig_call` | Internal call site in place_board. | Validates the expected rig-input update call relationship. | P1, patch/call-site identity |
+| `board_world_transform_event` / `board_placement_callback` | Native reference paths. | Event updates blueprint transform before entity placement; callback publishes inverse(parentWorld) * entityWorld to renderer. These are explanatory references rather than direct calls from this adapter. | P1, semantic reference |
+| `enable_board_resources` | Enables board holder render resources. | ABI comment: (holder, 1). Native board startup uses the same call; holder vtable slot +0xf8 is involved. | P1, direct/related lifecycle dependency |
+| `board_holder_resource_methods` | Board holder resource lifecycle methods. | Vtable slots +0x88 and +0xc8. | P1, vtable method identities |
+| `board_startup`, `board_physics_create` | Native startup/physics reference functions. | Reference only; establish when board resources and physics are initialized. | P1/P2, semantic references |
+| `initialize_creation_list` | Initializes entities in a blueprint creation list. | Called as part of entity creation lifecycle; prefix is the entry guard. | P1, related function identity |
+| `free_creation_page` | Allocator dispatch for creation-list page release. | Header ABI: (list, page, size). Must use compatible allocator/free path. | P1, ownership helper |
+| `pose_output_resolve` | Resolves current output pose by signed table index. | Live 395-bone skater uses index -1, selecting table word 18. Reference used by pose layout reconstruction. | P1, data/layout helper |
+| `component_cache_callback` | Caches skater component at entity +0x628 after construction. | Reference for entity/component relationship. | P1, field/callback identity |
+| `board_from_component` | Follows skater component +0x60 backlink to separate ClientSkateboardEntity. | Reference for ownership graph. | P1, relationship helper |
+| `board_animation_holder` | Returns board entity animation holder at +0xf0. | Reference for holder discovery. | P1, field/helper identity |
+
+**Remote-pose behavior:** ReSkate receives normalized transforms from its session layer, places the actor, and writes scale, rotation and position into the native bone array in place. Destination W lanes are deliberately preserved because native board poses can use position.w for non-float metadata. If animation resources are still streaming, pose application returns no buffer and retries later. If the native graph evaluated a fresh pose, ReSkate rewrites it; if the session target revision is unchanged and the same buffer remains, it avoids a redundant write.
+
+**Separate board contract:** the skateboard is a distinct visual entity with its own animation holder and pose buffer. ReSkate validates entity/component/holder ownership links, writes the blueprint transform first, then calls native board placement. At render publication it calls the original render-pose method first, verifies render_data +0x10 is the expected pose buffer, then writes the remote board bones. Board failures are isolated from skater playback so the skater can continue.
+
+**Lifetime and concurrency:** watched entity/component/board pointers are indexed by peer slot and cleared on entity destruction. A generation counter invalidates stale state. Animation application uses a mutex; render publication uses try-lock because native placement can re-enter engine notifications. Native memory reads/writes are guarded against access violations. A candidate match must preserve this phase ordering, ownership validation and pointer lifetime; matching only a pose-writing helper is not enough.
+
+**ABI gaps:** the header contains many reference RVAs, vtables and prefixes, but not all are direct hook targets. The full animation hook and entity-destruction hook prototypes must be checked against the remainder of the consumer and native callers before assigning a strict ABI signature. The pose buffer layout is a separate data contract, not inferred from the function prefix.
