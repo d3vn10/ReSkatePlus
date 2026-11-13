@@ -927,3 +927,151 @@ Consumer: `Extension/Rendering/replay_export.cpp`.
 **External Windows API hook:** the consumer also detours Media Foundation `MFTEnumEx` to filter hardware H.264 encoders by the vendor ID of the adapter the game renders on. This is not a Skate executable RVA dependency, but it is part of replay-export behavior and must be tracked separately from the game fingerprint inventory. The original API result and COM activation references are preserved; filtered activations are released.
 
 **Failure/compatibility behavior:** replay-export quality configuration is independently skipped when its prefix differs; frame pacing is required for `start()` to report success. The encoder setup reads fields from the encoder object, so a candidate configure function is only compatible if the encoder structure fields/enum semantics remain valid. The frame hook must not set frame_permit on unrelated encoders.
+
+
+## 18. `fixed_stop_entitlement.h` — synthetic local entitlement future completion
+
+Consumers: `Extension/Progression/fixed_stop_entitlement_provider.cpp`, `fixed_stop_native_result.cpp`, and `fast_travel_unlock.cpp`.
+
+This is a replacement path for the native CheckEntitlements asynchronous request, not a general-purpose entitlement bypass. The provider only completes requests when every requested identifier is one of the recognized fixed bus-stop visibility/collected entitlements and the configured ownership callback confirms ownership. Mixed batches are forwarded to the native implementation because the newer reducer evaluates all rows rather than the older existential behavior.
+
+| Symbol / field | ReSkate-side contract | Inputs / outputs / side effects | Priority / status |
+|---|---|---|---|
+| `check_entitlements` | Native CheckEntitlements entry shared with `entitlement_trace`. | Entry fingerprint gate for the replacement path. The provider's public adapter receives `future_out`, requested identifier array wrapper and result promise; exact native caller ABI/callsite that invokes the adapter is outside this header and must remain separately mapped. | P1 for offline fast-travel unlock; entry identity only |
+| `group_enumeration` | Native group-member enumeration inside CheckEntitlements. | Exact instruction block reserves an eID list, reads group begin/end at +0x88/+0x90, skips null members, obtains eID key and calls member lookup. The provider independently reproduces this behavior. | P1, semantic block identity |
+| `result_vector_init` | Constructs 16-byte native result vector. | ABI: `void*(NativeResultVector*)`. Initializes data pointer, metadata and state fields; data pointer at +0, metadata at +8, state byte +0xc. | P1, call ABI/layout |
+| `array_allocate` | Native allocator for result vectors and nested pointer arrays. | ABI: `void*(owner, size, alignment, allocator)`. Allocation includes an 8-byte header: capacity u32, initialized count u32, followed by elements. Allocator associates the allocation with the owner for native destruction. | P1, ownership-critical ABI |
+| `result_element_init` | Initializes one 32-byte entitlement result row. | ABI: `void*(NativeResultElement*)`. Initializes native string/array members and their empty sentinels. Row fields: successful-ID array +0, eID string +8, failed-ID array +0x10, owned byte +0x18. | P1, call ABI/layout |
+| `assign_string` | Native string assignment used for success IDs and eIDs. | ABI: `void*(destination, bytes, u32 length)`. Must create native-owned string values; a CRT string or pointer into temporary C++ storage is not interchangeable. | P1, ownership-critical |
+| `construct_error` | Constructs the native error value. | ABI: `void*(NativeError*, u32 code, const char* message)`. Success path constructs code 0 and empty message in a 40-byte native error object. | P1, call ABI/layout |
+| `complete_promise` | Completes the caller's promise with error and result vector. | ABI: `void(promise, NativeError*, NativeResultVector*)`. Called only after every result row is fully initialized. It is the asynchronous completion point and may run continuations. | P1, callback/ownership boundary |
+| `destroy_vector` | Destroys the native result vector and nested row contents. | ABI: `void(NativeResultVector*)`. Called after promise completion; also called by scope guard on all failure exits after vector initialization. | P1, destructor ABI |
+| `native_text_release` | Destroys the temporary native error string. | ABI: `void(void*)`, called on the error object after promise completion. This must be the native string release operation, not a generic deallocator. | P1, ownership-critical |
+| `assign_future` | Writes the completed/null future state to caller output. | ABI: `void*(future_out, nullptr)` in the success path, after promise completion and before result vector destruction. | P1, state transition |
+| `eid_key` | Returns native eID key descriptor. | ABI: `const void*(int)`; provider calls with index 0 once a non-null group member exists. | P1, direct call |
+| `find_member_eid` | Resolves a group member's eID string. | ABI: `const char*(member, key)`; null means no eID for that member. Non-null result must be a valid NUL-terminated string of at most 255 bytes. | P1, direct call |
+| `client_game_manager` | Global pointer location for client game manager. | Dereferenced to manager; group pointer is manager +0x70. The global must be readable and non-null. | P1, global/data identity |
+| `check_entitlements_prefix`, `*_prefix` | Fingerprint gates for every native helper. | The provider refuses preparation if any required helper prefix or the group enumeration block differs. These are build guards, not evidence that a newer implementation is incompatible. | P1, validation only |
+
+**Group/eID data contract:** manager +0x70 is the group object. Group +0x88/+0x90 is a begin/end range of 0x10-byte member rows; member pointer is at row +8. At most 64 rows are accepted. Null members and members without eIDs are skipped. eIDs are copied into owned fixed-size buffers, deduplicated by exact string and sorted lexicographically before result construction. Empty groups or groups with no eIDs fall back to the native request.
+
+**Request classification:** requested identifiers are a pointer array whose count is stored at data pointer -4 with the high bit masked off. Maximum request count is 512; each identifier is validated as a NUL-terminated string of at most 255 bytes. Recognized fixed-stop identifiers are mapped to the static catalog in `fast_travel_unlock.cpp`; an optional ownership predicate filters which IDs ReSkate claims. No recognized IDs, malformed data, unsupported mixed batches, re-entry, missing group/eIDs, and allocation failure all preserve the native path.
+
+**Result semantics and cleanup:** for each sorted group eID, the provider creates a result row containing the same owned-success-ID list and that eID. It marks each row owned, sets result metadata to eID count and state byte to 1, constructs a success error object, completes the promise, releases the temporary error string, assigns the future output to null and destroys the result vector. Allocation headers' initialized counts are advanced after each successful initialization so native destruction can clean up partial construction. Scope guards preserve GetLastError while releasing native objects.
+
+**Compatibility requirement:** the function candidates are not interchangeable solely by return value. The native future/promise state machine, allocator ownership, result vector/row layouts, native string representation, callback timing, and destructor behavior are all part of the observable contract. This adapter currently uses direct 20260929 function pointers; a newer build may need a rebuilt native result constructor or a different completion adapter even if entitlement semantics match.
+
+## 19. `entitlement_trace.h` — original asynchronous entitlement request chain
+
+Consumers: `Extension/Progression/fixed_stop_entitlement_provider.cpp` shares the entry/group contract; the trace header describes the unmodified native request chain and its callsite relationships.
+
+| Symbol / site | ReSkate-side contract | Inputs / outputs / side effects | Priority / status |
+|---|---|---|---|
+| `check_entitlements` | Native CheckUsersEntitlements entry. | Same entry as fixed-stop provider. Receives the request context, creates promise/future state, enumerates the local group, builds the progression request and installs a continuation. | P1, shared entry identity |
+| `request_builder` | Builds the asynchronous progression/entitlement request. | Called from the entry at `entry_builder_call`; receives an output/request object, manager/context and group-derived data. Exact C++ prototype and full request object layout are not declared in this header. | P1, call relationship; ABI incomplete |
+| `result_reducer` | Converts service response rows into native entitlement result vector. | Called by continuation at `callback_reducer_call`; reducer computes successful rows and aggregate boolean. Its all-rows semantics are why mixed batches cannot safely be synthetically completed using the previous existential behavior. | P1, call relationship; ABI incomplete |
+| `continuation_callback` | Async continuation invoked when request resolves. | Owns/captures continuation state and response object, then calls reducer. It can execute after the initiating CheckEntitlements frame has returned. | P1, callback/lifetime contract |
+| `entry_promise_capture` | Entry instruction block captures/constructs promise state. | Stack-local promise/future-related objects and callback capture are initialized here. It is a callsite/constructor sequence, not a callable standalone function. | P1, instruction contract |
+| `entry_builder_call` / `entry_builder_return` | Exact call to request builder and following return address. | The caller prepares request/output and group-derived input before calling builder. Return address is the control-flow join for the original async path. | P1, callsite identity |
+| `callback_reducer_call` / `callback_reducer_return` | Exact reducer call from continuation. | Passes the response/result state to reducer; return address identifies the callback's post-reduction path. | P1, callsite identity |
+| `group_enumeration` | Group member traversal. | Shared with fixed-stop provider. Group object member begin/end at +0x88/+0x90, row stride 0x10 and member pointer +8. | P1, data/call contract |
+
+**Asynchronous lifetime:** the request builder's result is not the final entitlement result. The continuation is retained by the async operation and later invokes the reducer, which then completes the promise. Any behavioral replacement must preserve exactly-once completion, callback capture lifetime, promise/future ownership, and error propagation. Synchronous completion may be acceptable only if the caller's promise contract permits it; this requires testing rather than assuming.
+
+**Known gap:** no consumer currently hooks or calls `request_builder`, `result_reducer` or `continuation_callback` directly. The fixed-stop adapter deliberately synthesizes a completed result instead of trying to replace the whole async chain. Exact prototypes, response object layout and error propagation of the original chain remain unresolved and should be recovered from disassembly/callers before attempting a general entitlement adapter.
+
+## 20. `placement_adapters.h` and `placement_physics.h` — claimed object selection and moving physics surfaces
+
+Consumers: `Extension/Objects/placement_adapters.cpp` and `placement_physics.cpp`.
+
+### Selection and transform interception
+
+| Symbol / site | ReSkate-side contract | Inputs / outputs / side effects | Priority / status |
+|---|---|---|---|
+| `select` | Native dropper selection start. | ABI: `void(controller, const entity_list*, bool quiet)`. Hook sets a thread-local selection controller and captures pose queries made during native selection, then forwards the original. Afterward it reconciles captured entities against the controller's selected-entity hash set and queues initial edit poses for claimed objects. | P1, hook ABI traced |
+| `finish` | Native selection finish/commit/cancel. | ABI: `void(controller, const entity_list*, bool keep, bool cancel, bool force)`. Hook snapshots selected claimed entities when not canceling, forwards original, then detects which were actually deselected and queues final committed poses. | P1, hook ABI traced |
+| `pose` | Retrieves transform for a selection query. | ABI: `float*(float out[12], const query*)`. Hook forwards original first. During selection, substitutes a cached/native rigid-body pose for a published claimed object unless it is already selected; records the pose so selection starts from the moving object's current transform. | P1, hook ABI traced |
+| `transform_calls` | Exact transform-setter callsites inside dropper edit code. | All 11 are verified direct E8 calls. The hook computes caller return RVA and only records transform changes from these sites. The setter's ABI is `void(query, float pose[12], source)`; it forwards native behavior first. | P1, callsite set + hook ABI |
+| `moving_calls` / `material_calls` | Native motion-type query callers in grind/surface code. | Each listed caller is a direct E8 call to `motion_type`. The hook returns keyframed for claimed dynamic surfaces at moving callers and fixed at material callers; other callers receive actual native motion type. | P1, exact caller discrimination |
+| `friction` | Grind friction step. | Called with grind context and three floats; reads skater-context velocity as part of friction calculation. ReSkate wraps the call to preserve moving-surface behavior. | P1, hook role; exact scalar meanings unresolved |
+| `point_velocity` | Rigid body velocity at a world point. | ABI: `float*(const Body*, float out[4], const float point[4])`; returns output vector. Used to derive support velocity for the skater on a claimed moving body. | P1, call ABI described |
+| `shape_body` | Resolves physics body from shape handle. | ABI: `Body*(const Body* shape, Body* out)`. Output is a 16-byte FBPhysics handle. | P1, call ABI described |
+| `edges` | Gathers authored grind edges around a grind context. | Hook gathers/rewrites edge geometry for claimed moving surfaces. Context has flags +0x13cc, position +0x70; disabled-query bit 0x400000 suppresses gathering. Query half extent is global vec3 (1.2,1.2,1.2). | P1, hook role and data fields |
+| `edge_query` | Queries edges overlapping world bounds. | ABI: `bool(registry, const float bounds[8], out)`; bounds contain min xyz at floats 0..2 and max xyz at 4..6. Used to discover grindable geometry overlapping support bounds. | P1, call ABI described |
+| `chain` | Resolves complete authored grind chain for edge identity. | ABI: `bool(const uint64 identity[2], NativeChain* out)`; output is edge pointer + u32 count. | P1, call ABI described |
+| `root_flags` / `root_dynamic_restriction` | Entity root restriction flag. | Root record flags at +8; bit 0x800 makes placed object's body fixed. ReSkate clears the bit only in the returned root copy for a published claimed object, never in the entity's persistent root data. | P1, data/behavior identity |
+| `selection_buckets`, `selection_count`, `selection_size`, `selection_next` | Native selection hash set. | Controller bucket pointer +0x248, bucket count +0x250, size +0x254, node next pointer +0x70; node begins with entity u64. Traversal bounded by validated counts. | P1, object layout |
+
+### Geometry and lifetime
+
+- Edge list data pointer is cache +0x10; at most 100 edges of 0x70 bytes are accepted. Shape-generation bytes are world-state +0xff8.
+- Board support uses nine board parts, each with physics object at board +0x18 and parts at +0x20; owner backlink is part +0x10 and deck position +0x50. Seven downward support rays are cast from 0.4 above to 0.6 below the deck at lateral offsets 0, ±0.08, ±0.16, ±0.24.
+- A chain is cached in local-body coordinates and transformed into two alternating world-space buffers. Double buffering prevents a contact worker from reading a buffer while the next pose overwrites it. Contacts can borrow these pointers across worker phases, so chain storage is retained for the life of that world and retired only when the next world is active. Total retained chain edges are bounded at 65,536.
+- The cached edge/chain maps, support contact, surface context and published body map are world-scoped. World teardown marks them unavailable before any hook can dereference old-world pointers; stale chain storage is released only once the next world is active.
+
+### Claimed-object physics service
+
+| Symbol / field | ReSkate-side contract | Inputs / outputs / side effects | Priority / status |
+|---|---|---|---|
+| `body_pose` | Reads rigid body pose. | ABI: `float*(const Body*, float out[8])`; output is quaternion x/y/z/w then position x/y/z/pad. ReSkate expands it into a 12-float scale/rotation/position transform. | P1, call ABI |
+| `sleep` | Sleeps/wakes a body. | ABI: `void(const Body*, bool asleep)`. Called to preserve native sleep behavior around changes. | P1, call ABI |
+| `motion_type` | Reads body motion type. | ABI: `int(const Body*)`; hook changes what selected surface/grind callers observe, without changing the underlying body motion type. | P1, hook ABI |
+| `marker_save` / `marker_return` | Local skater save/return marker hooks. | Save ABI: `void(controller, const float* transform, bool, bool, bool)`; return ABI: `void(controller, const float* transform, label, const void* options)`. ReSkate emits plugin marker events while forwarding native operation. | P2, hook ABI |
+| `marker_owner`, `marker_transition`, `marker_transform` | Marker controller fields. | Owner handle +0x18 begins with skater entity; transition byte/state +0x40 is 0 before return and 1 once return starts; saved transform at +0x50. | P2, data layout |
+| `world_state`, `velocity_buffer`, `velocity_count`, `velocity_page`, `mass_buffer` | Physics world per-body arrays. | World +0x28 -> world state; velocity buffer +0x930, count +0x938, page +0x93c, inverse-mass buffer +0x980. Page stride is align64(count*16+60). | P1, layout identity |
+| `store_ready`, `records_begin`, `records_end`, `record_size` | Client realm placement store. | Store ready byte +0x100; record begin/end +0x48/+0x50; record size 0x50. Each record active byte +0x3a, drop ID u32 +0x28 and entity u64 +0x10. | P1, layout identity |
+
+**Body handle ABI:** every FBPhysics handle is 16 bytes: world pointer, u32 body index and u32 generation. Generation validation is essential; a recycled index is not the same body. Inverse mass is read from the world-state mass buffer and validated finite/positive.
+
+**Client/server ownership:** plugin API and client tick update only the client replica's transform/body. Server tick, on the thread owning the server copy, mirrors moving poses and performs queued restores. Both coordinate ReSkate state with `native_mutex`; they must not write the other thread's native copy. Each claim stores owner, token, map generation, server/client entities, body handle, fixed layout pose, options, edit revision and server motion type. If server mirroring cannot resolve or the game moves the server copy independently, the client claim is released rather than allowing divergence.
+
+**Claim/release semantics:** a lease preserves the original park-layout pose. On release, the client body returns to that pose and a restore is queued for the server copy. Restores are applied only if row identity, token and map generation still match. World teardown drops leases without writing into destroyed bodies. These conditions are behaviorally essential; a matching body-pose or motion-type function alone cannot reproduce the service.
+
+**ABI gaps:** `edges`, `friction`, selection entity-list representation, transform setter source enum and marker label/options layouts are not fully reconstructed here. The header's 16-byte function prefixes and exact callsite lists are build guards. Recovered semantics do not prove a candidate has the same ABI.
+
+## 21. `mission_progression.h` — quest lookup and ECS status override
+
+Consumer: `Extension/Progression/mission_progression_override.cpp`; observation only in `mission_progression_observation.cpp`.
+
+| Symbol / site | ReSkate-side contract | Inputs / outputs / side effects | Priority / status |
+|---|---|---|---|
+| `quest_lookup` | Resolves QuestId wrapper through native quest manager. | Hook preserves native result and GetLastError, reads the wrapper's first pointer as NUL-terminated identifier (maximum 63 chars, restricted to alphanumeric/underscore), and tags the returned 64-bit handle only for allowlisted quest IDs. Handle high 32 bits must be nonzero. | P1 for offline progression; hook ABI should be checked against native caller |
+| `component_query` | Generic ECS component query. | Hook preserves native call and return value. Only the exact quest-status query return address is eligible for state mutation; all other component queries are passed through untouched. | P1, hook ABI traced |
+| `quest_status_query_call` / `quest_status_query_return` | Exact native quest status query callsite and post-call consumer. | Native call initializes a 24-byte query result, supplies the quest status component descriptor, and invokes component_query. The post-call code reads the component's state dword at +0x18. The two RVAs are adjacent around the E8 call and are checked as a paired callsite contract. | P1, instruction/callsite identity |
+| `quest_status_component_descriptor` | Descriptor for the QuestStatus ECS component. | Passed to generic component query; pointer identity is required before ReSkate considers changing the returned component. | P1, data identity |
+| `quest_expression_call` / `quest_expression_return` | Compiled mission expression QuestId lookup callsite. | Exact return address distinguishes expression lookups from unrelated quest lookups. Used to hydrate persisted profile state into a freshly resolved component identity. | P1, callsite identity |
+| `query_context_constructor` / `query_context_initializer` | Native ECS query context construction. | Constructor builds a temporary three-word context; initializer is fingerprinted but consumer does not call it directly in the shown hydration path. Constructor receives context storage and handle. | P1, direct call + related identity |
+| `query_result_vtable` / `quest_status_type` | Native query result object identity and expected TypeInfo. | ReSkate constructs a five-qword result prefix with vtable, handle and type pointer, calls the original component query, then reads result guard and component pointers. | P1, object layout/identity |
+
+**Quest component state:** the component's signed 32-bit state is at +0x18; valid range is 0..6 and claimed/completed state is 5. Temporary offline override leases save the original state and only restore it if the same component pointer and ECS handle still identify the same entity and current state is still 5. If native gameplay has changed it, restoration is skipped. This avoids overwriting a legitimate state transition.
+
+**Persisted profile hydration:** profile lookup and completion-save callbacks provide durable state. Only explicit persisted values 0 or 5 are applied. The code resolves a fresh ECS query context and verifies entity identity/generation before writing. A saved reset to 0 is applied once to a freshly resolved identity and is not pinned while the player attempts the mission again. These durable profile writes are separate from temporary debug leases.
+
+**Hook and thread behavior:** quest lookup tags are thread-local and generation-scoped; component query consumes and clears the tag so it cannot leak to a later unrelated query. Both hooks are prepared together and enabled in sequence. If enabling the second fails, both are disabled while created hooks/trampolines are retained because an in-flight thread may already have entered a detour. Gate states distinguish image/fingerprint mismatch, hook creation/enable failure, active, restoring and route-required. GetLastError is preserved around the adapters.
+
+**ABI gaps:** exact quest manager/lookup native prototype, ECS context internals beyond the three-word prefix, result guard meaning and full QuestStatus component schema are not fully reconstructed. Candidate matching must preserve caller filtering, query identity and conditional restore semantics, not just the state offset.
+
+## 22. `local_location_travel.h` and `location_travel.h` — offline destination catalogs and local travel dispatch
+
+Consumers: `Extension/Travel/local_location_travel.cpp`, `Engine/Game/World/location_travel.h`, and profile runtime initialization.
+
+| Symbol / site | ReSkate-side contract | Inputs / outputs / side effects | Priority / status |
+|---|---|---|---|
+| `owner_vtable` | Native LocationTravel owner identity. | Global owner is `engine::location_owner`; owner vtable must match this identity. Location list pointer at owner +0x20, access-point list at +0x40. | P1 for local travel UI |
+| `location_type` / `access_point_type` | Native model TypeInfos. | Used to find/create data-model contexts for destination and access-point records. | P1, TypeInfo identity |
+| `notify_event_types` | Two ECS events dispatched when catalogs are ready. | Dispatches empty event payload with options {0,1,0} through challenge runtime's event dispatcher and current challenge owner context. Sent once after publication, outside the model write lock. | P1, event identity |
+| `access_point_record`, `location_record`, `byte_records` | TypeInfo record layouts. | Validates hashes and sizes: access point 0x28, location 0xc0, two byte-sized records. Rejects the catalog if the target build's type record hash/size differs. | P1, data layout identity |
+| `travel_location_ctor_contract` / `travel_access_ctor_contract` | Native constructors for destination and access-point records. | Fingerprints for native constructors invoked through runtime-resolved callbacks. Consumer's TravelValue buffers are 0xc0 and 0x28 bytes respectively. Exact C++ constructor prototypes are provided by runtime initialization, not these headers. | P1, constructor ABI; exact prototypes unresolved here |
+| `travel_prepare_contract` | Native preparation of travel request output. | Called by the runtime-resolved `prepare_request(output, identifier)` before local overrides; returns native output pointer. ReSkate then assigns destination identifier into two native CString slots at output +0 and +8. | P1, call ABI through runtime pointer |
+| `travel_request_contract` | Scenario travel request entry. | Hook receives two opaque arguments; if the first is a local destination it queues a local map transition and suppresses the online/native request. Otherwise it forwards through the runtime callback. | P1, hook behavior; exact native ABI needs caller tracing |
+| `travel_attribute_request_contract` | Attribute-only travel request entry. | Hook receives attributes and options; local destination queues map transition and suppresses matchmaking request. Non-local IDs forward to native handler. | P1, hook behavior; exact native ABI needs caller tracing |
+
+**Catalog source and filtering:** the policy is built from cached native travel-location and access-point catalogs. Only destinations whose level tags map to supported local maps (BAM, Isle of Grom, MPR, Stadium) are retained; each destination needs a name and the policy caps destinations at 16. Access points retain only unique target IDs that exist in the filtered destination catalog. Artwork links using the game's `cdn:/` scheme are converted to the Windows CDN rendition URL.
+
+**Native model publication:** once per second, ReSkate validates the active offline runtime, owner vtable, model manager, owner list handles, array TypeInfo and all four record hash/size pairs. It takes the model write lock and only publishes when both native lists are empty or still match ReSkate's previously published contexts. It creates/finds destination contexts, constructs native 0xc0-byte location values and fills fields including IDs, labels, description, icons, image URLs, medium, name hash and unlocked byte. It similarly creates 0x28-byte access-point values with target destination hashes. It publishes context arrays to the two native list handles, then sets owner ready bytes +0x180 and +0x182. This is not a generic UI list: the native data model owns the records and list references.
+
+**Notification and lifetime:** catalog-ready events are dispatched after leaving the model write lock. Contexts and borrowed string values are passed through native model publication, which copies borrowed values. ReSkate retains its expected context references to detect replacement by another provider; it resets readiness if owner/model/list identity changes. The notification is retried on later ticks until the challenge owner context exists.
+
+**Local travel dispatch:** the prepare hook replaces both native output CString slots with the local destination ID so both menu submission branches resolve locally. The two request hooks detect local IDs (including two exact VM layouts for scenario requests), enqueue the target map through an atomic callback, and suppress native matchmaking requests. A queue failure is logged and the request remains local rather than falling through to matchmaking. Non-local destinations retain the native path.
+
+**Unknowns:** full native TravelLocation/AccessPoint field schemas beyond the offsets written here, exact constructors' argument prototypes, travel request callsite arguments and event consumer semantics remain unresolved. The local queue callback's implementation and level transition contract are tracked under level loading/runtime, not duplicated here.
