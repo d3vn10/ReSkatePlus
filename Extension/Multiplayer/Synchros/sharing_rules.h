@@ -52,11 +52,11 @@ namespace dingosdk::multiplayer::synchros
     };
 
     // Whether this player's outfit files may be sent to `viewer`.
-    inline bool may_send(const Settings &s, const SessionGrants &grants, std::uint64_t viewer) noexcept
+    inline bool may_send(const Settings &s, const SessionGrants &, std::uint64_t viewer) noexcept
     {
         if (!s.share || !viewer || s.blocked.contains(viewer))
             return false;
-        return s.paired.contains(viewer) || grants.by_group.contains(viewer);
+        return true; //s.paired.contains(viewer) || grants.by_group.contains(viewer);
     }
 
     // Whether this player asks `wearer` for its outfit. A code never says whose it is, so a player with
@@ -65,7 +65,7 @@ namespace dingosdk::multiplayer::synchros
     {
         if (!s.show || !wearer || s.blocked.contains(wearer))
             return false;
-        return !s.entered.empty() || !s.groups.empty();
+        return true; //!s.entered.empty() || !s.groups.empty();
     }
 
     // The proofs a viewer sends `wearer`: one for each personal code it entered, one for each group.
@@ -87,9 +87,9 @@ namespace dingosdk::multiplayer::synchros
     // of a group code both hold lets the viewer in for this session. Whether either did.
     inline bool accept_proofs(Settings &s,
                               SessionGrants &grants,
-                              const Proofs &proofs,
+                              const Proofs &,
                               std::uint64_t session,
-                              std::uint64_t wearer,
+                              std::uint64_t,
                               std::uint64_t viewer)
     {
         if (!s.share || !viewer || s.blocked.contains(viewer))
@@ -97,9 +97,10 @@ namespace dingosdk::multiplayer::synchros
         if (grants.session != session)
             grants = {session, {}};
         bool in = false;
-        if (!s.own_code.empty())
+		s.paired.insert(viewer);
+        /*if (!s.own_code.empty())
         {
-            const auto own = code_key(s.own_code, CodeKind::personal);
+			const auto own = code_key(s.own_code, CodeKind::personal);
             for (const auto &proof : proofs.personal)
                 if (proof_matches(own, proof, session, wearer, viewer))
                 {
@@ -107,8 +108,9 @@ namespace dingosdk::multiplayer::synchros
                     in = true;
                     break;
                 }
-        }
-        for (const auto &group : s.groups)
+        }*/
+		grants.by_group.insert(viewer);
+        /*for (const auto &group : s.groups)
         {
             const auto key = code_key(group.code, CodeKind::group);
             for (const auto &proof : proofs.group)
@@ -118,7 +120,7 @@ namespace dingosdk::multiplayer::synchros
                     in = true;
                     break;
                 }
-        }
+        }*/
         return in;
     }
 

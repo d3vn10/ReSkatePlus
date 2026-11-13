@@ -242,70 +242,48 @@ namespace dingosdk::overlay
                 static ImGuiID kept{};
                 static Value kept_value{};
                 static double kept_until{};
-                if (kept == item && g.Time < kept_until)
-                    *value = kept_value;
-                else if (kept == item)
-                    kept = 0;
-                bool changed = false;
-                int direction = 0;
-                const bool logarithmic = (flags & ImGuiSliderFlags_Logarithmic) && low > 0 && high > low;
-                const float bar_left = at.x + px(48), bar_width = width - px(96);
-                // Where a value sits along the bar (0 low, 1 high; outside for a typed value past the ends), and back.
-                const auto fraction_of = [&](double v)
-                {
-                    if (!(high > low))
-                        return 0.0;
-                    if (logarithmic)
-                        return v > 0 ? std::log(v / low) / std::log(static_cast<double>(high) / low) : 0.0;
-                    return (v - low) / (static_cast<double>(high) - low);
-                };
-                const auto value_at = [&](double f)
-                {
-                    return logarithmic ? low * std::pow(static_cast<double>(high) / low, f)
-                                       : low + f * (static_cast<double>(high) - low);
-                };
-                // The mouse: a click steps (left half down, right half up, as the arrows show); press and move left or
-                // right to slide it instead. From a typed value past an end the slide starts there and is not pulled
-                // back first.
+                if (kept == item && g.Time < kept_until) *value = kept_value;
+				else if (kept == item) kept = 0;
+				bool changed = false;
+				int direction = 0;
+				const bool logarithmic = (flags & ImGuiSliderFlags_Logarithmic) && low > 0 && high > low;
+				const float bar_left = at.x + px(48), bar_width = width - px(96);
+				// Where a value sits along the bar (0 low, 1 high; outside for a typed value past the ends), and back.
+				const auto fraction_of = [&](double v) {
+					if (!(high > low)) return 0.0;
+					if (logarithmic) return v > 0 ? std::log(v / low) / std::log(static_cast<double>(high) / low) : 0.0;
+					return (v - low) / (static_cast<double>(high) - low);
+				};
+				const auto value_at = [&](double f) {
+					return logarithmic ? low * std::pow(static_cast<double>(high) / low, f) : low + f * (static_cast<double>(high) - low);
+				};
+				// The mouse: a click steps (left half down, right half up, as the arrows show); press and move left or right
+				// to slide it instead. From a typed value past an end the slide starts there and is not pulled back first.
                 static ImGuiID dragging{};
                 static double drag_from{}, drag_value{};
                 static float drag_x{};
-                static bool slid_far{};
-                if (!disabled && ImGui::IsItemActivated() && g.ActiveIdSource == ImGuiInputSource_Mouse)
-                {
-                    dragging = item, drag_x = g.IO.MousePos.x, drag_value = static_cast<double>(*value),
-                    drag_from = fraction_of(drag_value), slid_far = false;
-                }
-                if (dragging == item && std::abs(g.IO.MousePos.x - drag_x) > px(4))
-                    slid_far = true;
-                if (clicked && !disabled && hovered && !slid_far)
-                    direction = g.IO.MousePos.x < at.x + width * .5f ? -1 : 1;
-                if (dragging == item && (!ImGui::IsItemActive() || !g.IO.MouseDown[0]))
-                    dragging = 0;
-                if (dragging == item && slid_far && bar_width > 0)
-                {
-                    double next = value_at(drag_from + (g.IO.MousePos.x - drag_x) / bar_width);
-                    if (flags & ImGuiSliderFlags_AlwaysClamp)
-                        next = std::clamp(next, static_cast<double>(low), static_cast<double>(high));
-                    else
-                        next = std::clamp(next,
-                                          std::min(static_cast<double>(low), drag_value),
-                                          std::max(static_cast<double>(high), drag_value));
-                    if (unit > 0)
-                        next = drag_value + std::round((next - drag_value) / unit) * unit;
-                    Value slid;
-                    if constexpr (std::is_integral_v<Value>)
-                        slid = static_cast<Value>(std::lround(next));
-                    else
-                        slid = static_cast<Value>(next);
-                    if (slid != *value)
-                    {
-                        *value = slid;
-                        changed = true;
-                        ImGui::MarkItemEdited(item);
-                    }
-                    kept = item, kept_value = *value, kept_until = g.Time + 1.0;
-                }
+				static bool slid_far{};
+                if (!disabled && ImGui::IsItemActivated() && g.ActiveIdSource == ImGuiInputSource_Mouse) {
+        dragging = item, drag_x = g.IO.MousePos.x, drag_value = static_cast<double>(*value), drag_from = fraction_of(drag_value), slid_far = false;
+    }
+    if (dragging == item && std::abs(g.IO.MousePos.x - drag_x) > px(4)) slid_far = true;
+    if (clicked && !disabled && hovered && !slid_far) direction = g.IO.MousePos.x < at.x + width * .5f ? -1 : 1;
+    if (dragging == item && (!ImGui::IsItemActive() || !g.IO.MouseDown[0])) dragging = 0;
+    if (dragging == item && slid_far && bar_width > 0) {
+        double next = value_at(drag_from + (g.IO.MousePos.x - drag_x) / bar_width);
+        if (flags & ImGuiSliderFlags_AlwaysClamp) next = std::clamp(next, static_cast<double>(low), static_cast<double>(high));
+        else next = std::clamp(next, std::min(static_cast<double>(low), drag_value), std::max(static_cast<double>(high), drag_value));
+        if (unit > 0) next = drag_value + std::round((next - drag_value) / unit) * unit;
+        Value slid;
+        if constexpr (std::is_integral_v<Value>) slid = static_cast<Value>(std::lround(next));
+        else slid = static_cast<Value>(next);
+        if (slid != *value) {
+            *value = slid;
+            changed = true;
+            ImGui::MarkItemEdited(item);
+        }
+        kept = item, kept_value = *value, kept_until = g.Time + 1.0;
+    }
                 const bool holding = focused && !disabled && sideways_held();
                 if ((focused || hovered) && !pending_hint.empty())
                     focus_hint = pending_hint;
@@ -2801,6 +2779,7 @@ namespace dingosdk::overlay
                                       page_names[static_cast<std::size_t>(i)]);
                         if (open)
                             draw->AddRectFilled(ImVec2(x - px(2), y + px(17)), ImVec2(x + w + px(2), y + px(20)), blue);
+                        ImGui::PopID();
                         x += w + spacing;
                     }
                     draw->PopClipRect();

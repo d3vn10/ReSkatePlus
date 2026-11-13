@@ -1112,24 +1112,22 @@ namespace dingosdk::startup
     {
         try
         {
-            auto wide_heading = utf8_to_wide(heading);
+			auto wide_heading = utf8_to_wide(heading);
             auto wide_detail = utf8_to_wide(detail);
-
 			auto& state = shared();
 			std::lock_guard lock(state.mutex);
-
-			// Select a new phrase when entering fallback mode.
-			// Actual detail text always takes priority.
-			const bool use_fallback = wide_detail.empty();
-
-			if (use_fallback && !state.fallback_active)
-				state.fallback_detail = next_fallback_phrase();
-
-			state.fallback_active = use_fallback;
-
-			state.heading = std::move(wide_heading);
-			state.detail = std::move(wide_detail);
+            state.heading = std::move(wide_heading);
 			state.progress = progress;
+			if (detail.empty() || detail.size() <= 0)
+			{
+				if (state.fallback_detail.empty() || state.fallback_detail.size() == 0)
+					state.fallback_detail = next_fallback_phrase();
+				state.detail = std::move(state.fallback_detail);
+			}
+			else {
+				state.detail = std::move(wide_detail);
+				state.fallback_detail = next_fallback_phrase();
+			}
         }
         catch (...)
         {
