@@ -1481,3 +1481,92 @@ Consumer: `Extension/Skater/xray_skeleton.h` and its skeleton asset reader.
 The render skeleton contains 386 joints. The x-ray skeleton reader uses the skeleton asset and a corresponding joint-name mapping to pose the costume mesh from the game's skin transforms. The mesh is a separate asset with six LODs; the selected LOD is the fifth entry (zero-based index 4).
 
 **Compatibility requirement:** verify asset paths, skeleton joint identity/order, skinning data and selected LOD independently of executable function matches. A path remaining present does not prove the asset's contents or joint mapping are unchanged.
+
+
+## 38. `native_audio.h` — capture and replay of native skater sound frames
+
+Consumer: `Extension/Multiplayer/Remote/native_audio.cpp`; supporting frame layout in `native_audio_layout.h` and actor/handle resolution in `native_audio_binding.h`.
+
+| Symbol / field | Contract | Compatibility significance |
+|---|---|---|
+| `submit` | Skater sound component submit hook, arguments (handle, frame). | Hook observes the game's normal sound update; original local submissions are forwarded unchanged. |
+| `frame_copy` | Merges selected fields from a partial frame into owned storage using masks. | Audited as a primitive-field merge; it is not a general object copy or allocator. |
+| `frame_difference` | Native frame-difference routine, reference only. | Used as corroborating evidence for the frame layout, not called by the current consumer. |
+| `frame_reset` | Resets a sound frame to native defaults. | Called when local capture ownership changes. |
+| `stop_sound` | Stops a sound component and clears its handle at component +0x74. | Used for teardown; the native component owns the handle and must stop it through its own operation. |
+
+**Frame contract:** `NativeAudioFrame` is 16-byte aligned and 0x220 bytes. The consumer captures a 0x218-byte native update, merges the selected fields into persistent storage, then converts only portable values into the multiplayer `AudioState`. Matrices, native handles, asset pointers, padding and dirty masks are not sent over the wire. The layout header records 49 float offsets, 26 selector offsets and 18 material-selector offsets. Material words encode flags and material/property slots; slots outside the 116 root-level materials are normalized to the default material because Studio-map material indices are install-specific.
+
+**Capture and playback flow:** the submit hook suppresses only default submissions from registered remote visual-only actors. It always forwards the local player's native sound update, then snapshots the frame if component/entity ownership and the handle at component +0x74 validate. Local capture is client-thread-bound. For remote playback, the actor's audio component and source binding are fully resolved at one-second intervals, with lightweight owner/handle checks between resolves. The remote frame is rebuilt from transmitted audio values and the buffered root/board transforms, then submitted through the original native function. Teardown calls the component stop operation; it does not free or reuse the handle itself.
+
+**Compatibility requirement:** preserve the 0x220 frame representation, field offsets, dirty-mask merge semantics, material portability rules, component +0x74 handle ownership, source binding and client-thread assumptions. A match for `submit` alone cannot establish that the native frame is still structurally or semantically compatible.
+
+## 39. `native_cosmetics.h` — remote appearance recipe copy and material parameter APIs
+
+Consumer: `Extension/Multiplayer/Remote/native_cosmetics.cpp`; native recipe and catalog layout in `native_cosmetics_layout.h`. Related material manipulation also appears in `Extension/Skater/layer_materials.cpp`.
+
+| Symbol / field | Contract | Compatibility significance |
+|---|---|---|
+| `cosmetic_component_vtable` | Customization component whose recipe is at +0x150. | Component identity must be checked before reading or replacing the recipe. |
+| `recipe_copy` | Deep-copies a native recipe into a component. | The current consumer relies on native ownership transfer of strings and arrays; borrowed packet storage must remain alive through the call only. |
+| `publish_materials` | Publishes an AppearanceItem's named material map to its render meshes. | A material parameter write does not become visible until the owning item publishes. |
+| `set_shader_parameter` | Typed per-instance shader parameter setter (material, ParamDbKey*, NativeValue*, priority). | Uses the engine allocator and preserves native priority rules. |
+| `color_rgb_type`, type hashes | Type descriptor and hashes for ColorRgb, float, integer and boolean material values. | Type hash, size and descriptor index must agree before constructing typed values. |
+| Material parameter map offsets | Hash map at material +0x268; bucket count +0x270; count +0x274; node value +0x10, type +0x20, flags +0x28, next +0x40; dirty byte +0x2f6. | Layout and dirty/publication sequence are required for direct guarded inspection or material updates. |
+| `named_lookup` | FNV-1a name lookup in a loaded table; fifth argument is passed on the stack. | The native lookup dereferences the table without a null check; callers must validate preset availability. |
+| `add_shader_preset` | Lua binding for item:addEsShaderPreset(material, preset). | The preset argument is dereferenced without validating that the resource loaded; missing preset is a crash condition. |
+| `script_preset_reference`, `referenced_preset`, `script_userdata` | Lua userdata/reference extraction and resolution of the preset object. | Lua argument position, reference lifetime and native object resolution are part of the call chain. |
+| `item_material`, `material_preset_name`, `material_item`, `material_preset` | Helpers to obtain/create a named material and associate its preset name, owning item and Lua reference. | These operations establish ownership and association; they are not interchangeable setters. |
+| Preset layout | Parameter array at preset +0x20, 40-byte records; boxed value at +0, Parameter +0x10, ParamKey +0x18. | Applying a preset type-checks populated values and reads the referenced TypeInfo. |
+
+**Recipe representation:** the native recipe is 0x20 bytes, with pointers to scalar values, item records and a mask, followed by a word and flag. Each item is 0x18 bytes and carries an asset string pointer, parameter pointer, hash and slot. The remote consumer builds temporary borrowed arrays from the received recipe, validates bounds and slot/template compatibility, calls the native deep-copy routine, then verifies the component's dirty/update flags and that the native component no longer points at the borrowed item array.
+
+**Application flow:** the target and local entities must be distinct actors of the same type and share the same cosmetic template resource. Local-player components are rejected. Slots are fitted by slot ID; missing local slots use local parameter shapes, and unsupported remote items are replaced with policy-selected stand-ins, defaults or empty slots. Reserved store items and plugin-hidden items are blocked from being applied. After the native copy, the game's normal dirty-flag path performs appearance/mesh updates.
+
+**Material/preset caveat:** the header also documents a lower-level shader-material/preset chain. The multiplayer recipe consumer directly depends on `recipe_copy`; it does not thereby prove every shader/preset helper is used by that path. Keep the material/preset subcontracts separately classified until their exact consumers and callsites are traced.
+
+**Compatibility requirement:** preserve recipe structure, deep-copy ownership transfer, component dirty flags, template/slot validation and the catalog's hash/category representation. Do not promote the material parameter map or preset helpers to behaviorally confirmed merely because `recipe_copy` matches.
+
+## 40. `native_vfx.h` — remote skater effects and transmitted contact impacts
+
+Consumer: `Extension/Multiplayer/Remote/native_vfx.cpp`.
+
+| Symbol / field | Contract | Compatibility significance |
+|---|---|---|
+| `register_skater` | Registers an effects component with the effects manager by key. | Hook records the manager key/component relationship while forwarding native registration. |
+| `impact` | Plays one world-contact effect from manager, key and impact record. | Hook forwards the native effect, then captures the contact values for multiplayer transmission. |
+| `refresh` | Stops and rebuilds a skater's effects from settings under the manager's lock. | Required after remote outfit changes. |
+| `build_effects` | Builds effect sets for an entity from its settings, id and flags. | Hook relocates always-on wheel effects from the skater to the skateboard when they fit its rig. |
+| `joint_index` | Resolves a joint ID in a rig's skeleton map. | Native tree walk is unbounded; consumer performs a bounded preflight walk before calling it. |
+| `thread_world`, `manager_offset` | Resolve the calling thread's world and effects manager. | The manager is world/thread scoped; a global cached manager is not a safe substitute. |
+| `materials_offset` and grid fields | Resolve the level material grid and its index table. | The native effect path reads material indices without a bound; the consumer validates the material first. |
+| Component and skeleton offsets | Effects component vtable/size, owner, rig-owner, rig skeleton and joint-tree offsets. | Used to prove that a registered component belongs to the current remote skater or board. |
+| Impact record | 0x40 bytes: position at +0, velocity +0x10, normal +0x20, material +0x30. | The transmitted impact contains only validated portable values, not native pointers. |
+
+**Behavioral flow:** the local game's native impact call is forwarded first, then the consumer captures position, velocity, normal and material. Material indices are checked against the current world's material grid; default or previously observed safe materials are handled separately. The wire impact is validated and kept in bounded recent/drain queues. Remote impacts are played through the native effect function for the current peer slot.
+
+The game creates remote skater and board effects before the remote outfit is fully applied, so the consumer requests a refresh after outfit changes. Wheel effects that are always-on and whose joints exist on the board rig are moved from the skater's effect set to the board's. Effects tied to transient skater state remain on the skater. The consumer verifies ownership of components and checks that the joint-tree lookup terminates before invoking the native unbounded lookup.
+
+**Compatibility requirement:** preserve impact record layout, material-grid interpretation, thread-local world resolution, manager registration keys, component ownership, rig/skeleton relationships and effect-set trigger semantics. A match of the impact function does not prove the registration/build/refresh chain or the material table is compatible.
+
+## 41. `native_voice.h` — native spatialized voice playback
+
+Consumer: `Extension/Multiplayer/Voice/native_voice.cpp`.
+
+| Symbol / field | Contract | Compatibility significance |
+|---|---|---|
+| `sound_create` | Creates a sound from a voice asset and returns/sets a native handle. | Requires the correct sound manager and loaded voice asset. |
+| `sound_destroy` | Destroys a native sound handle. | Must be paired with sample-source removal during cleanup. |
+| `sound_set_input` | Binds typed sound inputs to a handle. | Used for the source ID and spatial transform; type descriptor and input argument ABI matter. |
+| `samples_submit` | Submits signed 16-bit PCM samples, sample count and source ID to the provider. | Sample format, count and source identity must match the native provider. |
+| `samples_remove` | Removes a source ID from the provider. | Required to release queued/provider-side samples when a sound is removed. |
+| `sound_manager`, `sound_manager_vtable` | Global manager pointer and expected manager vtable. | Revalidated during playback and before teardown. |
+| `samples_provider` | Global PCM sample provider. | Provider identity is rechecked before removing samples. |
+| `spatializer`, `voice_asset_vtable` | Global spatializer; voice asset at spatializer +0x228. | The asset is checked by vtable and its 16-byte identity before use. |
+| `source_input_type`, `transform_input_type` | Native input TypeInfo pointers for source and transform inputs. | Source ID and 4x4 transform must be supplied through the expected typed inputs. |
+
+**Playback flow:** the implementation validates all five function prefixes once and binds itself to the image and client thread. It then checks the manager/provider globals, their vtables and the voice asset identity. Per remote player, it creates a native sound, binds a tagged 64-bit source ID, updates a 4x4 spatial transform, and submits 16 kHz signed 16-bit PCM in 20 ms blocks. Request state expires after 300 ms without updates; stale PCM is flushed or discarded, and the provider queue is kept below a bounded horizon. Source IDs use a distinct high-word tag to avoid collisions with other plugin/native sources.
+
+Manager, provider or asset changes trigger cleanup. Sound handles are destroyed only while the current manager still matches the manager that created them; provider samples are removed only while the provider identity matches. Cleanup failure disables readiness rather than continuing with potentially stale native objects. Generation and serial checks prevent delayed packets from reviving an older peer voice stream.
+
+**Compatibility requirement:** preserve function signatures, manager/provider identity, voice asset identity, typed input semantics, PCM format, source-ID namespace, client-thread restriction and cleanup ordering. The five function prefixes are an admission gate, not proof that the sound manager, provider or asset schema is unchanged.
