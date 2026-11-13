@@ -744,7 +744,7 @@ Consumer: `Extension/Assets/live_mods.cpp`.
 | `register_superbundle` | Adds a named superbundle to the layer-set registry. | ABI: `void(registry, const char* name)`. The engine retains the name pointer; ReSkate stores names in a process-lifetime deque so reallocation does not invalidate them. Called while holding the layout manager critical section at manager +0x130. | P1, call ABI described |
 | `find_superbundle` | Finds a registered superbundle. | ABI: `void*(registry, const char* name, char prefixed)`; ReSkate uses prefixed=0 before/after registration and while locating mounted TOCs. | P1, call ABI described |
 | `attach_superbundle` | Associates superbundle with an install chunk. | ABI: `void*(superbundle, unsigned kind, void* chunk, int mode)`; ReSkate calls kind=0 and mode=1. This makes the bundle discoverable through the selected install chunk. Return value is not used as an owned object by the caller. | P1, call ABI described |
-| `prepare_toc` | Converts TOC data words to native byte order. | ABI: `void*(data)` in the header's call-site use (actual declaration is `void(void*)`). Called on bytes immediately after the 0x22c-byte file header before comparing format and swapping the live TOC backing. Mutates the supplied buffer in place. | P1, call ABI described |
+| `prepare_toc` | Converts TOC data words to native byte order. | ABI: `void(data)`; mutates the supplied buffer in place. Called on bytes immediately after the 0x22c-byte file header before comparing format and swapping the live TOC backing. Mutates the supplied buffer in place. | P1, call ABI described |
 | `manager_lock` | Layout manager critical section offset +0x130. | ReSkate enters it around registry, superbundle and mount-TOC operations. Must be the lock protecting these structures; matching a similarly shaped lock elsewhere is unsafe. | P1, data identity |
 | `layers_registry` | Layer set +0x58 -> superbundle registry. | Pointer field used to reach registry from the layout objects captured by the mod-layer hook. | P1, field identity |
 | `registry_manifest` | Registry +0x28 -> install manifest. | Pointer field; null/unreadable means no chunk registration can proceed. | P1, field identity |
@@ -847,3 +847,83 @@ Consumer: `Extension/Multiplayer/Remote/native_skater.cpp`.
 **Lifetime and concurrency:** watched entity/component/board pointers are indexed by peer slot and cleared on entity destruction. A generation counter invalidates stale state. Animation application uses a mutex; render publication uses try-lock because native placement can re-enter engine notifications. Native memory reads/writes are guarded against access violations. A candidate match must preserve this phase ordering, ownership validation and pointer lifetime; matching only a pose-writing helper is not enough.
 
 **ABI gaps:** the header contains many reference RVAs, vtables and prefixes, but not all are direct hook targets. The full animation hook and entity-destruction hook prototypes must be checked against the remainder of the consumer and native callers before assigning a strict ABI signature. The pose buffer layout is a separate data contract, not inferred from the function prefix.
+
+
+## 15. `native_indicators.h` — native HUD nametag and compass providers
+
+Consumer: `Extension/Multiplayer/Hud/native_indicators.cpp`.
+
+| Symbol / identity | ReSkate-side contract | Inputs / outputs / side effects | Priority / status |
+|---|---|---|---|
+| `hud_tick` | Native HUD indicator presenter tick. | Presenter object is passed as the native receiver. Hook tracks the current presenter while forwarding the original tick; provider creation/removal is coordinated on this native UI lifecycle path. | P1, hook role described; full prototype should be confirmed from hook declaration |
+| `provider_remove` | Removes a provider from the global indicator registry. | Registry and Provider pointer; ReSkate intercepts removal to synchronously stop its own provider, flush pending removals, then forwards the native removal. | P1, call boundary described |
+| `widget_create` | Creates/caches an indicator widget. | Consumer's wrapper ABI: `Address(cache, result, int id, Address list, Address info, const Callback* before, const Callback* after)`. ReSkate only substitutes an empty callback with a pre-init binding callback for the exact current presenter cache and matching template blueprint; all other calls pass through unchanged. | P1, consumer ABI traced |
+| `indicator_register` | Registers Provider with indicator registry. | Called with registry and Provider; the Provider vtable/method table supplies destroy, transform, blueprint, parent, owner, data, enabled, unregister and sort callbacks. | P1, provider contract described |
+| `presenter_flush` | Processes pending presenter removals. | Called for each discovered presenter after provider removal so widget teardown occurs on the native UI lifecycle path before borrowed template parents/assets are released. | P1, call ABI used as void(presenter) |
+| `property_bind` | Initializes an output property binding on a widget parent. | Consumer call ABI: `void(parent, &initialized, interface_data, hash, type, nullptr)`. Returned initialized slot must equal the independently discovered output property slot. | P1, call ABI traced |
+| `class_reference_getter` | Resolves a class-reference value. | Reads storage, clears bit 2, writes the result through output pointer. Used by property setters as a class-asset reference; not the provider's core update loop. | P2, header-described |
+| `set_customization_flag` | Shared engine helper to publish a property value. | Called with pointer to initialized property slot, value address and flag 1. The property must be a separate widget output, not an alias of template/source data. | P1, shared helper |
+| `model_record` / `model_type` | Native UI model lookup/type helpers. | Used under model manager write lock to validate model handles and TypeInfo. The record is resolved from manager, handle and mode; type lookup uses manager, handle, record and mode. | P1, shared model contract |
+| `card_info_construct` | Constructs a native player-info/card record. | Called on an aligned 0x108-byte local buffer before publishing it into the model manager. The native model takes its own published value; local native string storage is released after publication. | P1, ABI/layout traced |
+| `native_text_release` | Releases temporary native text/string value. | Called on address of a native string value after publication. Must use the engine string release semantics; not interchangeable with CRT free. | P1, shared ownership helper |
+| `presenter_registry` | Global indicator provider registry. | Registry table at +0x20, bucket count +0x28 and element count +0x2c. ReSkate bounds traversal and validates each presenter vtable. | P1, global/layout identity |
+| `hud_presenter_vtable` | Presenter object identity. | Used to validate objects found in the presenter registry. | P1, vtable identity |
+| `indicator_source_vtable` | Indicator template source identity. | Used to discover native nametag/compass templates and their backing data. | P1, vtable identity |
+| `widget_parent_vtable` | Native widget parent identity. | Validates parent objects and independent output property bindings. | P1, vtable identity |
+| `compass_icon_type`, `vec3_type`, `user_info_type` | Native property TypeInfos. | Compass icon asset, Vec3 anchor/offset, and user-info field. Property types must match exactly before binding. | P1/P2, TypeInfo identity |
+
+**Provider layout:** ReSkate's Provider begins with a methods pointer, then id at +8 and channel begin/end/capacity at +0x10 onward. It contains allocator, fixed channel storage, borrowed template/source/blueprint/parent/owner/data pointers, transform offset/world matrix, lifecycle flags, widget-parent pointer and peer slot. Static assertions pin key offsets and ProviderMethods size (0x48). This is a ReSkate-owned object passed into the native registry; its lifetime extends through deferred native removal.
+
+**Widget binding behavior:** ReSkate discovers stock indicator source templates, borrows their blueprint/parent/data while they remain loaded, then creates a widget with an independent output property set. Nametag binding creates an independently owned model context that points to the remote player's PlayerInfo record. Compass binding copies selected properties and resolves the party/player compass texture while holding the native texture registry lock; the setter retains the asset before the lock is released. The borrowed template and texture must not be cached beyond their native lifetime.
+
+**Thread/lifecycle constraints:** provider registry operations use a recursive native mutex. Model publication uses the model manager's write lock. Provider stop unregisters and flushes presenters before clearing borrowed pointers. Peer slot state is generation-tracked; idle slots skip presenter work. A candidate must preserve this provider vtable contract, callback injection conditions, native widget property ownership and teardown order.
+
+**ABI gaps:** the header lists function RVAs/prefixes but not C++ prototypes for every hook. The consumer defines the Provider callback ABI and widget wrapper ABI; exact native register/stack prototypes for HUD tick, provider removal, indicator registration and presenter flush should be verified against native callers before creating direct-call adapters.
+
+## 16. `native_player_ui.h` — remote player map-location entries
+
+Consumer: `Extension/Multiplayer/Hud/native_player_ui.cpp`.
+
+| Symbol / field | ReSkate-side contract | Inputs / outputs / side effects | Priority / status |
+|---|---|---|---|
+| `map_tick` | Native map display interface tick, vtable slot +8. | Hook receives interface address, validates display and interface vtables, updates per-peer location entries, then forwards native tick. | P1, hook ABI traced |
+| `ui_copy` | Shared first-256-byte UI move helper. | Hook forwards destination/source unchanged. Only when return address equals the exact map-tick call return does ReSkate append remote location handles to the map render-message list. Other UI copies are untouched. | P1, call-site-gated hook |
+| `map_destroy` | Map display destructor. | Hook releases any handles owned for that map object before forwarding destruction. ABI used: `uintptr_t(object, unsigned flags)`. | P1, hook ABI traced |
+| `location_shutdown` | Player-location manager shutdown. | Hook releases every peer's map handles and clears per-map records before forwarding shutdown. Consumer ABI: `void(uint8_t unregister)`. | P1, hook ABI traced |
+| `location_create` | Creates a player-location entry. | Consumer ABI: `uint16_t(manager, const void* key, const void* Location, uint8_t scope)`. Key is a per-peer 64-bit value; Location contains two projected floats and a field byte. Handles below 2 are treated as failure/reserved. | P1, call ABI traced |
+| `location_update` | Updates an existing location entry. | Consumer ABI: `void(manager, uint16_t handle, const void* Location)`. Called when map projection changes. | P1, call ABI traced |
+| `location_release` | Releases a location handle. | Consumer ABI: `void(manager, uint16_t handle)`. Called on invisibility, map destruction and manager shutdown. | P1, ownership contract |
+| `location_retain` | Retains a location handle. | Consumer ABI: `void(manager, uint16_t handle)`. Called once for each appended render-message reference; native message destruction owns the matching release. | P1, ownership contract |
+| `list_append` | Appends a u32 entry to native render-message location array. | Consumer ABI: `uint32_t*(array, 0)`. ReSkate writes the low 16-bit location handle into the returned slot after retaining it. | P1, call ABI traced |
+| `map_project` | Projects world position to map coordinates. | Consumer ABI used: `void*(out, world, mapSize, mapOrigin)`; output is two floats. Uses map display size at object +0x5320 and origin at +0x5310. | P1, call ABI traced |
+| `copy_call` / `copy_return` | Exact call site and return address for the shared UI copy helper. | The copy hook mutates map-specific message fields only when `_ReturnAddress()` equals copy_return. This avoids corrupting unrelated UI structures that share the helper. | P1, call-site identity |
+| `location_manager` | Global pointer to player-location manager. | Must match both the expected manager vtable and current global pointer before handles are updated/released. | P1, global identity |
+| `location_manager_vtable` | Location manager vtable. | Slot +0 is retain; slot +0x18 is update. | P1, vtable identity |
+| `map_display_vtable` / `map_display_interface_vtable` | Map display object/interface identities. | Interface is embedded at object +0x40; map tick slot +8 points to map_tick. | P1, vtable identity |
+
+**Data and lifetime:** a Location record is two float coordinates, a one-byte fields mask (default 1), and padding. Each peer maintains a map from map-display object to {manager, 16-bit handle}. Projection is refreshed at most every 50 ms. The manager is validated against its global pointer and vtable before use. The render-message location array uses 4-byte entries with the handle in the low half; the high-level array count is read from the word at array-4 and bounded below 128.
+
+**Critical reference counting:** creating a map location establishes the peer's owned handle. Every render message that receives the handle first calls retain; the native message's destruction releases that reference. Releasing the peer's own handle on map invisibility/destruction/shutdown does not substitute for releasing message references. A candidate implementation must preserve this ownership split or it can cause stale handles or premature release.
+
+**Hook coupling:** map tick, shared copy, map destructor and location-manager shutdown are prepared and enabled together in one Detours transaction. The copy hook is safe only with the exact callsite/return-address discriminator. Vtable checks ensure the map display and manager methods still occupy the expected slots.
+
+## 17. `replay_export.h` — replay MP4 encoder configuration and pacing
+
+Consumer: `Extension/Rendering/replay_export.cpp`.
+
+| Symbol / field | ReSkate-side contract | Inputs / outputs / side effects | Priority / status |
+|---|---|---|---|
+| `submit_frame` | Replay encoder frame submission. | Hook ABI used: `void(encoder, pixels, pitch, unused)`; all four register arguments are forwarded unchanged. For the replay editor's encoder only (vtable identity), ReSkate sets frame-permit byte +0x90 to 1 before forwarding, allowing every rendered frame to be encoded. | P2, hook ABI traced |
+| `replay_encoder_vtable` | Replay editor encoder identity. | Prevents frame-permit mutation on other encoder types. | P2, vtable identity |
+| `frame_permit` | Encoder +0x90 byte. | World update sets it and encoded frame clears it; submit drops a frame while clear. ReSkate writes 1 for the replay editor encoder. | P2, field/behavior identity |
+| `configure_h264` | Media Foundation H.264 encoder setup. | Hook ABI used: `uintptr_t(encoder, a, b, c)`; the remaining three arguments are forwarded unchanged. ReSkate changes encoder parameters before native setup reads them, then returns the native HRESULT-sized result. | P2, hook ABI traced |
+| `h264_kilobits` | Encoder +0x70 average bitrate in kbit/s. | ReSkate computes desired bitrate from user quality, dimensions and FPS, then writes it. | P2, field identity |
+| `h264_rate_mode` | Encoder +0x78 rate-control mode. | 0=CBR, 1=peak-constrained VBR, 3=quality mode. | P2, field/enum identity |
+| `h264_quality` | Encoder +0x7c quality 0..100. | Updated only for mode 3. | P2, field identity |
+| `h264_peak` | Encoder +0x80 peak bitrate. | For mode 1, scaled by desired/old average bitrate to preserve its ratio. | P2, field identity |
+| `h264_width` / `h264_height` | Encoder +0x88/+0x8c dimensions. | Read-only inputs to bitrate calculation and diagnostics. | P2, field identity |
+| `h264_fps` | Encoder +0x90 frame rate float. | Read-only input to bitrate calculation and diagnostics. | P2, field identity |
+
+**External Windows API hook:** the consumer also detours Media Foundation `MFTEnumEx` to filter hardware H.264 encoders by the vendor ID of the adapter the game renders on. This is not a Skate executable RVA dependency, but it is part of replay-export behavior and must be tracked separately from the game fingerprint inventory. The original API result and COM activation references are preserved; filtered activations are released.
+
+**Failure/compatibility behavior:** replay-export quality configuration is independently skipped when its prefix differs; frame pacing is required for `start()` to report success. The encoder setup reads fields from the encoder object, so a candidate configure function is only compatible if the encoder structure fields/enum semantics remain valid. The frame hook must not set frame_permit on unrelated encoders.
