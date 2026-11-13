@@ -1308,3 +1308,176 @@ Consumer: `Extension/Skater/grind_target.cpp`.
 **Eligibility and behavior:** override is only active for the owner of a 100 ms request lease, while gameplay input is allowed, overlay is closed, local skater/context match, physics state is 201, target is active, gate is sane, requested type is in [0,7], and all memory fields validate. It writes the requested type, request bit and five-byte alignment cache, forwards the original selector, reads the native-produced alignment result, then restores the previous bytes and request fields. Any write/restore failure clears ownership or cache so stale temporary state is not retained.
 
 **Compatibility requirement:** this is not a replacement rail-selection algorithm. It is a scoped mutation around the native algorithm. A candidate must preserve object/context relationships, exact caller object layout, request mask semantics, native output cache behavior and restoration conditions. The 16-byte prefix is only a guard for the entry point; field offsets and the original call's side effects are equally important.
+
+
+## 29. `game_states.h` — trainer access to the skater's state-page graph
+
+Consumer: `Extension/Trainer/trainer_gamestate.cpp`.
+
+| Symbol / field | Contract | Compatibility significance |
+|---|---|---|
+| `ant_driven_vtable`, `states_block_vtable` | Type checks for the skater's AntDrivenComponent and its state-page block. | The component and page block are linked through the animatable object; matching either vtable alone is insufficient. |
+| `state_lookup` | Resolves a state's value from a state object and the context holding its pages; returns null when absent. | Trainer reads depend on the state object's handle and the correct context/page graph. |
+| `state_write_lookup` | Resolves writable storage from context, state object and create flag. | Native write path; the trainer currently uses its own guarded memory access rather than relying on a replacement implementation. |
+| `float_setter` | FloatAsset virtual setter; the state object is passed as the subobject at object +0x60 and the value is the third argument. | Its virtual-subobject convention and argument position are ABI-sensitive. |
+| `state_copy` | Copies a value between state objects/contexts through the destination type's copy operation. | Relevant to state transfer semantics, not a general byte-copy primitive. |
+| `rate_compute` | Computes a playback-rate controller's per-tick value, clamped to its asset's minimum and maximum. | Trainer time-scale work depends on the rate-controller behavior remaining compatible. |
+
+**State graph layout observed by the consumer:** asset objects contain a 16-byte ID followed by the object; the name is at +0x18 and the packed state handle at +0x28. The handle selects a page (low 12 bits), a value slot (next 11 bits), and a presence bit in the page map at +0x71c. Handles are read from the live objects because they vary by level. The skater's AntDrivenComponent exposes its animatable at +0x68; two observed pointer paths lead to the state block, and page n is at block +0x60 + n*8.
+
+**Compatibility requirement:** preserve the page graph, handle decoding, object identity and per-level handle discovery. The listed function prefixes are entry-point evidence, not proof that the entire state-object layout is unchanged. Trainer reads/writes are guarded and should remain fail-closed when the graph cannot be validated.
+
+## 30. `game_state_values.h` — animation graph named-value setter
+
+Consumer status: no direct include of this header was found in the inspected runtime source set. It documents a separately observed animation-graph write path.
+
+| Symbol / field | Contract | Compatibility significance |
+|---|---|---|
+| `int_setter` | Setter for integer and enum graph values; call shape documented as (setter descriptor, graph instance, value). | The descriptor is resolved from the value descriptor plus +0x60; the graph instance owns the destination storage. |
+| `descriptor_name` | Name pointer at descriptor +0x18. | Used to identify a specific graph value by its asset name. |
+| `pop_height_name` | `Animation/Dingo/EnumGS.PopHeight`. | Semantic identifier for the game's low/medium/high pop grade, not a function signature. |
+
+The observed setter is invoked by graph jobs on worker threads. A hardware write watch identified the value; a measured standing quick-flick experiment associated values 1, 2 and 3 with low, medium and high pop grades. This is an observation of the reference build, not evidence that the current SDK calls the setter or that the grade thresholds are universal.
+
+**Compatibility requirement:** treat this as a research contract until a concrete consumer is added. Preserve descriptor-to-setter resolution, graph-instance ownership and worker-thread assumptions; do not infer that the pop grade is equivalent to launch velocity or a trainer-defined pop category.
+
+## 31. `skater_body.h` — per-step ragdoll contact records
+
+Consumer: `Extension/Skater/skater_physics.cpp`, with the public plain-data representation in `Engine/Game/Skater/skater_body.h`.
+
+| Symbol / field | Contract | Compatibility significance |
+|---|---|---|
+| `contacts_before_skeleton_contract` | The skater core physics step processes body contacts before invoking the skeleton response. | Contact data read during the skeleton response belongs to the current physics step. |
+| `contact_holder_offset`, `contact_struct_offset` | Rig +0x2f10 points to a holder; holder +0x1040 is the contact structure. | Both pointer relationships must remain valid. |
+| `bone_records_offset`, `bone_record_size`, `body_bone_count` | Records begin at contact +0x5e0; 24 records of 0x70 bytes. | Bone ID order and record stride are part of the read contract. |
+| `bone_peak_offset`, `bone_tracked_peak_offset` | Peak impact speeds at record +0x50 and +0x54. | Ordinary and tracked-point contacts use separate peak fields. |
+| `bone_normal_offset`, `bone_point_offset`, `bone_slide_offset` | Normal, contact point and normal-cross-relative-velocity data. | The slide vector's magnitude represents speed along the surface; vector interpretation must not be swapped. |
+| `bone_hit_*_offset`, `bone_touching_offset` | Per-bone hit-kind flags and a touching byte at contact +0x340. | Used to distinguish board, vehicle and world contacts and current-step contact presence. |
+| `body_transform_contract`, `body_transform_offset` | Physics getter copies a body's 64-byte world matrix from body +0x20. | Separate transform contract; the contact record does not contain the full body transform. |
+
+The contact processor clears one 0x70-byte record for each of 24 physics bones at the beginning of each step. It tracks the strongest impact along the contact normal, contact normal, contact point and a cross product of normal with relative velocity. The latter's length is interpreted as surface-slide speed. Two tracked-point variants are maintained for selected contacts. Bone 0 is the board root and is not a ragdoll body hit; the remaining 23 IDs follow the physics-bone name map.
+
+The public representation maps those records into `Contacts::bodies[24]`, with touching, impact, slide, hit-kind flags and optional point/normal. Feet are deliberately excluded from the tumbling heuristic because they contact the board and ground during ordinary riding.
+
+**Compatibility requirement:** retain same-step ordering, 24-bone index mapping, 0x70 stride, contact-structure offsets and the meaning of the normal/slide vectors. The fingerprints cover selected producer instructions; they do not establish that the entire record schema or all hit-kind meanings are unchanged.
+
+## 32. `skater_entities.h` — native entity creation, placement and component operations
+
+Consumers: `Extension/Skater/ai_skaters.cpp` and `Extension/Multiplayer/Remote/native_skater_spawn.cpp`; component sampling also uses its secondary skater-component vtables.
+
+| Symbol / field | Contract | Compatibility significance |
+|---|---|---|
+| `blueprint_type`, `object_blueprint_type` | Distinct TypeInfos for skater blueprints and world-object blueprints. | These are different branches of the type hierarchy and must not be conflated. |
+| `descriptor_init`, `descriptor_destroy` | Initialize a 0x190-byte creation descriptor in place and destroy its internal list state at descriptor +0x10. | Descriptor size, construction and cleanup must match the native creator. |
+| `create_entity` | Creates an entity from result storage, descriptor, blueprint and two zero arguments; result includes entity and retained sublevel/reference data. | Return structure and retained-reference ownership matter, not only the function entry. |
+| `destroy_entity`, `release_reference` | Destroy entity with owner; release one reference on an entity bus or retained sublevel. | Destruction ownership and reference balance must remain correct. |
+| `place_entity`, `move_spatial_entity`, `initialize_placement` | Entity vtable placement slot +0x158; generic spatial transform setter; component initialization lifecycle. | Placement copies transform data and notifies components; initialization is not interchangeable with a raw transform write. |
+| `customization_component`, `set_customization_flag_prefix`, `source_apply_appearance` | Resolve customization component and apply appearance state. | Appearance setup depends on component identity and the native source's mode semantics. |
+| `physics_c7_setter`, `physics_cb_setter` | Skater-component physics flag setters for component bytes +0xc7 and +0xcb. | Used when constructing remote actors; preserve byte semantics and initialization order. |
+| `skater_component_base_vtables` | Secondary base vtables at component +0x38 and +0x40. | Component validation in the skater model sampler checks both, in addition to the primary vtable. |
+
+**Consumer flow:** AI and remote-skater creation both build the native descriptor, invoke `create_entity`, retain/validate the resulting entity, initialize placement and appearance, and later destroy the entity or release retained references. AI spawning additionally configures brain/physics state and verifies the source binding path. Remote spawning also creates or repairs associated board entities and validates lifecycle reachability before destruction.
+
+The object-blueprint mesh chain is separately documented in the header: blueprint +0x80 to object data, object data +0xd8 to mesh asset, mesh asset +0x70 to loaded mesh, and loaded mesh +0x28 to min/max bounds. These are read-only descriptive asset-layout observations, not part of the skater-entity creation ABI.
+
+**Compatibility requirement:** entity creation is a multi-symbol and lifetime contract. A candidate must preserve descriptor construction, result layout, entity/owner relationship, placement lifecycle, component vtables, customization initialization and retained-reference release. A high-confidence match for `create_entity` alone would not establish a safe spawn path.
+
+## 33. `skater_state.h` — live skater, offboard-state and physics-body layout
+
+Consumers: `Extension/Skater/skater_movement.cpp`, `Extension/Skater/skater_physics.cpp`, `Extension/World/owned_bodies.cpp`, and related no-bail/noclip readers.
+
+| Symbol / field | Contract | Compatibility significance |
+|---|---|---|
+| `physics_state_offset` | Context +0x1414, uint32 selected physics state. | State values are interpreted alongside the native state machine, not as standalone booleans. |
+| `step_seconds_offset` | Context +0x17ec, float simulation-step duration. | Shared with the skater core step-input publication. |
+| `trick_state_offset`, `offboard_state_offset` | Core +0x3b8 points to trick state; +0x78 points to offboard state. | Pointer chain is required before reading ragdoll/on-foot flags. |
+| `ragdoll_offset`, `in_the_air_offset` | Offboard state +0x18c and +0x180, byte flags. | Distinguishes ragdoll and airborne substates. |
+| `board_holder_offset`, `board_physics_offset`, `rig_physics_offset` | Core +0x430 -> board physics at +0x18; core +0x438 -> rig physics at +0x2f10. | Board and ragdoll bodies live in different collections. |
+| `physics_bodies_offset`, `physics_body_size` | Body array at physics object +0x20, stride 0x130. | Used to resolve body n and its velocity/spin. |
+| `body_owner_offset`, `body_velocity_offset`, `body_spin_offset` | Per-body owner +0x10, linear velocity +0x70, angular velocity +0x90. | Owner and motion fields are distinct. |
+| `body_pending_offset`, pending flag constants | Pending flags at body +0x60; rotation 1, position 4, velocity 8, spin 0x20. | Native synchronizer consumes these flags to publish state into the physics world. |
+| `core_steps_since_built` | Core +0x190, count of physics steps since last core build. | Useful generation-like evidence across spawn/teleport, but not a pointer identity. |
+| `core_jump_block_offset`, air-state and request offsets | Jump block/core air-state relationship and frame/dt fields. | Flight timing is built into the request block and can differ from current step duration. |
+| `context_sensor_* ` | Observed sensor fields between context +0x1a00 and +0x1c40. | Meanings are explicitly unresolved; retain as observations only. |
+
+The board physics collection has nine bodies, with body 0 the board root. The rig collection has 26 bodies, with the ragdoll body's indices corresponding to the physics-bone map. Each body wrapper is 0x130 bytes. The native synchronizer consumes pending flags to copy velocity, spin, position or rotation to the world body. The core's step count advances once per physics step in the observed runs and remains at the same core address through teleports.
+
+**Compatibility requirement:** preserve the context/core/rig/board pointer chain, collection counts and stride, body owner relationship, motion offsets, pending-flag semantics and state-machine checks. Do not assume the jump block's stored dt follows a changed simulation-step duration. The sensor block is unresolved and must not become a hard matcher constraint.
+
+## 34. `physics_bodies.h` and `rigid_bodies.h` — world body/shape handles and owned-body API
+
+Consumer: `Extension/World/owned_bodies.cpp`; related read paths include park-editor surface probes and world body/shape identity helpers.
+
+| Symbol / field | Contract | Compatibility significance |
+|---|---|---|
+| Native handle | 16-byte handle `{world pointer, index, generation}`. | Every operation must validate the world, allocation and generation; an index alone is unsafe. |
+| `store_offset` | Physics world +0x28 points to the store. | Root of the body/shape state arrays. |
+| `body_owner_offset`, `owner_kind_offset`, `owner_value_offset` | Per-body owner index at +0x1008; owner-kind bitset +0x8b0 and owner value +0x8b8. | Used to identify entity-owned physics and distinguish ECS owners. |
+| `ghost_body`, `solid_body`, `main_ghost`, `main_solid` | Native ghost/solid bit operations. | The object main-body bit and individual body bits are distinct paths. |
+| `linear_force`, `angular_torque`, `set_inertia_ratio` | Native force, torque and inertia-ratio operations. | Their body state and vector arguments must match the native API. |
+| `synchronizer` | Game body synchronizer; observed producer phase for force/torque updates. | Local phase evidence only, not a global physics barrier. |
+| `overwrite_force`, `overwrite_torque` | Replace pending force or torque for dynamic bodies. | Not interchangeable with the general linear/angular velocity setters. |
+| `set_motion_type`, `create_capsule`, `set_categories`, `set_collides_with`, `set_shape_owner` | Operations used to create and configure the remote/owned collision shapes. | Body and shape handles, category masks, owner slots and motion type must remain coherent. |
+| `set_transform`, `set_linear_velocity`, `set_angular_velocity`, `set_center_of_mass`, `wake_body` | Native body state operations. | Argument layouts include vec4 or eight-float transform data; motion-type-specific behavior matters. |
+| `body_valid`, `shape_valid` | Check allocation and generation. | Required before using retained handles. |
+
+**Shared layout:** the store contains body/shape allocation and generation arrays, shape-to-body indices, category masks and dynamic-body state arrays. `rigid_bodies.h` documents offsets for position/rotation/velocity rings, pending force/torque, inverse mass, inertia ratio, allocated/dynamic bitsets and shape mappings. Shape owner slots use 0xffffffff for no owner. The optional shape-category reader is separately fingerprinted and may be disabled without disabling the rest of the feature.
+
+**Important terminology:** the physics engine's native API calls the 16-byte handle a body for rigid-body operations and a shape for collision geometry. The store maps a shape index to its carrying body. Do not collapse those identities when adapting a candidate build.
+
+**Owned-body safety contract:** `owned_bodies.cpp` anchors operations to the current client, game context, entity, core, skater context, rig, world and physics state. It captures and rechecks relevant memory, validates handles and generations, observes native body ownership, and tracks setter failures/quarantine. The synchronizer fingerprint only qualifies the observed producer phase. The service must not treat it as exclusive ownership or a world-wide synchronization point.
+
+**Compatibility requirement:** this is one of the highest-coupling contracts in this batch. Matching a setter does not establish handle layout, store offsets, allocation/generation semantics, owner mapping or synchronization safety. Keep body and shape identities, ownership, world lifetime and per-operation validation as a single dependency group.
+
+## 35. `remote_collision.h` — remote-player collision capsules
+
+Consumer: `Extension/Multiplayer/Remote/remote_collision.cpp`.
+
+| Symbol / field | Contract | Compatibility significance |
+|---|---|---|
+| `game_context_global`, `physics_world` | Resolve the current client physics world from the game-context global. | Null while level physics is unavailable; cached handles must be scoped to the world. |
+| `allocate_body`, `create_capsule` | Allocate a body and create a capsule shape attached to it. | Native output handles are 16-byte world/index/generation structures. |
+| `set_motion_type`, `set_body_980`, `clear_body_aa0` | Configure the proxy body as keyframed and apply the same initialization values as the retail remote-skater proxy. | Initialization order and body flags are part of the contract. |
+| `set_categories`, `set_collides_with`, `set_shape_owner` | Configure collision masks and owner slot. | Remote proxy category 21 collides with CharacterProxy and LocalSkater categories; owner is explicitly none. |
+| `set_center_of_mass`, `set_transform`, `set_linear_velocity`, `set_angular_velocity`, `wake_body` | Place and move proxy bodies. | Transform is quaternion plus position in an eight-float array; velocities are vec4-like inputs. |
+| `body_valid`, `shape_valid` | Validate retained body/shape handles. | Prevents stale or recycled handles from being operated on. |
+| `core_party_collision` | Local skater core +0x40e1 party-collision byte. | Remote collision is enabled only when the game's local party-collision setting permits it. |
+
+The feature creates two keyframed capsules per remote player: an upright skater capsule and a thin board capsule. The skater capsule is positioned at the remote root; the board capsule follows the board pose only while it remains within the configured reach. Velocity is estimated from successive positions over a bounded time interval so moving proxies can impart motion while teleports do not become impacts. Categories are enabled only while the remote player is considered solid; otherwise the shapes are made inert.
+
+Per-peer slots are scoped to the physics world and local context. On a world change, old handles are not touched in the new world. If the same world is reused with a different context, the old proxies are switched off before the slot is reset. A player not updated for 250 ms has its capsules disabled. Failed creation is retried after five seconds. The local party-collision check validates the skater entity, skater component and core vtables before reading the setting.
+
+**Compatibility requirement:** preserve the handle ABI, world lifetime, keyframed-body setup, capsule geometry, category masks, owner semantics, transform convention, stale-player expiry and local party-collision gate. This feature depends on the physics-body and rigid-body contracts in section 34; a standalone match of the capsule constructor is insufficient.
+
+## 36. `skater_movement.h` and `skater_model.h` — local skater telemetry readers
+
+Consumers: `Extension/Skater/skater_movement.cpp` and `Extension/Skater/skater_model.cpp`.
+
+| Header / field | Contract | Compatibility significance |
+|---|---|---|
+| `skater_movement::context_velocity` | Context +0x3d0, vec3 world velocity. | Read only after local skater/context validation and finite/range checks. |
+| `skater_parent`, `skater_board` | Core +0x3b0 parent state machine and +0x430 board holder. | On-foot walking state is resolved through the parent machine, not inferred from velocity alone. |
+| `state_context`, `state_board`, `state_rig`, `active_state` | Parent machine references to context, board, rig and active substate. | Cross-checks must agree with the current local skater. |
+| `walking_velocity` | Active walking substate +0x10, vec3. | Used only when the active state is the expected walking state and the player is grounded. |
+| `component_globals` | Three global addresses sampled for presence by `read_skater_component`. | Presence observations only; not evidence of the globals' internal types or behavior. |
+| Component vtable checks | Primary skater-component vtable plus secondary base vtables at +0x38 and +0x40. | The sampler validates the full observed component identity before exposing its fields. |
+
+The movement reader obtains the local skater through the no-bail resolver, reads and sanity-checks context velocity, then cross-checks the physics state, trick/offboard state, ragdoll and airborne flags, parent machine, board, rig and active walking-state vtable before reporting grounded walking velocity. Input-derived stick direction additionally requires foreground focus, no free camera, no menu and no park-editor placement ownership. It is projected through the current local camera.
+
+The model reader is a read-only process-memory sampler. It reads a 0xd8-byte skater component snapshot, validates the primary and two secondary vtables, reports presence of selected component pointers and three globals, samples component flags and wait time, and optionally checks a nested target pointer. The wait value is required to be finite.
+
+**Compatibility requirement:** these are guarded telemetry contracts, not native function hooks. Preserve the complete pointer/vtable cross-checks and finite-value validation. A matching offset without the identity chain must not be treated as a valid local skater sample.
+
+## 37. `skater_skeleton.h` — installed-game skeleton and costume asset identity
+
+Consumer: `Extension/Skater/xray_skeleton.h` and its skeleton asset reader.
+
+| Symbol / field | Contract | Compatibility significance |
+|---|---|---|
+| `skeleton_toc`, `skeleton_bundle`, `skeleton_asset` | Installed-game TOC, bundle and render-skeleton asset path. | Asset identity and bundle location, not an executable function ABI. |
+| `mesh_toc`, `mesh_bundle`, `mesh_asset` | Dem Bones costume TOC, bundle and skinned-mesh asset path. | Separate costume mesh resource that is skinned to the render skeleton. |
+| `mesh_lod` | LOD index 4, observed at 13,817 triangles and 12,222 vertices. | Asset-content assumption used by the CPU-side pose/draw path. |
+
+The render skeleton contains 386 joints. The x-ray skeleton reader uses the skeleton asset and a corresponding joint-name mapping to pose the costume mesh from the game's skin transforms. The mesh is a separate asset with six LODs; the selected LOD is the fifth entry (zero-based index 4).
+
+**Compatibility requirement:** verify asset paths, skeleton joint identity/order, skinning data and selected LOD independently of executable function matches. A path remaining present does not prove the asset's contents or joint mapping are unchanged.
