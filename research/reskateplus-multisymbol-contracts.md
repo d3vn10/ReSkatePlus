@@ -1570,3 +1570,132 @@ Consumer: `Extension/Multiplayer/Voice/native_voice.cpp`.
 Manager, provider or asset changes trigger cleanup. Sound handles are destroyed only while the current manager still matches the manager that created them; provider samples are removed only while the provider identity matches. Cleanup failure disables readiness rather than continuing with potentially stale native objects. Generation and serial checks prevent delayed packets from reviving an older peer voice stream.
 
 **Compatibility requirement:** preserve function signatures, manager/provider identity, voice asset identity, typed input semantics, PCM format, source-ID namespace, client-thread restriction and cleanup ordering. The five function prefixes are an admission gate, not proof that the sound manager, provider or asset schema is unchanged.
+
+
+## 42. `startup_interventions.h` — one-shot VM frame capture and startup exit intervention
+
+Consumer: `Extension/Boot/startup_interventions.cpp`; state-machine interface in `Extension/Boot/startup_interventions.h`.
+
+| Symbol / field | Contract | Compatibility significance |
+|---|---|---|
+| `frame`, `frame_instruction`, `frame_fingerprint` | VM byte-store site at RVA 0x08ae2785; target instruction is `MOV [RDX], SIL`. | Breakpoint is installed at an instruction that also performs ordinary byte stores; the exception handler must emulate those stores exactly when the target frame is not being captured. |
+| `frame_data`, `frame_cursor`, `frame_count` | Expected bytecode address, cursor address and frame-count marker. | These values identify the specific VM clear operation rather than every byte-store execution at the site. |
+| Frame stack/VM/register offsets | RBP-relative stack layout, VM pointer, saved-register pointer and cursor. | The handler validates a full register/stack shape before copying the 0xc0-byte frame. |
+| `exit_thunk`, `exit_return`, `exit_instruction` | Startup exit thunk and exact return address/instruction. | Second breakpoint is accepted only for the captured frame, same thread and same RBP/RSP relationship. |
+| `StartupInterventionMachine` | One-shot phases: uninitialized, armed, handling_frame, frame_captured, handling_exit, complete, failed. | Enforces capture-before-exit and prevents a mismatched thread/frame from restoring arbitrary memory. |
+
+**Execution flow:** installation validates the preferred image base, image size, executable-page ranges and both byte fingerprints. It registers a vectored exception handler, arms the exit breakpoint and frame-site breakpoint, then arms the state machine. At the frame site, the handler validates register relationships, cursor and bytecode, saves exactly 0xc0 bytes, and lets the native clear execute. Ordinary stores at the same site are replayed as `MOV [RDX], SIL` without changing flags/registers. At the exit thunk, the handler validates the captured thread, stack frame, return address, instruction and expected register values, restores the saved frame, sets RAX to FALSE and resumes at the guarded return address. Breakpoints are retired as the sequence completes.
+
+**Compatibility requirement:** this is an instruction-site and exception-context contract, not a conventional function hook. Exact image base, instruction bytes, register values, stack offsets, thread identity and ordering are all required. A function matcher that only relocates the two sites cannot establish safety. Any mismatch must fail closed rather than restore a frame using partially matching state.
+
+## 43. `entity_pages.h`, `spatial_buckets.h` and `pending_updates.h` — coordinated large-world capacity patches
+
+Consumer: `Extension/World/native_entity_pages.cpp`, which combines all three patch tables and validates every expected instruction before writing any replacement.
+
+| Header / field | Contract | Compatibility significance |
+|---|---|---|
+| Entity TransformSpace/property-space pages | 128 page pointers, 2,048 entries per page, 16 KiB per page, capacity 262,144 slots. | Retail capacity was 131,072; a 150,152-entry map load exceeded it and overwrote snapshot bookkeeping. |
+| Render-instance pages | 512 page pointers, 2,048 records per page, 0x1d0-byte records. | Enlarges leaf pages while preserving stable object addresses and the native page-pointer count. |
+| Spatial bounds arena | Minimum 128 MiB, preserving any larger configured value. | Must be sufficient for city-scale cull IDs and bounds while retaining native allocation/reset ownership. |
+| Spatial buckets | 16,384 blocks per bucket, 64 entries per block, nine root nodes. | Every bucket array grows together; all native offsets and root stride are asserted in the header. |
+| Pending-update queues | 24-byte entries; 2,048 entries per page, 0xc000 bytes per page. | Transform/property snapshots and pending updates must use matching page capacity. |
+| Patch tables | Instruction-level changes to index shifts, page byte/entry counts, spatial bucket strides/layout, render-instance page sizes and pending-update page calculations. | Every affected consumer site must be patched as one compatible set. |
+
+**Patch application:** `native_entity_pages.cpp` concatenates the entity-page, spatial-bucket and pending-update patch arrays. It validates the PE image and every expected byte sequence before applying the first write. Each write changes page protection, writes the replacement, restores protection, flushes the instruction cache and verifies the result. If a write fails, all already-applied patches are restored in reverse order; failure to restore triggers fail-fast termination. Installation is bound to one image base.
+
+The three headers deliberately share `entity_pages::Kind`, `Patch` and the consteval patch constructor. The patch lists include insertion/lookup, iteration, copy-on-write, snapshot repair, queue sorting, synchronous/asynchronous consumers, rounded iteration bounds and sized deallocation. This is not merely changing one capacity constant: all index shifts, allocation sizes, byte strides and loop bounds must agree.
+
+**Compatibility requirement:** retain native ownership, IDs, snapshot structures, stable direct object addresses and queue entry layout. Candidate compatibility requires the entire combined patch set to resolve and apply coherently. A subset of matching instructions is not a valid partial implementation because it can leave readers and writers using different page geometry. Capacity 262,144 is based on the largest observed map plus headroom; larger maps would require revisiting the limit.
+
+## 44. `native_patch_support.h` — selective unsigned native package-envelope acceptance
+
+Consumer: `Extension/Assets/native_patch_support.cpp`.
+
+| Symbol / field | Contract | Compatibility significance |
+|---|---|---|
+| `verifier` | Native data-envelope verifier at RVA 0x041fb4c0; complete 392-byte body fingerprint. | The hook preserves the native verifier for all inputs except the specifically recognized unsigned patch envelope. |
+| `signature_import` | IAT slot for BCryptVerifySignature. | Validated against the actual loaded bcrypt.dll export, not the address of the SDK's local linker thunk. |
+| `signature_return` | Return address of the verifier's BCryptVerifySignature call. | The signature detour only applies its special behavior at this exact native callsite. |
+| `crypto_thunk`, `reader_call`, `layout_call`, unwind records | Supporting call/thunk/unwind byte contracts. | The complete verifier's surrounding control-flow and unwind assumptions are validated before installation. |
+| `verifier_bytes` | Full 392-byte native verifier body. | Longer than a prefix; guards the exact envelope parsing and native return convention. |
+
+**Envelope behavior:** the native verifier accepts a raw envelope and a pointer to its length. For a recognized unsigned native patch envelope, the hook validates the envelope header, bounds, pointer non-aliasing and writable/aligned length storage, then atomically subtracts the 0x22c-byte envelope header from the length and returns the payload pointer. It does not write into the source buffer. Other envelopes are passed to the original verifier.
+
+The signature hook is scoped to the exact signature buffer and current thread so that the unsigned-patch exception cannot leak into unrelated BCryptVerifySignature calls, nested verification or concurrent engine work. Native crypto/provider errors and non-target signatures retain native behavior. Both hooks are enabled in one Detours transaction; if setup fails, the prepared hooks are removed and stored trampolines are cleared.
+
+**Compatibility requirement:** preserve the full verifier bytes, envelope header size and classification, length-pointer alias/protection checks, atomic length commit, signature callsite identity and thread-local scope. This is a narrow trust-policy exception, not a blanket bypass of native signature verification.
+
+## 45. `reference_lists.h` — removal of empty asset references before level registration
+
+Consumer: `Extension/World/reference_list_guard.cpp`.
+
+| Symbol / field | Contract | Compatibility significance |
+|---|---|---|
+| `register_named` | First reference-list loader at RVA 0x557c40. | Hook filters the list before forwarding to the native loader. |
+| `register_assets` | Second reference-list loader at RVA 0x891c80. | Separate loader path; both must be guarded for complete coverage. |
+| `asset_references` | Asset +0x28 points to its reference array. | The array count is stored immediately before the first element. |
+| `asset_name`, `asset_type` | Asset name at +0x18; type at +0x08. | Name is used for bounded diagnostics; type is contextual metadata. |
+| `pointer_flag`, `array_count_flag` | Low pointer bit 2 and high count bit 31 are flags. | Must be masked while preserving the flag bits when compacting the array. |
+
+**Observed failure and behavior:** both native loaders iterate asset reference arrays and dereference each reference at +0x48. A null/empty reference is not skipped by the native path and can crash level loading. The guard compacts non-empty references over empty ones, lowers the count while preserving the count flag, logs a bounded number of affected asset names, then forwards the original list. The two loaders are hooked independently; if either fingerprint or hook fails, the other may remain hooked, but the overall guard reports incomplete coverage.
+
+**Compatibility requirement:** preserve pointer/count flag encoding, array ownership and element stride, and ensure compaction happens before either native loader consumes the array. This is a narrow data sanitation hook. It does not repair missing assets or validate all reference semantics.
+
+## 46. `media_catalog.h` — offline replay-draft thumbnail catalogue
+
+Consumer: `Extension/Settings/replay_drafts.cpp`.
+
+| Symbol / field | Contract | Compatibility significance |
+|---|---|---|
+| `services_vtable` | Expected vtable for the game's backend-services object. | Prevents using the catalogue helpers on an unrelated service object. |
+| `lookup` | Finds the registered `catalog` container from services. | Required before creating or accessing the user's catalogue. |
+| `add_container` | Creates/registers the catalogue container. | Normally called by the services constructor among online registrations, which do not run in this offline flow. |
+| `user_added` | Creates the user's catalogue after a sign-in listener event. | Called with a synthetic local user record when the game has not made a catalogue. |
+| Container layout | Listener at +0x60; catalogue at +0x68. | Listener and catalogue pointers have distinct roles and lifetimes. |
+| Catalogue layout | Folder engine string +0; entries +0x38; entry stride 0x130; ready byte +0x5c. | Used to count and observe saved draft entries. |
+
+**Offline flow:** in a level or level-menu state, the consumer validates all three function fingerprints and the services vtable. It finds or creates the catalogue container, removes only old numbered folders whose manifest matches the expected replay-draft thumbnail shape, and invokes the native user-added path using a static local user object. The native constructor lists the folder and loads entries, but its posted ready task is not run in the offline environment. After five seconds, the consumer marks the catalogue ready itself, records the entry count and watches later count changes.
+
+If the game already created a catalogue for its own signed-in user, the consumer uses that catalogue instead. Catalogue state is one-shot through waiting/loading/done/failed stages; invalid services, lost catalogue or unreadable fields fail the feature rather than continuing with stale pointers.
+
+**Compatibility requirement:** preserve service/container/listener identity, function signatures, synthetic-user string layout, catalogue entry stride and ready semantics. The manual ready-byte fallback is specific to the observed offline task behavior and must be revalidated if the services/task execution model changes.
+
+## 47. `game_data_files.h` — supported-build Data-folder size manifest
+
+Consumer: `Launcher/launch.cpp`, `game_files_supported`.
+
+The header is generated from Steam depot 3354751 manifest 4621099302092747785 and contains 98 relative paths with expected file sizes. It covers Data TOCs, CAS archives, language packages, level bundles, InitFS, layout and chunk manifest files. It is a static file-integrity manifest, not a runtime function ABI.
+
+The launcher iterates the list and checks the installed files against the expected sizes before launching the game. A missing or truncated data file is reported as an unsupported/damaged game-data installation even when the executable itself passes the supported-build fingerprint.
+
+**Compatibility requirement:** keep the manifest paired with the exact game build/depot manifest. File size detects missing/truncated files but does not prove file content identity; do not describe it as a cryptographic data-file verification.
+
+## 48. `job_system.h` — worker spin configuration observations
+
+Consumer status: no direct include of this header was found in the inspected source tree. The header records three build-specific data addresses used by the job-system performance research.
+
+| Symbol / field | Contract | Compatibility significance |
+|---|---|---|
+| `spin_ticks` | Global timestamp-counter duration used by idle workers before sleeping. | Both observed worker loops read it live on each pass. |
+| `spin_milliseconds` | Float configuration value at the job config +0x1a0; 0.25 ms in this build. | Used at job-system start to compute `spin_ticks`. |
+| `thread_count` | Integer count of started job threads. | Diagnostic/configuration observation; no function ABI is declared here. |
+
+The associated research identifies worker loop, run-until-done, job-pop and startup computation routines by RVA, but those are comments/research references rather than declared fingerprint contracts in this header.
+
+**Compatibility requirement:** keep this as research-only address data until an actual runtime consumer and its read/write behavior are located. Do not use these addresses as hard matcher anchors or modify worker scheduling based only on the header comments.
+
+## 49. `guid_table_lookup.h` — open-addressed GUID table lookup and missing-key hang
+
+Consumer status: no direct runtime consumer was identified in the inspected source paths; the header records a native failure analysis and two function fingerprints.
+
+| Symbol / field | Contract | Compatibility significance |
+|---|---|---|
+| `find` | GUID-table lookup at RVA 0x41d3a50. | Probes an open-addressed table using the first GUID dword. |
+| `record_contract` | Record-resolution routine at RVA 0x41c7df0. | Called after a matching 16-byte key is found. |
+| `count`, `slots` | Record count at table +0x7c; u16 slot array at +0x958. | Slot count is at least 16 and approximately 1.5 times record count, rounded to a power of two. |
+| `source`, `key_of` | Source object at +0x18; virtual key extraction at +0xc0. | Each candidate record's 16-byte key is obtained through this virtual call. |
+| `empty` | 0xffff sentinel in the slot array. | The observed search does not terminate on an empty slot. |
+
+**Observed defect:** the probe loop terminates only when a matching key is found. A missing GUID can therefore walk empty slots indefinitely rather than returning not-found. Two hang dumps from 2026-10-17 associated this with a custom-map server and a Throwdown asset-pack GUID.
+
+**Compatibility requirement:** this is a behaviorally important native algorithm, but the current header does not establish an active SDK hook or complete caller set. Preserve the distinction between a matching lookup function and a corrected lookup algorithm. A future compatibility fix must establish a bounded probe/termination condition and verify the table's capacity/probe invariants without assuming this exact implementation is already consumed by ReSkatePlus.
