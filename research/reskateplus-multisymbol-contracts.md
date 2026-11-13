@@ -696,3 +696,21 @@ Represent each symbol as an individual dependency record, with a parent group fo
 - `adapter_notes`: how ReSkate could marshal old expected data to the candidate ABI.
 
 For coupled contracts, the scanner must retain group completeness. For example, the No Bail flag-transfer sites, park-editor query+cleanup pairs, party request+delegate+handle flow, and profile model lock/unlock pairs should not be counted as recovered when only one member is found.
+
+
+### Throwdown hook entry guards
+
+The following prefix symbols are independent validation records paired with their corresponding hook target. They do not add new runtime behavior, but each guards a distinct hook entry and must remain separately addressable in the compatibility inventory:
+
+- `player_in_activity_prefix` -> `player_in_activity`
+- `mode_available_prefix` -> `mode_available`
+- `player_info_prefix` -> `player_info`
+- `service_player_info_prefix` -> `service_player_info`
+- `send_event_prefix` -> `send_event`
+- `parameters_prefix` -> `parameters`
+- `others_throwdowns_allowed_prefix` -> `others_throwdowns_allowed`
+- `container_lookup_prefix` -> `container_lookup`
+- `string_assign_chars_prefix` -> `string_assign_chars`
+- `array_release_prefix` -> `array_release`
+
+Each guard is an entry-byte validation contract. For changed builds, instruction matching should be performed on the target function independently of the guard bytes, then validate the inferred behavior and call-site relationships before accepting a hook.
