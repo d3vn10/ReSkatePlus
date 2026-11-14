@@ -66,6 +66,34 @@ namespace dingosdk::game::usage_trace
         }
     }
 
+    void record_hit(std::uintptr_t image_base, std::uintptr_t rva, std::string_view symbol) noexcept
+    {
+        static volatile LONG64 first{};
+        static volatile LONG64 total_calls{};
+        static volatile LONG64 interval_calls{};
+        static volatile LONG64 next_report{};
+        const auto now = GetTickCount64();
+        const auto total = InterlockedIncrement64(&total_calls);
+        const auto interval = InterlockedIncrement64(&interval_calls);
+        if (InterlockedCompareExchange64(&first, 1, 0) == 0)
+        {
+            InterlockedExchange64(&next_report, static_cast<LONG64>(now + 5000));
+            const std::array<std::uint64_t, 2> arguments{1, 1};
+            record_call("first", image_base, rva, symbol, arguments, nullptr, nullptr);
+            return;
+        }
+        const auto due = InterlockedCompareExchange64(&next_report, 0, 0);
+        if (now >= static_cast<ULONGLONG>(due) &&
+            InterlockedCompareExchange64(&next_report, static_cast<LONG64>(now + 5000), due) == due)
+        {
+            const auto count = InterlockedExchange64(&interval_calls, 0);
+            const std::array<std::uint64_t, 2> arguments{
+                static_cast<std::uint64_t>(count), static_cast<std::uint64_t>(total)};
+            record_call("summary", image_base, rva, symbol, arguments, nullptr, nullptr, 5000);
+        }
+        (void)interval;
+    }
+
     void record_call(std::string_view phase,
                      std::uintptr_t image_base,
                      std::uintptr_t rva,
