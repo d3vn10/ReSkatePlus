@@ -933,6 +933,9 @@ namespace dingosdk::overlay::park_editor_detail
             ui.surface_valid = false;
         }
         ImGui::Checkbox("Snap to grid / angles", &ui.snapping);
+        ImGui::Checkbox("Show snap grid", &ui.show_grid);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("The grid, at the grid size below, laid on the ground around where you look.");
         ImGui::Checkbox("Local axes", &ui.local_axes);
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip(

@@ -259,6 +259,10 @@ namespace dingosdk::overlay
     {
         surface_queue.store(queue);
     }
+    void set_park_ground_queue(ParkGroundQueue queue) noexcept
+    {
+        ground_queue.store(queue);
+    }
     void set_park_preview_queue(ParkPreviewQueue queue) noexcept
     {
         preview_queue.store(queue);
@@ -331,6 +335,7 @@ namespace dingosdk::overlay
             ui.initialized = false;
             ui.surface_confirm = false;
             ui.surface_request = {};
+            ui.ground_request = {};
         }
         if (!ui.initialized)
         {

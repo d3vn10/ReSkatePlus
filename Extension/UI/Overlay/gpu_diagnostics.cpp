@@ -2,6 +2,7 @@
 #include "gpu_diagnostics.h"
 #include "Engine/Core/Hooks/hooks.h"
 #include "Engine/Core/Debug/crash_report.h"
+#include "Extension/Boot/descriptor_heap_size.h"
 
 #include <dxgi1_4.h>
 #include <ShlObj.h>
@@ -1412,11 +1413,15 @@ namespace dingosdk::overlay
             }
             if (index <= furthest)
                 return;
+            // The single heap's last frame region starts past 70% of it: its overflow is said by
+            // descriptor_heap_size, per frame, instead.
+            const bool frame_regions =
+                dingosdk::single_heap_layout && heap->visible && heap->type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
             if (const unsigned share = index >= heap->count            ? 3
                                        : index * 10 >= heap->count * 9 ? 2
                                        : index * 4 >= heap->count * 3  ? 1
                                                                        : 0;
-                share)
+                share && !frame_regions)
             {
                 auto said = heap->said_share.load(std::memory_order_relaxed);
                 while (share > said)

@@ -214,420 +214,555 @@ namespace dingosdk::multiplayer::session_detail
         // A dedicated server's roster capacity counts the server itself.
         view.capacity = static_cast<int>(dedicated_host(s) ? s.capacity - 1 : s.capacity);
         load_host_preferences(s);
-    view.saved_host = {s.host_preferences.loaded, s.host_preferences.public_lobby, s.host_preferences.password_required,
-                       static_cast<int>(s.host_preferences.capacity), s.host_preferences.tps, s.host_preferences.lobby_name};
-    view.nametags = s.nametags;
-    if (const auto social = steam_social_snapshot())
-        view.steam_ids_shown = identity_listed(social->local.id, IdentityList::developer) ||
-                               identity_listed(social->local.id, IdentityList::staff) ||
-                               identity_listed(social->local.id, IdentityList::homie);
-    if (const auto social = steam_social_snapshot()) {
-        const auto mark = identity_mark(social->local.id);
+        view.saved_host = {s.host_preferences.loaded,
+                           s.host_preferences.public_lobby,
+                           s.host_preferences.password_required,
+                           static_cast<int>(s.host_preferences.capacity),
+                           s.host_preferences.tps,
+                           s.host_preferences.lobby_name};
+        view.nametags = s.nametags;
+        if (const auto social = steam_social_snapshot())
+            view.steam_ids_shown = identity_listed(social->local.id, IdentityList::developer) ||
+                                   identity_listed(social->local.id, IdentityList::staff) ||
+                                   identity_listed(social->local.id, IdentityList::homie);
+        if (const auto social = steam_social_snapshot())
         {
-            // Said when it changes: which of the backend's lists this game finds its player on, so a
-            // report of a missing tag shows whether the lists or the Steam ID are the problem.
-            static std::string said;
-            const auto now_said = !social->local.id ? std::string("no Steam ID yet")
-                                : mark ? "on the " + std::string(tag_list_name(*mark)) + " list"
-                                       : std::string("on none of the backend's lists");
-            if (now_said != said) {
-                said = now_said;
-                logging::log(logging::Level::info, logging::Channel::runtime, "Identity: Steam ID {} is {}.", social->local.id, now_said);
+            const auto mark = identity_mark(social->local.id);
+            {
+                // Said when it changes: which of the backend's lists this game finds its player on, so a
+                // report of a missing tag shows whether the lists or the Steam ID are the problem.
+                static std::string said;
+                const auto now_said = !social->local.id ? std::string("no Steam ID yet")
+                                      : mark            ? "on the " + std::string(tag_list_name(*mark)) + " list"
+                                                        : std::string("on none of the backend's lists");
+                if (now_said != said)
+                {
+                    said = now_said;
+                    logging::log(logging::Level::info,
+                                 logging::Channel::runtime,
+                                 "Identity: Steam ID {} is {}.",
+                                 social->local.id,
+                                 now_said);
+                }
+            }
+            // The tag shown is the one chosen; the items' styles come from the first list.
+            if (const auto tag = identity_tag(social->local.id, own_tag_choice()))
+            {
+                std::tie(view.identity_tag_colour, view.identity_tag) = mark_role(*tag);
+                view.identity_tag_list = std::string(tag_list_name(*tag));
+            }
+            for (const auto list : tag_lists)
+                if (identity_listed(social->local.id, list))
+                {
+                    auto &option = view.identity_tag_lists.emplace_back();
+                    option.list = std::string(tag_list_name(list));
+                    std::tie(option.colour, option.tag) = mark_role(list);
+                }
+            if (mark)
+            {
+                view.identity_animation = *mark == IdentityList::developer         ? "RAINBOW"
+                                          : *mark == IdentityList::content_creator ? "RED"
+                                          : *mark == IdentityList::centrix         ? "BLUE"
+                                          : *mark == IdentityList::staff           ? "GREEN"
+                                                                                   : "GOLD";
+                // A developer's standard is the rainbow already.
+                view.identity_rainbow = *mark == IdentityList::staff;
+            }
+            {
+                // Everyone colours what they wear; a listed player their board as well (style_offered).
+                const auto styles = developer_hoodie_detail::own_styles.load();
+                const auto standard = developer_hoodie_detail::standard_picks(mark);
+                view.identity_styles.resize(mark ? styles.size() : skater_mark_items);
+                for (std::size_t i = 0; i < view.identity_styles.size(); ++i)
+                {
+                    // A cosmetic never given colours shows its list's own in the pickers.
+                    // The rainbow has no colours of its own to show either.
+                    const bool rainbow = view.identity_rainbow && rainbow_style(styles[i]);
+                    const bool picked =
+                        !rainbow && (styles[i].mode == MarkMode::gradient || styles[i].mode == MarkMode::solid ||
+                                     styles[i].from != styles[i].to || styles[i].from != std::array<std::uint8_t, 3>{});
+                    const auto &from = picked ? styles[i].from : standard.first,
+                               &to = picked ? styles[i].to : standard.second;
+                    auto &shown = view.identity_styles[i];
+                    shown.name = mark_item_names[i];
+                    shown.mode = rainbow ? 4 : static_cast<int>(styles[i].mode);
+                    // What a player on no list has left from their days on one shows as what their
+                    // items now are: off (item_animation).
+                    if (!developer_hoodie_detail::style_offered(mark, i, static_cast<unsigned>(shown.mode)) ||
+                        (!mark && rainbow_style(styles[i])))
+                        shown.mode = 1;
+                    shown.speed = styles[i].speed;
+                    for (std::size_t part = 0; part < 3; ++part)
+                        shown.from[part] = static_cast<float>(from[part]) / 255.f,
+                        shown.to[part] = static_cast<float>(to[part]) / 255.f;
+                }
             }
         }
-        // The tag shown is the one chosen; the items' styles come from the first list.
-        if (const auto tag = identity_tag(social->local.id, own_tag_choice())) {
-            std::tie(view.identity_tag_colour, view.identity_tag) = mark_role(*tag);
-            view.identity_tag_list = std::string(tag_list_name(*tag));
-        }
-        for (const auto list : tag_lists)
-            if (identity_listed(social->local.id, list)) {
-                auto &option = view.identity_tag_lists.emplace_back();
-                option.list = std::string(tag_list_name(list));
-                std::tie(option.colour, option.tag) = mark_role(list);
-            }
-        if (mark) {
-            view.identity_animation =
-                *mark == IdentityList::developer ? "RAINBOW" : *mark == IdentityList::content_creator ? "RED" :
-                *mark == IdentityList::centrix ? "BLUE" : *mark == IdentityList::staff ? "GREEN" : "GOLD";
-            // A developer's standard is the rainbow already.
-            view.identity_rainbow = *mark == IdentityList::staff;
-        }
+        view.identity_tag_shown = own_tag_shown();
+        view.identity_items_shown = own_items_shown();
+        load_host_preferences(s);
+        view.voice_range = s.mode == Mode::host ? s.voice_range
+                           : dedicated_host(s)  ? s.roster_voice_range
+                                                : s.host_preferences.voice_range;
+        view.dedicated = dedicated_host(s);
+        view.server_admin = view.dedicated && s.server_admin;
+        if (view.dedicated)
         {
-            // Everyone colours what they wear; a listed player their board as well (style_offered).
-            const auto styles = developer_hoodie_detail::own_styles.load();
-            const auto standard = developer_hoodie_detail::standard_picks(mark);
-            view.identity_styles.resize(mark ? styles.size() : skater_mark_items);
-            for (std::size_t i = 0; i < view.identity_styles.size(); ++i) {
-                // A cosmetic never given colours shows its list's own in the pickers.
-                // The rainbow has no colours of its own to show either.
-                const bool rainbow = view.identity_rainbow && rainbow_style(styles[i]);
-                const bool picked = !rainbow && (styles[i].mode == MarkMode::gradient || styles[i].mode == MarkMode::solid ||
-                                                 styles[i].from != styles[i].to || styles[i].from != std::array<std::uint8_t, 3>{});
-                const auto &from = picked ? styles[i].from : standard.first, &to = picked ? styles[i].to : standard.second;
-                auto &shown = view.identity_styles[i];
-                shown.name = mark_item_names[i];
-                shown.mode = rainbow ? 4 : static_cast<int>(styles[i].mode);
-                // What a player on no list has left from their days on one shows as what their
-                // items now are: off (item_animation).
-                if (!developer_hoodie_detail::style_offered(mark, i, static_cast<unsigned>(shown.mode)) ||
-                    (!mark && rainbow_style(styles[i])))
-                    shown.mode = 1;
-                shown.speed = styles[i].speed;
-                for (std::size_t part = 0; part < 3; ++part)
-                    shown.from[part] = static_cast<float>(from[part]) / 255.f, shown.to[part] = static_cast<float>(to[part]) / 255.f;
+            view.server_role = s.role;
+            view.server_role_tag = s.own_tag;
+            view.server_all_commands = s.role_all_commands;
+            view.server_commands = s.role_commands;
+            view.server_permissions = s.role_permissions;
+        }
+        view.party = s.local_party;
+        view.party_leader = s.local_party_leader;
+        view.party_open = s.local_party_open;
+        view.parties = s.mode == Mode::host || s.mode == Mode::join;
+        for (const auto &invite : s.party_invites)
+        {
+            const auto *from = find_peer(s, invite.from);
+            view.party_invites.push_back(
+                {invite.from, from && !from->member.name.empty() ? from->member.name : s.transport.name(invite.from)});
+        }
+        if (server_can(view, "ban") || server_can(view, "unban") || server_can(view, "bans"))
+        {
+            view.bans = s.server_bans;
+            view.server_bans = true;
+            view.server_ban_total = s.server_ban_total;
+        }
+        if (server_can(view, "map"))
+        {
+            view.server_maps = s.server_maps;
+            view.server_map_pool = s.server_map_pool;
+            view.server_map_rotation = s.server_map_rotation;
+            view.server_map_votes = (s.server_votes & server_vote_map) != 0;
+        }
+        view.player_distance = s.player_distance;
+        view.prefer_direct = s.prefer_direct;
+        view.nametag_distance = s.nametag_distance;
+        view.nametag_dots = s.nametag_dots;
+        view.nametags_friends = s.nametags_friends;
+        view.chat_visible = s.chat_visible;
+        view.chat_filter = s.chat_filter;
+        view.chat_bubbles = s.chat_bubbles;
+        view.chat_bubbles_own = s.chat_bubbles_own;
+        view.chat_bubbles_distance = s.chat_bubbles_distance;
+        view.chat_bubbles_duration = s.chat_bubbles_duration;
+        view.chat_bubbles_history = s.chat_bubbles_history;
+        view.object_status = network_object_status();
+        view.players = static_cast<int>(player_count(s));
+        view.sent = t.sent;
+        view.received = t.received;
+        view.dropped = t.dropped;
+        view.network_telemetry = t.telemetry;
+        view.ping_ms = t.ping_ms;
+        view.send_rate = t.send_rate;
+        view.pending_bytes = t.pending_bytes;
+        view.outgoing_bps = t.outgoing_bps;
+        view.incoming_bps = t.incoming_bps;
+        view.delivery_local = t.delivery_local;
+        view.delivery_remote = t.delivery_remote;
+        view.queue_us = t.queue_us;
+        view.prioritized_connections = t.prioritized_connections;
+        view.cosmetic_queue_us = t.cosmetic_queue_us;
+        view.skipped_updates = t.skipped;
+        view.send_failures = t.send_failures;
+        view.invalid_messages = t.invalid_messages;
+        view.sent_bytes = t.sent_bytes;
+        view.raw_sent_bytes = t.raw_sent_bytes;
+        view.invite = s.invite;
+        if ((s.mode == Mode::host || s.mode == Mode::join) && s.host_id && s.secret)
+            view.join_code = format_invite({s.host_id, s.secret});
+        view.map = s.map_name.empty() ? s.available_map : s.map_name;
+        view.local_ready = s.gameplay_ready && !s.available_map.empty();
+        const auto &lobby = s.lobbies.status();
+        view.public_host = s.public_host;
+        view.public_lobby = s.mode == Mode::host ? s.lobbies.hosted_lobby() : s.joined_public_lobby;
+        view.lobby_listed = lobby.listed;
+        view.lobby_searching = lobby.searching || s.servers.searching();
+        view.lobby_joining = lobby.joining;
+        view.lobby_searched = lobby.searched;
+        view.lobby_status = lobby.hosting;
+        view.browser_status = lobby.browser;
+        view.browse_ready_us = s.browsed ? s.browsed + multiplayer_browse_interval_us : 0;
+        // Dedicated servers first: they are always up and never a stranger's own session.
+        view.lobbies = s.servers.rows();
+        // Looked up as the list is shown: the team's list can arrive, or change, after a server was found.
+        for (auto &server : view.lobbies)
+            server.official = official_server(server.id);
+        view.lobbies.insert(view.lobbies.end(), lobby.rows.begin(), lobby.rows.end());
+        // Steam friends by the public server or lobby their game says they are in, and every friend in
+        // the game for the FRIENDS tab (the snapshot lists those playing first).
+        if (const auto social = steam_social_snapshot())
+            for (const auto &player : social->friends)
+            {
+                if (player.playing && view.friends_skating.size() < 256)
+                    view.friends_skating.push_back({player.id, player.session, player.name});
+                if (!player.session)
+                    continue;
+                const auto row = std::find_if(view.lobbies.begin(),
+                                              view.lobbies.end(),
+                                              [&](const auto &entry) { return entry.id == player.session; });
+                if (row != view.lobbies.end() && row->friends.size() < 16)
+                    row->friends.push_back(player.name.empty() ? std::string("A friend") : player.name);
             }
-        }
-    }
-    view.identity_tag_shown = own_tag_shown();
-    view.identity_items_shown = own_items_shown();
-    load_host_preferences(s);
-    view.voice_range = s.mode == Mode::host ? s.voice_range
-                     : dedicated_host(s) ? s.roster_voice_range : s.host_preferences.voice_range;
-    view.dedicated = dedicated_host(s);
-    view.server_admin = view.dedicated && s.server_admin;
-    if (view.dedicated) {
-        view.server_role = s.role;
-        view.server_role_tag = s.own_tag;
-        view.server_all_commands = s.role_all_commands;
-        view.server_commands = s.role_commands;
-        view.server_permissions = s.role_permissions;
-    }
-    view.party = s.local_party;
-    view.party_leader = s.local_party_leader;
-    view.party_open = s.local_party_open;
-    view.parties = s.mode == Mode::host || s.mode == Mode::join;
-    for (const auto &invite : s.party_invites) {
-        const auto *from = find_peer(s, invite.from);
-        view.party_invites.push_back({invite.from, from && !from->member.name.empty() ? from->member.name
-                                                                                     : s.transport.name(invite.from)});
-    }
-    if (server_can(view, "ban") || server_can(view, "unban") || server_can(view, "bans")) {
-        view.bans = s.server_bans;
-        view.server_bans = true;
-        view.server_ban_total = s.server_ban_total;
-    }
-    if (server_can(view, "map")) {
-        view.server_maps = s.server_maps;
-        view.server_map_pool = s.server_map_pool;
-        view.server_map_rotation = s.server_map_rotation;
-        view.server_map_votes = (s.server_votes & server_vote_map) != 0;
-    }
-    view.player_distance = s.player_distance;
-    view.prefer_direct = s.prefer_direct;
-    view.nametag_distance = s.nametag_distance;
-    view.nametag_dots = s.nametag_dots;
-    view.nametags_friends = s.nametags_friends;
-    view.chat_visible = s.chat_visible;
-    view.chat_filter = s.chat_filter;
-    view.chat_bubbles = s.chat_bubbles;
-    view.chat_bubbles_own = s.chat_bubbles_own;
-    view.chat_bubbles_distance = s.chat_bubbles_distance;
-    view.chat_bubbles_duration = s.chat_bubbles_duration;
-    view.chat_bubbles_history = s.chat_bubbles_history;
-    view.object_status = network_object_status();
-    view.players = static_cast<int>(player_count(s));
-    view.sent = t.sent;
-    view.received = t.received;
-    view.dropped = t.dropped;
-    view.network_telemetry = t.telemetry;
-    view.ping_ms = t.ping_ms;
-    view.send_rate = t.send_rate;
-    view.pending_bytes = t.pending_bytes;
-    view.outgoing_bps = t.outgoing_bps;
-    view.incoming_bps = t.incoming_bps;
-    view.delivery_local = t.delivery_local;
-    view.delivery_remote = t.delivery_remote;
-    view.queue_us = t.queue_us;
-    view.prioritized_connections = t.prioritized_connections;
-    view.cosmetic_queue_us = t.cosmetic_queue_us;
-    view.skipped_updates = t.skipped;
-    view.send_failures = t.send_failures;
-    view.invalid_messages = t.invalid_messages;
-    view.sent_bytes = t.sent_bytes;
-    view.raw_sent_bytes = t.raw_sent_bytes;
-    view.invite = s.invite;
-    if ((s.mode == Mode::host || s.mode == Mode::join) && s.host_id && s.secret) view.join_code = format_invite({s.host_id, s.secret});
-    view.map = s.map_name.empty() ? s.available_map : s.map_name;
-    view.local_ready = s.gameplay_ready && !s.available_map.empty();
-    const auto &lobby = s.lobbies.status();
-    view.public_host = s.public_host;
-    view.public_lobby = s.mode == Mode::host ? s.lobbies.hosted_lobby() : s.joined_public_lobby;
-    view.lobby_listed = lobby.listed;
-    view.lobby_searching = lobby.searching || s.servers.searching();
-    view.lobby_joining = lobby.joining;
-    view.lobby_searched = lobby.searched;
-    view.lobby_status = lobby.hosting;
-    view.browser_status = lobby.browser;
-    view.browse_ready_us = s.browsed ? s.browsed + multiplayer_browse_interval_us : 0;
-    // Dedicated servers first: they are always up and never a stranger's own session.
-    view.lobbies = s.servers.rows();
-    // Looked up as the list is shown: the team's list can arrive, or change, after a server was found.
-    for (auto &server : view.lobbies) server.official = official_server(server.id);
-    view.lobbies.insert(view.lobbies.end(), lobby.rows.begin(), lobby.rows.end());
-    // Steam friends by the public server or lobby their game says they are in, and every friend in
-    // the game for the FRIENDS tab (the snapshot lists those playing first).
-    if (const auto social = steam_social_snapshot())
-        for (const auto &player : social->friends) {
-            if (player.playing && view.friends_skating.size() < 256) view.friends_skating.push_back({player.id, player.session, player.name});
-            if (!player.session) continue;
-            const auto row = std::find_if(view.lobbies.begin(), view.lobbies.end(), [&](const auto &entry) { return entry.id == player.session; });
-            if (row != view.lobbies.end() && row->friends.size() < 16) row->friends.push_back(player.name.empty() ? std::string("A friend") : player.name);
-        }
-    view.status = s.status;
-    view.native_status = s.native_status;
-    for (const auto &[id, name] : s.ignored_players) view.ignored.push_back({id, name});
-    view.audio_captured = captured_audio_frames();
-    each_peer([&] {
-        auto &p = s.peers[peer_slot];
-        const auto native_count = remote_pose_updates(), board_count = remote_board_pose_updates();
-        const auto animation = remote_animation_stats();
-        view.pose_updates += native_count;
-        view.board_pose_updates += board_count;
-        view.audio_played += played_audio_frames();
-        view.player_map_updates += player_map_updates();
-        if (!p.member.id)
-            return;
-        view.connected |= p.handshaken;
-        if (dedicated_host(s) && p.member.id == s.host_id) {
-            // The server is not a player: name the session after it instead.
-            view.lobby_name = p.member.name;
-            return;
-        }
-        view.remote_visible |= p.visible;
-        const auto name = p.member.name.empty() ? std::to_string(p.member.id) : p.member.name;
-        view.roster.push_back({p.member.id,
-                               name,
-                               p.handshaken,
-                               p.visible,
-                               p.native_status,
-                               p.cosmetic_status,
-                               native_audio_status(),
-                               player_ui_status(),
-                               {},
-                               0,
-                               0});
-        view.roster.back().epoch = p.member.epoch;
-        view.roster.back().party = p.member.party;
-        view.roster.back().party_leader = p.member.party_leader;
-        view.roster.back().party_member = party_member(s, p.member.id);
-        view.roster.back().objects_solid = objects_solid(s, p.member.id);
-        view.roster.back().ignored = ignored(s, p.member.id);
-        if (!p.rate_at) {
-            p.rate_at = now;
-            p.native_rate_count = native_count;
-            p.board_rate_count = board_count;
-            p.animation_rate_base = animation;
-        }
-        if (now - p.rate_at >= 1000000) {
-            p.pose_hz = static_cast<float>(p.pose_count - p.rate_count) * 1000000.f /
-                        static_cast<float>(now - p.rate_at);
-            const auto rate = 1000000.f / static_cast<float>(now - p.rate_at);
-            p.native_pose_hz = static_cast<float>(native_count - std::min(native_count, p.native_rate_count)) * rate;
-            p.native_board_hz = static_cast<float>(board_count - std::min(board_count, p.board_rate_count)) * rate;
-            const auto evaluations = animation.evaluated -
-                std::min(animation.evaluated, p.animation_rate_base.evaluated);
-            const auto applies = animation.evaluated + animation.skipped -
-                std::min(animation.evaluated + animation.skipped,
-                         p.animation_rate_base.evaluated + p.animation_rate_base.skipped);
-            const auto evaluation_us = animation.evaluation_us -
-                std::min(animation.evaluation_us, p.animation_rate_base.evaluation_us);
-            const auto apply_us = animation.apply_us -
-                std::min(animation.apply_us, p.animation_rate_base.apply_us);
-            p.native_animation_hz = static_cast<float>(evaluations) * rate;
-            p.native_animation_ms = evaluations ? static_cast<float>(evaluation_us) / (1000.f * evaluations) : 0.f;
-            p.pose_apply_ms = applies ? static_cast<float>(apply_us) / (1000.f * applies) : 0.f;
-            p.native_rate_count = native_count;
-            p.board_rate_count = board_count;
-            p.animation_rate_base = animation;
-            p.rate_at = now;
-            p.rate_count = p.pose_count;
-        }
-        auto &row = view.roster.back();
-        row.pose_hz = p.pose_hz;
-        row.native_pose_hz = p.native_pose_hz;
-        row.native_board_hz = p.native_board_hz;
-        row.native_animation_hz = p.native_animation_hz;
-        row.native_animation_ms = p.native_animation_ms;
-        row.pose_apply_ms = p.pose_apply_ms;
-        row.native_animation_skipped = animation.skipped;
-        const auto playback = p.poses.playback();
-        row.playback = s.mode == Mode::echo ? "Buffered echo" :
-            playback.mode == PosePlaybackMode::buffered ? "Buffered" :
-            playback.mode == PosePlaybackMode::predicted ? "Predicting" :
-            playback.mode == PosePlaybackMode::held ? "Holding" : "Waiting";
-        row.prediction_ms = static_cast<unsigned>(playback.prediction_us / 1000);
-        row.correcting = playback.correcting;
-        row.pose_target_tps = 1000000 / p.received_pose_interval;
-        if (p.latest_root && s.local_root) {
-            float distance{};
-            for (unsigned i = 0; i < 3; ++i) {
-                const auto d = p.latest_root->position[i] - s.local_root->position[i];
-                distance += d * d;
-            }
-            row.distance_m = std::sqrt(distance);
-        }
-        row.pose_age_ms = p.pose_arrival ? (now - p.pose_arrival) / 1000 : 0;
-        const bool direct = s.mode == Mode::host || p.member.id == s.host_id ||
-                            (p.direct_ready && p.last_direct_pose && now - p.last_direct_pose <= 500000);
-        row.route = s.mode == Mode::echo ? "Local Echo" : direct ? "Steam peer" : "Via host";
-        if (s.mode != Mode::echo && p.handshaken) {
-            if (direct)
-                ++view.direct_connections;
-            else
-                ++view.fallback_streams;
-            if (s.mode == Mode::host)
-                for (const auto &other : active_peers(s))
-                    if (other.handshaken && other.member.id != p.member.id &&
-                        needs_relay(p.direct_routes, p.route_reported, other.member, now))
+        view.status = s.status;
+        view.native_status = s.native_status;
+        for (const auto &[id, name] : s.ignored_players)
+            view.ignored.push_back({id, name});
+        view.audio_captured = captured_audio_frames();
+        each_peer(
+            [&]
+            {
+                auto &p = s.peers[peer_slot];
+                const auto native_count = remote_pose_updates(), board_count = remote_board_pose_updates();
+                const auto animation = remote_animation_stats();
+                view.pose_updates += native_count;
+                view.board_pose_updates += board_count;
+                view.audio_played += played_audio_frames();
+                view.player_map_updates += player_map_updates();
+                if (!p.member.id)
+                    return;
+                view.connected |= p.handshaken;
+                if (dedicated_host(s) && p.member.id == s.host_id)
+                {
+                    // The server is not a player: name the session after it instead.
+                    view.lobby_name = p.member.name;
+                    return;
+                }
+                view.remote_visible |= p.visible;
+                const auto name = p.member.name.empty() ? std::to_string(p.member.id) : p.member.name;
+                view.roster.push_back({p.member.id,
+                                       name,
+                                       p.handshaken,
+                                       p.visible,
+                                       p.native_status,
+                                       p.cosmetic_status,
+                                       native_audio_status(),
+                                       player_ui_status(),
+                                       {},
+                                       0,
+                                       0});
+                view.roster.back().epoch = p.member.epoch;
+                view.roster.back().party = p.member.party;
+                view.roster.back().party_leader = p.member.party_leader;
+                view.roster.back().party_member = party_member(s, p.member.id);
+                view.roster.back().objects_solid = objects_solid(s, p.member.id);
+                view.roster.back().ignored = ignored(s, p.member.id);
+                if (!p.rate_at)
+                {
+                    p.rate_at = now;
+                    p.native_rate_count = native_count;
+                    p.board_rate_count = board_count;
+                    p.animation_rate_base = animation;
+                }
+                if (now - p.rate_at >= 1000000)
+                {
+                    p.pose_hz = static_cast<float>(p.pose_count - p.rate_count) * 1000000.f /
+                                static_cast<float>(now - p.rate_at);
+                    const auto rate = 1000000.f / static_cast<float>(now - p.rate_at);
+                    p.native_pose_hz =
+                        static_cast<float>(native_count - std::min(native_count, p.native_rate_count)) * rate;
+                    p.native_board_hz =
+                        static_cast<float>(board_count - std::min(board_count, p.board_rate_count)) * rate;
+                    const auto evaluations =
+                        animation.evaluated - std::min(animation.evaluated, p.animation_rate_base.evaluated);
+                    const auto applies = animation.evaluated + animation.skipped -
+                                         std::min(animation.evaluated + animation.skipped,
+                                                  p.animation_rate_base.evaluated + p.animation_rate_base.skipped);
+                    const auto evaluation_us = animation.evaluation_us -
+                                               std::min(animation.evaluation_us, p.animation_rate_base.evaluation_us);
+                    const auto apply_us =
+                        animation.apply_us - std::min(animation.apply_us, p.animation_rate_base.apply_us);
+                    p.native_animation_hz = static_cast<float>(evaluations) * rate;
+                    p.native_animation_ms =
+                        evaluations ? static_cast<float>(evaluation_us) / (1000.f * evaluations) : 0.f;
+                    p.pose_apply_ms = applies ? static_cast<float>(apply_us) / (1000.f * applies) : 0.f;
+                    p.native_rate_count = native_count;
+                    p.board_rate_count = board_count;
+                    p.animation_rate_base = animation;
+                    p.rate_at = now;
+                    p.rate_count = p.pose_count;
+                }
+                auto &row = view.roster.back();
+                row.pose_hz = p.pose_hz;
+                row.native_pose_hz = p.native_pose_hz;
+                row.native_board_hz = p.native_board_hz;
+                row.native_animation_hz = p.native_animation_hz;
+                row.native_animation_ms = p.native_animation_ms;
+                row.pose_apply_ms = p.pose_apply_ms;
+                row.native_animation_skipped = animation.skipped;
+                const auto playback = p.poses.playback();
+                row.playback = s.mode == Mode::echo                           ? "Buffered echo"
+                               : playback.mode == PosePlaybackMode::buffered  ? "Buffered"
+                               : playback.mode == PosePlaybackMode::predicted ? "Predicting"
+                               : playback.mode == PosePlaybackMode::held      ? "Holding"
+                                                                              : "Waiting";
+                row.prediction_ms = static_cast<unsigned>(playback.prediction_us / 1000);
+                row.correcting = playback.correcting;
+                row.pose_target_tps = 1000000 / p.received_pose_interval;
+                if (p.latest_root && s.local_root)
+                {
+                    float distance{};
+                    for (unsigned i = 0; i < 3; ++i)
+                    {
+                        const auto d = p.latest_root->position[i] - s.local_root->position[i];
+                        distance += d * d;
+                    }
+                    row.distance_m = std::sqrt(distance);
+                }
+                row.pose_age_ms = p.pose_arrival ? (now - p.pose_arrival) / 1000 : 0;
+                const bool direct = s.mode == Mode::host || p.member.id == s.host_id ||
+                                    (p.direct_ready && p.last_direct_pose && now - p.last_direct_pose <= 500000);
+                row.route = s.mode == Mode::echo ? "Local Echo" : direct ? "Steam peer" : "Via host";
+                if (s.mode != Mode::echo && p.handshaken)
+                {
+                    if (direct)
+                        ++view.direct_connections;
+                    else
                         ++view.fallback_streams;
+                    if (s.mode == Mode::host)
+                        for (const auto &other : active_peers(s))
+                            if (other.handshaken && other.member.id != p.member.id &&
+                                needs_relay(p.direct_routes, p.route_reported, other.member, now))
+                                ++view.fallback_streams;
+                }
+                if (!view.peer_id)
+                {
+                    view.peer_id = p.member.id;
+                    view.peer_name = name;
+                    view.native_status = p.native_status;
+                    view.cosmetic_status = p.cosmetic_status;
+                    view.audio_status = row.audio_status; // this slot's, read above
+                    view.player_ui_status = row.ui_status;
+                }
+            });
+        if (!s.cosmetic_capture_status.empty())
+            view.cosmetic_status = s.cosmetic_capture_status;
+        view.lobby_joining = lobby.joining || (s.mode == Mode::join && !view.connected);
+        if (local)
+        {
+            view.local_ready = local->ready;
         }
-        if (!view.peer_id) {
-            view.peer_id = p.member.id;
-            view.peer_name = name;
-            view.native_status = p.native_status;
-            view.cosmetic_status = p.cosmetic_status;
-            view.audio_status = row.audio_status; // this slot's, read above
-            view.player_ui_status = row.ui_status;
+        view.skater_bones = s.last_skater_bones;
+        view.board_bones = s.last_board_bones;
+        publish_chat(s); // takes the same lock, so before it
+        // Only this thread writes s.view, so it reads it without the lock. Log before taking
+        // the lock the overlay copies the model under: file and console writes never hold it.
+        if (view.status != s.view.status || view.players != s.view.players)
+            logging::log(logging::Level::info,
+                         logging::Channel::runtime,
+                         "Multiplayer: {} Players {}/{}",
+                         view.status,
+                         view.players,
+                         view.capacity);
+        if (view.lobby_status != s.view.lobby_status && !view.lobby_status.empty())
+            logging::log(logging::Level::info, logging::Channel::runtime, "Multiplayer: {}", view.lobby_status);
+        if (view.connected && now - s.last_network_log >= 60000000)
+        { // a summary a minute, not log spam
+            const auto local_hz = s.last_network_log
+                                      ? static_cast<double>(s.local_pose_count - s.logged_local_pose_count) * 1000000. /
+                                            static_cast<double>(now - s.last_network_log)
+                                      : 0.;
+            s.logged_local_pose_count = s.local_pose_count;
+            s.last_network_log = now;
+            logging::log(logging::Level::info,
+                         logging::Channel::runtime,
+                         "Multiplayer network: players={}, direct={}, relay streams={}, out={:.1f} KiB/s, "
+                         "in={:.1f} KiB/s, queue={:.1f} ms, ping={} ms, local poses={:.1f}/s, "
+                         "direct budget={}, skipped={}, dropped={}.",
+                         view.players,
+                         view.direct_connections,
+                         view.fallback_streams,
+                         view.outgoing_bps / 1024.f,
+                         view.incoming_bps / 1024.f,
+                         static_cast<double>(view.queue_us) / 1000.,
+                         view.ping_ms,
+                         local_hz,
+                         view.direct_upload_limit,
+                         view.skipped_updates,
+                         view.dropped);
+            // One line per player every 5 s adds up in a full lobby: debug level (off by default).
+            if (logging::enabled(logging::Level::debug))
+                for (const auto &row : view.roster)
+                    logging::log(logging::Level::debug,
+                                 logging::Channel::runtime,
+                                 "Multiplayer delivery: peer={}, route={}, poses={:.1f}/s, target={} TPS, newest "
+                                 "arrival={} ms ago, "
+                                 "native skater/board={:.1f}/{:.1f}/s, graph={:.1f}/s ({:.3f} ms), "
+                                 "pose apply={:.3f} ms, graph skips={}, playback={}, prediction={} ms, correcting={}.",
+                                 row.id,
+                                 row.route,
+                                 row.pose_hz,
+                                 row.pose_target_tps,
+                                 row.pose_age_ms,
+                                 row.native_pose_hz,
+                                 row.native_board_hz,
+                                 row.native_animation_hz,
+                                 row.native_animation_ms,
+                                 row.pose_apply_ms,
+                                 row.native_animation_skipped,
+                                 row.playback,
+                                 row.prediction_ms,
+                                 row.correcting);
         }
-    });
-    if (!s.cosmetic_capture_status.empty())
-        view.cosmetic_status = s.cosmetic_capture_status;
-    view.lobby_joining = lobby.joining || (s.mode == Mode::join && !view.connected);
-    if (local) {
-        view.local_ready = local->ready;
+        std::lock_guard lock(s.mutex);
+        s.view = std::move(view);
     }
-    view.skater_bones = s.last_skater_bones;
-    view.board_bones = s.last_board_bones;
-    publish_chat(s); // takes the same lock, so before it
-    // Only this thread writes s.view, so it reads it without the lock. Log before taking
-    // the lock the overlay copies the model under: file and console writes never hold it.
-    if (view.status != s.view.status || view.players != s.view.players)
-        logging::log(logging::Level::info, logging::Channel::runtime, "Multiplayer: {} Players {}/{}",
-                     view.status, view.players, view.capacity);
-    if (view.lobby_status != s.view.lobby_status && !view.lobby_status.empty())
-        logging::log(logging::Level::info, logging::Channel::runtime, "Multiplayer: {}", view.lobby_status);
-    if (view.connected && now - s.last_network_log >= 60000000) { // a summary a minute, not log spam
-        const auto local_hz = s.last_network_log
-            ? static_cast<double>(s.local_pose_count - s.logged_local_pose_count) * 1000000. /
-                static_cast<double>(now - s.last_network_log) : 0.;
-        s.logged_local_pose_count = s.local_pose_count;
-        s.last_network_log = now;
-        logging::log(logging::Level::info, logging::Channel::runtime,
-                     "Multiplayer network: players={}, direct={}, relay streams={}, out={:.1f} KiB/s, "
-                     "in={:.1f} KiB/s, queue={:.1f} ms, ping={} ms, local poses={:.1f}/s, "
-                     "direct budget={}, skipped={}, dropped={}.",
-                     view.players, view.direct_connections, view.fallback_streams, view.outgoing_bps / 1024.f,
-                     view.incoming_bps / 1024.f, static_cast<double>(view.queue_us) / 1000., view.ping_ms,
-                     local_hz, view.direct_upload_limit, view.skipped_updates, view.dropped);
-        // One line per player every 5 s adds up in a full lobby: debug level (off by default).
-        if (logging::enabled(logging::Level::debug))
-            for (const auto &row : view.roster)
-                logging::log(logging::Level::debug, logging::Channel::runtime,
-                             "Multiplayer delivery: peer={}, route={}, poses={:.1f}/s, target={} TPS, newest arrival={} ms ago, "
-                             "native skater/board={:.1f}/{:.1f}/s, graph={:.1f}/s ({:.3f} ms), "
-                             "pose apply={:.3f} ms, graph skips={}, playback={}, prediction={} ms, correcting={}.",
-                             row.id, row.route, row.pose_hz, row.pose_target_tps, row.pose_age_ms,
-                             row.native_pose_hz, row.native_board_hz, row.native_animation_hz,
-                             row.native_animation_ms, row.pose_apply_ms, row.native_animation_skipped,
-                             row.playback, row.prediction_ms, row.correcting);
-    }
-    std::lock_guard lock(s.mutex);
-    s.view = std::move(view);
-}
-namespace {
-std::vector<MultiplayerChatCommand> own_chat_commands(const Session &s) {
-    std::vector<MultiplayerChatCommand> list{
-        {"/help", "/help", "List these commands"},
-        {"/tp", "/tp <player>", "Teleport beside a player (or /tp <x> <y> <z>)", "player"},
-        {"/p", "/p <message>", "Talk to your party only"},
-        {"/ignore", "/ignore <player>", "Hide a player and everything they do, on your screen, in every session", "player"},
-        {"/unignore", "/unignore <player>", "Stop ignoring a player"},
-        {"/ignored", "/ignored", "The players you ignore"},
-    };
-    if (s.mode == Mode::host || s.mode == Mode::join) {
-        list.push_back({"/party invite", "/party invite <player>", "Invite a player to your party", "player"});
-        list.push_back({"/party accept", "/party accept [player]", "Join the party you were invited to", "player"});
-        list.push_back({"/party decline", "/party decline [player]", "Turn down a party invite", "player"});
-        list.push_back({"/party join", "/party join <player>", "Join a player's open party", "player"});
-        list.push_back({"/party leave", "/party leave", "Leave your party"});
-        list.push_back({"/party kick", "/party kick <player>", "Leader: remove a player from the party", "player"});
-        list.push_back({"/party promote", "/party promote <player>", "Leader: hand the lead to a player", "player"});
-        list.push_back({"/party open", "/party open", "Leader: let anyone join the party (/party close: invite only)"});
-        list.push_back({"/party", "/party", "Who is in your party"});
-    }
-    if (dedicated_host(s)) {
-        // The server's own commands (server_votes.cpp, server_host.cpp): it answers them, and
-        // this list is only what the "/" menu offers, so one left out here still works unseen.
-        list.push_back({"/w", "/w <player> <message>", "Send a player a private message", "player"});
-        if (s.server_votes & server_vote_map) list.push_back({"/vote map", "/vote map <map>", "Start a vote to change the map", "map"});
-        if (s.server_votes & server_vote_kick)
-            list.push_back({"/vote kick", "/vote kick <player>", "Start a vote to kick a player", "player"});
-        if (s.server_votes & server_vote_time)
-            list.push_back({"/vote tod", "/vote tod <time>", "Vote for a time of day: morning, noon, afternoon, evening, night...", "time"});
-        for (const auto &vote : s.server_custom_votes) {
-            std::string choices;
-            for (const auto &choice : vote.choices) choices += (choices.empty() ? "" : "|") + choice;
-            list.push_back({"/vote " + vote.name, "/vote " + vote.name + (choices.empty() ? "" : " <" + choices + ">"),
-                            vote.description.empty() ? "Start a vote this server defines" : "Start a vote: " + vote.description});
+    namespace
+    {
+        std::vector<MultiplayerChatCommand> own_chat_commands(const Session &s)
+        {
+            std::vector<MultiplayerChatCommand> list{
+                {"/help", "/help", "List these commands"},
+                {"/tp", "/tp <player>", "Teleport beside a player (or /tp <x> <y> <z>)", "player"},
+                {"/p", "/p <message>", "Talk to your party only"},
+                {"/ignore",
+                 "/ignore <player>",
+                 "Hide a player and everything they do, on your screen, in every session",
+                 "player"},
+                {"/unignore", "/unignore <player>", "Stop ignoring a player"},
+                {"/ignored", "/ignored", "The players you ignore"},
+            };
+            if (s.mode == Mode::host || s.mode == Mode::join)
+            {
+                list.push_back({"/party invite", "/party invite <player>", "Invite a player to your party", "player"});
+                list.push_back(
+                    {"/party accept", "/party accept [player]", "Join the party you were invited to", "player"});
+                list.push_back({"/party decline", "/party decline [player]", "Turn down a party invite", "player"});
+                list.push_back({"/party join", "/party join <player>", "Join a player's open party", "player"});
+                list.push_back({"/party leave", "/party leave", "Leave your party"});
+                list.push_back(
+                    {"/party kick", "/party kick <player>", "Leader: remove a player from the party", "player"});
+                list.push_back(
+                    {"/party promote", "/party promote <player>", "Leader: hand the lead to a player", "player"});
+                list.push_back(
+                    {"/party open", "/party open", "Leader: let anyone join the party (/party close: invite only)"});
+                list.push_back({"/party", "/party", "Who is in your party"});
+            }
+            if (dedicated_host(s))
+            {
+                // The server's own commands (server_votes.cpp, server_host.cpp): it answers them, and
+                // this list is only what the "/" menu offers, so one left out here still works unseen.
+                list.push_back({"/w", "/w <player> <message>", "Send a player a private message", "player"});
+                if (s.server_votes & server_vote_map)
+                    list.push_back({"/vote map", "/vote map <map>", "Start a vote to change the map", "map"});
+                if (s.server_votes & server_vote_kick)
+                    list.push_back({"/vote kick", "/vote kick <player>", "Start a vote to kick a player", "player"});
+                if (s.server_votes & server_vote_time)
+                    list.push_back({"/vote tod",
+                                    "/vote tod <time>",
+                                    "Vote for a time of day: morning, noon, afternoon, evening, night...",
+                                    "time"});
+                for (const auto &vote : s.server_custom_votes)
+                {
+                    std::string choices;
+                    for (const auto &choice : vote.choices)
+                        choices += (choices.empty() ? "" : "|") + choice;
+                    list.push_back({"/vote " + vote.name,
+                                    "/vote " + vote.name + (choices.empty() ? "" : " <" + choices + ">"),
+                                    vote.description.empty() ? "Start a vote this server defines"
+                                                             : "Start a vote: " + vote.description});
+                }
+                if (s.server_votes || !s.server_custom_votes.empty())
+                {
+                    list.push_back({"/yes", "/yes", "Vote yes in the running vote"});
+                    list.push_back({"/no", "/no", "Vote no in the running vote"});
+                }
+                if (!s.server_custom_votes.empty())
+                    list.push_back({"/vote list", "/vote list", "This server's own votes, and what each does"});
+                const auto polls = static_cast<ServerPolls>(s.server_polls);
+                if (polls == ServerPolls::everyone ||
+                    (polls == ServerPolls::admins && (s.role_permissions & role_polls)))
+                    list.push_back({"/poll",
+                                    "/poll <question> | <answer> | <answer>...",
+                                    "Ask everyone a question, with up to six answers"});
+                if (polls != ServerPolls::off)
+                    list.push_back({"/1", "/1, /2...", "Answer the running poll"});
+                // The server commands their role gives them (the rest it would refuse).
+                const auto before_commands = list.size();
+                if (s.server_admin)
+                {
+                    list.push_back({"/msg", "/msg <player> <message>", "Admin: message a player privately", "player"});
+                    list.push_back({"/msg-party",
+                                    "/msg-party <player> <message>",
+                                    "Admin: message everyone in a player's party",
+                                    "player"});
+                    list.push_back({"/msg-admins", "/msg-admins <message>", "Admin: message the admins who are on"});
+                    list.push_back(
+                        {"/kick", "/kick <player>", "Admin: kick a player until the server restarts", "player"});
+                    list.push_back({"/ban", "/ban <player>", "Admin: ban a player", "player"});
+                    list.push_back({"/map", "/map <map>", "Admin: change the server's map", "map"});
+                    list.push_back(
+                        {"/tpall", "/tpall [player]", "Admin: teleport everyone to you (or to a player)", "player"});
+                    list.push_back({"/tphere", "/tphere <player>", "Admin: teleport a player to you", "player"});
+                    list.push_back({"/teleport",
+                                    "/teleport <player|SteamID64,SteamID64,...> <player|x y z>",
+                                    "Admin: teleport players to a player or a place (y is up)",
+                                    "player"});
+                    list.push_back({"/tod", "/tod <time>", "Admin: set the time of day", "time"});
+                    list.push_back({"/votes",
+                                    "/votes [<vote> on|off|<percent>|seconds|cooldown|min-players <n>]",
+                                    "Admin: the server's vote settings"});
+                    list.push_back({"/announce",
+                                    "/announce <text>",
+                                    "Admin: announce something to everyone, on a card on their screen"});
+                    list.push_back({"/announce-to",
+                                    "/announce-to <player> <text>",
+                                    "Admin: announce something to one player, on a card on their screen",
+                                    "player"});
+                    list.push_back({"/announcements",
+                                    "/announcements [list|add <text>|remove <n>|interval <minutes>|off]",
+                                    "Admin: the messages the server announces on a timer"});
+                    list.push_back({"/poll end", "/poll end", "Admin: end the running poll now"});
+                    list.push_back({"/vote-cancel", "/vote-cancel", "Admin: stop the running vote"});
+                    list.push_back({"/map-pool",
+                                    "/map-pool [add|remove <map>|clear]",
+                                    "Admin: the maps players vote between and the rotation uses"});
+                    list.push_back({"/rotation",
+                                    "/rotation [<minutes>|off]",
+                                    "Admin: change the map on a timer, through the map pool"});
+                    list.push_back({"/role",
+                                    "/role <player> <role>|none",
+                                    "Admin: give a player a role, or take theirs away",
+                                    "player"});
+                    list.push_back({"/roles", "/roles", "Admin: the server's roles and who has them"});
+                    // Park mods (Server/server_parks.cpp): their names are the server's own, not in the roster.
+                    list.push_back(
+                        {"/park-mod list", "/park-mod list", "Admin: the server's park mods, and which are spawned"});
+                    list.push_back({"/park-mod add",
+                                    "/park-mod add <name> [<name>...] [minutes]",
+                                    "Admin: spawn park mods on this map, for 1-1440 minutes or until removed"});
+                    list.push_back(
+                        {"/park-mod remove", "/park-mod remove <name> [<name>...]", "Admin: remove spawned park mods"});
+                    list.push_back({"/park-mod clear", "/park-mod clear", "Admin: remove every spawned park mod"});
+                    list.push_back({"/park-mod reload",
+                                    "/park-mod reload <name> [<name>...]",
+                                    "Admin: read a spawned park mod's file again and update it in place"});
+                    list.push_back({"/park-mod config add",
+                                    "/park-mod config add <name> | <mod folder> | <map> [| <key>]",
+                                    "Admin: set up a park mod from the server's Mods folder, without a restart"});
+                    list.push_back({"/park-mod config remove",
+                                    "/park-mod config remove <name>",
+                                    "Admin: remove a park mod from the server's setup"});
+                    list.erase(std::remove_if(list.begin() + static_cast<std::ptrdiff_t>(before_commands),
+                                              list.end(),
+                                              [&](const auto &entry)
+                                              {
+                                                  // "/poll end" is the polls permission's; the others are named for
+                                                  // their command, the first word ("/park-mod add" is park-mod's).
+                                                  const std::string_view shown = entry.name;
+                                                  if (shown == "/poll end")
+                                                      return !(s.role_permissions & role_polls);
+                                                  return !role_allows(s.role_all_commands,
+                                                                      s.role_commands,
+                                                                      shown.substr(1, shown.find(' ') - 1));
+                                              }),
+                               list.end());
+                }
+            }
+            return list;
         }
-        if (s.server_votes || !s.server_custom_votes.empty()) {
-            list.push_back({"/yes", "/yes", "Vote yes in the running vote"});
-            list.push_back({"/no", "/no", "Vote no in the running vote"});
-        }
-        if (!s.server_custom_votes.empty()) list.push_back({"/vote list", "/vote list", "This server's own votes, and what each does"});
-        const auto polls = static_cast<ServerPolls>(s.server_polls);
-        if (polls == ServerPolls::everyone || (polls == ServerPolls::admins && (s.role_permissions & role_polls)))
-            list.push_back({"/poll", "/poll <question> | <answer> | <answer>...", "Ask everyone a question, with up to six answers"});
-        if (polls != ServerPolls::off) list.push_back({"/1", "/1, /2...", "Answer the running poll"});
-        // The server commands their role gives them (the rest it would refuse).
-        const auto before_commands = list.size();
-        if (s.server_admin) {
-            list.push_back({"/msg", "/msg <player> <message>", "Admin: message a player privately", "player"});
-            list.push_back({"/msg-party", "/msg-party <player> <message>", "Admin: message everyone in a player's party", "player"});
-            list.push_back({"/msg-admins", "/msg-admins <message>", "Admin: message the admins who are on"});
-            list.push_back({"/kick", "/kick <player>", "Admin: kick a player until the server restarts", "player"});
-            list.push_back({"/ban", "/ban <player>", "Admin: ban a player", "player"});
-            list.push_back({"/map", "/map <map>", "Admin: change the server's map", "map"});
-            list.push_back({"/tpall", "/tpall [player]", "Admin: teleport everyone to you (or to a player)", "player"});
-            list.push_back({"/tphere", "/tphere <player>", "Admin: teleport a player to you", "player"});
-            list.push_back({"/teleport", "/teleport <player|SteamID64,SteamID64,...> <player|x y z>",
-                            "Admin: teleport players to a player or a place (y is up)", "player"});
-            list.push_back({"/tod", "/tod <time>", "Admin: set the time of day", "time"});
-            list.push_back({"/votes", "/votes [<vote> on|off|<percent>|seconds|cooldown|min-players <n>]", "Admin: the server's vote settings"});
-            list.push_back({"/announce", "/announce <text>", "Admin: announce something to everyone, on a card on their screen"});
-            list.push_back({"/announce-to", "/announce-to <player> <text>", "Admin: announce something to one player, on a card on their screen",
-                            "player"});
-            list.push_back({"/announcements", "/announcements [list|add <text>|remove <n>|interval <minutes>|off]",
-                            "Admin: the messages the server announces on a timer"});
-            list.push_back({"/poll end", "/poll end", "Admin: end the running poll now"});
-            list.push_back({"/vote-cancel", "/vote-cancel", "Admin: stop the running vote"});
-            list.push_back({"/map-pool", "/map-pool [add|remove <map>|clear]", "Admin: the maps players vote between and the rotation uses"});
-            list.push_back({"/rotation", "/rotation [<minutes>|off]", "Admin: change the map on a timer, through the map pool"});
-            list.push_back({"/role", "/role <player> <role>|none", "Admin: give a player a role, or take theirs away", "player"});
-            list.push_back({"/roles", "/roles", "Admin: the server's roles and who has them"});
-            // Park mods (Server/server_parks.cpp): their names are the server's own, not in the roster.
-            list.push_back({"/park-mod list", "/park-mod list", "Admin: the server's park mods, and which are spawned"});
-            list.push_back({"/park-mod add", "/park-mod add <name> [<name>...] [minutes]",
-                            "Admin: spawn park mods on this map, for 1-1440 minutes or until removed"});
-            list.push_back({"/park-mod remove", "/park-mod remove <name> [<name>...]", "Admin: remove spawned park mods"});
-            list.push_back({"/park-mod clear", "/park-mod clear", "Admin: remove every spawned park mod"});
-            list.push_back({"/park-mod reload", "/park-mod reload <name> [<name>...]",
-                            "Admin: read a spawned park mod's file again and update it in place"});
-            list.push_back({"/park-mod config add", "/park-mod config add <name> | <mod folder> | <map> [| <key>]",
-                            "Admin: set up a park mod from the server's Mods folder, without a restart"});
-            list.push_back({"/park-mod config remove", "/park-mod config remove <name>", "Admin: remove a park mod from the server's setup"});
-            list.erase(std::remove_if(list.begin() + static_cast<std::ptrdiff_t>(before_commands), list.end(), [&](const auto &entry) {
-                // "/poll end" is the polls permission's; the others are named for their command, the
-                // first word ("/park-mod add" is park-mod's).
-                const std::string_view shown = entry.name;
-                if (shown == "/poll end") return !(s.role_permissions & role_polls);
-                return !role_allows(s.role_all_commands, s.role_commands, shown.substr(1, shown.find(' ') - 1));
-            }), list.end());
-        }
-    }
-    return list;
-}
 
         // The plugins' "/" commands (set_plugin_chat_commands, from the plugin host's thread) and the lines
         // typed for them, waiting for take_plugin_chat_commands. The serial goes into the chat view's

@@ -34,10 +34,34 @@ namespace dingosdk::mods::detail
         return true;
     }
 
+    // Opened once each: every superbundle settled appends to the same few files, and opening and
+    // closing one for each append was where a merge of many maps waited (3 to 17 seconds of one, by
+    // what else the PC was doing: its anti-virus checks a file at every open and close; 2026-11-14).
+    struct CasStore::Writers
+    {
+        std::map<std::wstring, std::ofstream> files;
+    };
+
     CasStore::CasStore(fs::path baseRoot, fs::path output, const native_db::Node &layout)
-        : GameArchives(std::move(baseRoot), layout), output_(std::move(output))
+        : GameArchives(std::move(baseRoot), layout), output_(std::move(output)), writers_(std::make_shared<Writers>())
     {
         keep_open();
+    }
+
+    void CasStore::finish()
+    {
+        if (!writers_)
+            return;
+        std::string failed;
+        for (auto &[path, out] : writers_->files)
+        {
+            out.close();
+            if (out.fail() && failed.empty())
+                failed = path_utf8(fs::path(path));
+        }
+        writers_->files.clear();
+        if (!failed.empty())
+            throw std::runtime_error("Cannot append to " + failed);
     }
 
     fs::path CasStore::archive_path(std::uint32_t installChunk, std::uint16_t archive) const

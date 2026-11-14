@@ -240,10 +240,7 @@ extern "C" __declspec(dllexport) BOOL WINAPI DingoSDKDebugInitialize()
         }
 #pragma warning(pop)
         wchar_t self_path[32768]{};
-        // Development only (RESKATE_DEV_GAME_DIR): a DLL built outside the game folder takes the game's
-        // own folder for its sibling files.
-        const auto self_length = GetModuleFileNameW(
-            GetEnvironmentVariableW(L"RESKATE_DEV_GAME_DIR", nullptr, 0) ? nullptr : self, self_path, 32768);
+        const auto self_length = GetModuleFileNameW(self, self_path, 32768);
         if (!self_length || self_length >= 32768)
         {
             const auto error = GetLastError();
@@ -410,6 +407,7 @@ extern "C" __declspec(dllexport) BOOL WINAPI DingoSDKDebugInitialize()
             {dingosdk::addr::profiler_labels::ui_view_pointer, "UI view pointer hit-test"}};
         dingosdk::profiler::set_engine_labels(engine_labels);
         dingosdk::overlay::set_park_surface_queue(dingosdk::queue_local_park_surface);
+        dingosdk::overlay::set_park_ground_queue(dingosdk::queue_local_park_ground);
         dingosdk::overlay::set_park_preview_queue(dingosdk::queue_local_park_preview);
         dingosdk::overlay::set_park_selection_queue(dingosdk::queue_local_park_selection);
         dingosdk::overlay::set_park_paste_queue(dingosdk::queue_local_park_paste);

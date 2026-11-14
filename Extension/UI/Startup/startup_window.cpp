@@ -69,8 +69,8 @@ namespace dingosdk::startup
         {
             std::mutex mutex;
             std::wstring heading{L"Starting ReSkate+\u2026"}, detail, fallback_detail;
-			float progress{-1.0f};
-			bool fallback_active{};
+            float progress{-1.0f};
+            bool fallback_active{};
             bool opened{}, closing{};
             std::atomic<bool> shown{};
         };
@@ -81,38 +81,33 @@ namespace dingosdk::startup
             static auto *value = new Shared;
             return *value;
         }
-		
-		constexpr std::array<const wchar_t*, 5> fallback_phrases{
-			L"do a kickflip!",
-			L"keep it steezy!",
-			L"find your line!",
-			L"stick the landing!",
-			L"one more try!"
-		};
 
-		// Returns phrases in a shuffled order, without repeating one until all five have been used.
-		std::wstring next_fallback_phrase()
-		{
-			static std::array<std::size_t, 5> order{0, 1, 2, 3, 4};
-			static std::size_t next = order.size();
-			static std::size_t previous = order.size();
-			static std::mt19937 random{std::random_device{}()};
+        constexpr std::array<const wchar_t *, 5> fallback_phrases{
+            L"do a kickflip!", L"keep it steezy!", L"find your line!", L"stick the landing!", L"one more try!"};
 
-			if (next >= order.size())
-			{
-				std::shuffle(order.begin(), order.end(), random);
+        // Returns phrases in a shuffled order, without repeating one until all five have been used.
+        std::wstring next_fallback_phrase()
+        {
+            static std::array<std::size_t, 5> order{0, 1, 2, 3, 4};
+            static std::size_t next = order.size();
+            static std::size_t previous = order.size();
+            static std::mt19937 random{std::random_device{}()};
 
-				// Avoid repeating the last phrase when starting a new shuffled cycle.
-				if (previous < order.size() && order.front() == previous)
-					std::swap(order.front(), order[1]);
+            if (next >= order.size())
+            {
+                std::shuffle(order.begin(), order.end(), random);
 
-				next = 0;
-			}
+                // Avoid repeating the last phrase when starting a new shuffled cycle.
+                if (previous < order.size() && order.front() == previous)
+                    std::swap(order.front(), order[1]);
 
-			previous = order[next++];
-			return fallback_phrases[previous];
-		}
-		
+                next = 0;
+            }
+
+            previous = order[next++];
+            return fallback_phrases[previous];
+        }
+
         void fill(HDC dc, RECT area, COLORREF colour)
         {
             SetDCBrushColor(dc, colour);
@@ -575,7 +570,7 @@ namespace dingosdk::startup
             {
                 width = px(window_width);
                 height = px(window_height);
-                for (auto* font : {&title, &heading, &body, &brush, &brush_shadow})
+                for (auto *font : {&title, &heading, &body, &brush, &brush_shadow})
                     if (*font)
                     {
                         DeleteObject(*font);
@@ -615,7 +610,7 @@ namespace dingosdk::startup
                                     ANTIALIASED_QUALITY,
                                     DEFAULT_PITCH,
                                     brush_font_loaded() ? brush_face : L"Arial");
-				brush_shadow = CreateFontW(-px(name_size + 2),
+                brush_shadow = CreateFontW(-px(name_size + 2),
                                            0,
                                            0,
                                            0,
@@ -796,14 +791,14 @@ namespace dingosdk::startup
                 const auto previous = SelectObject(dc, frame);
 
                 std::wstring status_str, detail, fallback_detail;
-				float progress;
+                float progress;
                 {
                     auto &state = shared();
                     std::lock_guard lock(state.mutex);
                     status_str = state.heading;
                     detail = state.detail;
                     progress = state.closing ? 1.0f : state.progress;
-					fallback_detail = state.fallback_detail;
+                    fallback_detail = state.fallback_detail;
                 }
 
                 const auto source = CreateCompatibleDC(dc);
@@ -829,37 +824,28 @@ namespace dingosdk::startup
                 SetBkMode(dc, TRANSPARENT);
                 // A build that carries a mod says so on any picture, under the RESKATE logo, as the launcher does.
                 if (!reskate_mod_name.empty())
-				{
-					// Convert the mod name from UTF-8 and uppercase its ASCII characters.
-					std::wstring name = utf8_to_wide(reskate_mod_name);
+                {
+                    // Convert the mod name from UTF-8 and uppercase its ASCII characters.
+                    std::wstring name = utf8_to_wide(reskate_mod_name);
 
-					std::transform(name.begin(), name.end(), name.begin(), [](wchar_t c)
-					{
-						return c >= L'a' && c <= L'z'
-							? static_cast<wchar_t>(c - L'a' + L'A')
-							: c;
-					});
+                    std::transform(name.begin(),
+                                   name.end(),
+                                   name.begin(),
+                                   [](wchar_t c)
+                                   { return c >= L'a' && c <= L'z' ? static_cast<wchar_t>(c - L'a' + L'A') : c; });
 
-					const int name_length = static_cast<int>(name.size());
+                    const int name_length = static_cast<int>(name.size());
 
-					// Slightly larger shadow, positioned closer to the actual text.
-					SelectObject(dc, brush_shadow ? brush_shadow : brush);
-					SetTextColor(dc, ink);
-					TextOutW(dc,
-							 name_at.x + px(2),
-							 name_at.y + px(2),
-							 name.c_str(),
-							 name_length);
+                    // Slightly larger shadow, positioned closer to the actual text.
+                    SelectObject(dc, brush_shadow ? brush_shadow : brush);
+                    SetTextColor(dc, ink);
+                    TextOutW(dc, name_at.x + px(2), name_at.y + px(2), name.c_str(), name_length);
 
-					// Actual mod name.
-					SelectObject(dc, brush);
-					SetTextColor(dc, paper);
-					TextOutW(dc,
-							 name_at.x,
-							 name_at.y,
-							 name.c_str(),
-							 name_length);
-				}
+                    // Actual mod name.
+                    SelectObject(dc, brush);
+                    SetTextColor(dc, paper);
+                    TextOutW(dc, name_at.x, name_at.y, name.c_str(), name_length);
+                }
                 const int bar = height - px(bar_height);
                 const auto line = [&](HFONT font, COLORREF colour, const std::wstring &text, int top, int line_height)
                 {
@@ -880,12 +866,15 @@ namespace dingosdk::startup
                               &row,
                               DT_LEFT | DT_TOP | DT_SINGLELINE | DT_NOPREFIX | DT_END_ELLIPSIS);
                 };
-                if (detail.empty()) {
-					line(heading, paper, status_str, bar - px(30), px(22));
-				} else {
-					line(heading, paper, status_str, bar - px(46), px(22));
-					line(body, soft, detail, bar - px(24), px(17));
-				}
+                if (detail.empty())
+                {
+                    line(heading, paper, status_str, bar - px(30), px(22));
+                }
+                else
+                {
+                    line(heading, paper, status_str, bar - px(46), px(22));
+                    line(body, soft, detail, bar - px(24), px(17));
+                }
 
                 fill(dc, {0, bar, width, height}, track);
                 if (progress >= 0.0f)
@@ -909,7 +898,7 @@ namespace dingosdk::startup
 
             void release()
             {
-                for (auto* font : {&title, &heading, &body, &brush, &brush_shadow})
+                for (auto *font : {&title, &heading, &body, &brush, &brush_shadow})
                     if (*font)
                     {
                         DeleteObject(*font);
@@ -1112,22 +1101,23 @@ namespace dingosdk::startup
     {
         try
         {
-			auto wide_heading = utf8_to_wide(heading);
+            auto wide_heading = utf8_to_wide(heading);
             auto wide_detail = utf8_to_wide(detail);
-			auto& state = shared();
-			std::lock_guard lock(state.mutex);
+            auto &state = shared();
+            std::lock_guard lock(state.mutex);
             state.heading = std::move(wide_heading);
-			state.progress = progress;
-			if (detail.empty() || detail.size() <= 0)
-			{
-				if (state.fallback_detail.empty() || state.fallback_detail.size() == 0)
-					state.fallback_detail = next_fallback_phrase();
-				state.detail = std::move(state.fallback_detail);
-			}
-			else {
-				state.detail = std::move(wide_detail);
-				state.fallback_detail = next_fallback_phrase();
-			}
+            state.progress = progress;
+            if (detail.empty() || detail.size() <= 0)
+            {
+                if (state.fallback_detail.empty() || state.fallback_detail.size() == 0)
+                    state.fallback_detail = next_fallback_phrase();
+                state.detail = std::move(state.fallback_detail);
+            }
+            else
+            {
+                state.detail = std::move(wide_detail);
+                state.fallback_detail = next_fallback_phrase();
+            }
         }
         catch (...)
         {

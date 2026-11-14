@@ -561,6 +561,26 @@ namespace dingosdk::overlay
                       std::string no,
                       std::function<void(bool)> answer,
                       bool back_is_yes = false) noexcept;
+    // The plugins waiting for the player's answer, asked about on one card, one after another: each in
+    // turn has the whole card, with everything it may do under its categories (`risk`: 0 grey, 1 amber,
+    // 2 red, as plugin_approval.h rates them), and the answer to one brings the next up at once. It is
+    // the question above with a list behind it, held and answered the same way: the first answer is
+    // Keep off, and is what going back gives. `answer` is called for each as it is answered (its place
+    // in the list, and whether it was turned on), on whichever thread answers; question_step_back goes
+    // to the one before, to be answered again. Any thread.
+    struct PluginQuestion
+    {
+        std::string title, author;
+        struct Group
+        {
+            std::string category;
+            int risk{};
+            std::vector<std::string> phrases;
+        };
+        std::vector<Group> can;
+    };
+    void ask_plugins(std::vector<PluginQuestion> plugins, std::function<void(std::size_t, bool)> answer) noexcept;
+    void question_step_back() noexcept;
     bool question_back() noexcept;
     bool question_asking() noexcept;
     void question_pick(bool yes) noexcept;
@@ -761,6 +781,8 @@ namespace dingosdk::overlay
 #endif
     using ParkSurfaceQueue = bool (*)(const EditorSurfaceRequest &);
     void set_park_surface_queue(ParkSurfaceQueue) noexcept;
+    using ParkGroundQueue = bool (*)(const EditorGroundRequest &);
+    void set_park_ground_queue(ParkGroundQueue) noexcept;
     using ParkPreviewQueue = bool (*)(const EditorPreviewRequest &);
     void set_park_preview_queue(ParkPreviewQueue) noexcept;
     using ParkSelectionQueue = bool (*)(const EditorSelectionRequest &);

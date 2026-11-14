@@ -56,9 +56,5 @@ namespace dingosdk::multiplayer::synchros
     // What a player sends to show it holds a code.
     Proof code_proof(const CodeKey &key, std::uint64_t session, std::uint64_t wearer, std::uint64_t viewer);
     // The check of a proof against a key held here, in constant time.
-    bool proof_matches(const CodeKey&,
-                       const Proof&,
-                       std::uint64_t,
-                       std::uint64_t,
-                       std::uint64_t) noexcept;
+    bool proof_matches(const CodeKey &, const Proof &, std::uint64_t, std::uint64_t, std::uint64_t) noexcept;
 } // namespace dingosdk::multiplayer::synchros

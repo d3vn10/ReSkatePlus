@@ -524,11 +524,10 @@ namespace dingosdk::overlay::detail
             // The keys a bracket puts on every joint are the brackets' own: they are not chosen (as a box leaves them).
             const float end = v.bracket_end < 0 ? v.duration : v.bracket_end;
             for (const auto &t : v.tracks)
-                //if (!t.locked)
-                    for (const auto &key : t.keys)
-                        if (std::abs(key.time - v.bracket_start) >= 0.5f / fps &&
-                            std::abs(key.time - end) >= 0.5f / fps)
-                            u.picked.emplace_back(t.joint, key.time);
+                // if (!t.locked)
+                for (const auto &key : t.keys)
+                    if (std::abs(key.time - v.bracket_start) >= 0.5f / fps && std::abs(key.time - end) >= 0.5f / fps)
+                        u.picked.emplace_back(t.joint, key.time);
             say(u.picked.empty() ? "There are no keys yet."
                                  : std::to_string(u.picked.size()) +
                                        " keys chosen: drag one to move them all, Delete takes them off.");
@@ -1226,7 +1225,7 @@ namespace dingosdk::overlay::detail
             {
                 const auto *hips = joint_view(v, studio::hips_joint);
                 const auto *track = track_view(v, studio::hips_joint);
-                if (hips && /* !( */track /* && track->locked) */ )
+                if (hips && /* !( */ track /* && track->locked) */)
                     u.group_start.push_back({studio::hips_joint,
                                              studio::offset_of(studio::hips_joint),
                                              hips->position,
@@ -3379,9 +3378,10 @@ namespace dingosdk::overlay::detail
             // A preview is to watch only, and a locked trick's keys are not handed to the screen at all (View::locked).
             if (v.previewing /* || v.locked*/)
             {
-                say(/* v.locked ? "Locked by its creator: preview only. Its keys and poses stay its creator's: nothing is "
-                               "copied from it."
-                             :*/ "This is a preview: open the trick itself to copy its keys.");
+                say(/* v.locked ? "Locked by its creator: preview only. Its keys and poses stay its creator's: nothing
+                       is " "copied from it."
+                             :*/
+                    "This is a preview: open the trick itself to copy its keys.");
                 return;
             }
             u.copied_keys.clear();
@@ -4117,7 +4117,8 @@ namespace dingosdk::overlay::detail
             if (u.stick_armed && (lx != 0 || ly != 0))
             {
                 const auto *t = track_view(v, u.selected);
-                if (!u.stick_turning && v.has_clip && !v.previewing && t /* !(t && t->locked) */ && joint_view(v, u.selected))
+                if (!u.stick_turning && v.has_clip && !v.previewing && t /* !(t && t->locked) */ &&
+                    joint_view(v, u.selected))
                 {
                     begin_turn(v);
                     u.stick_turning = true;
@@ -5083,7 +5084,7 @@ namespace dingosdk::overlay::detail
             if (p && p->locked)
                 preview_trick(pack, name, !pack.empty());
             else*/
-                open_saved(name);
+            open_saved(name);
         }
         // A tick box: ticked or not, drawn (the fonts have no tick).
         void tick_box(ImDrawList *d, ImVec2 c, float half, bool ticked, ImU32 colour, float k)
@@ -5476,7 +5477,7 @@ namespace dingosdk::overlay::detail
         }
         // A trick that came in a pack (got from the MARKET, or imported): in a pack made on another PC, or locked to
         // its maker. TRICKS keeps these under FROM PACKS, so MY TRICKS is the ones you made.
-        bool from_a_pack(const studio::View &/*v*/, const std::string &/*name*/)
+        bool from_a_pack(const studio::View & /*v*/, const std::string & /*name*/)
         {
             /*if (const auto *p = preset_named(v, name); p && p->foreign)
                 return true;
@@ -5641,7 +5642,7 @@ namespace dingosdk::overlay::detail
             }
             if (lit && nav().keys)
                 chosen_outline(d, a, ImVec2(b.x, b.y - strip), k);
-            const bool locked = false; //p && p->locked;
+            const bool locked = false; // p && p->locked;
             const char *open_label = locked ? "PREVIEW" : "EDIT";
             const float fs = 12 * k, by = b.y - strip + 6 * k; // action()'s label on a 30-high button
             const float edit_w = text_size(mont(f, fs), fs, open_label).x + 26 * k,
@@ -5652,7 +5653,7 @@ namespace dingosdk::overlay::detail
                 /*if (locked)
                     preview_trick({}, name, false);
                 else*/
-                    open_saved(name);
+                open_saved(name);
             }
             if (action(d, f, "##test", ImVec2(a.x + 22 * k + edit_w, by), ImVec2(test_w, 30 * k), "TEST IN GAME"))
             {
@@ -5731,7 +5732,8 @@ namespace dingosdk::overlay::detail
                     if (action(d, f, "##drawedit", ImVec2(x, y), ImVec2(half, 42 * k), "PREVIEW", Look::blue))
                         preview_trick({}, name, false);
                 }
-                else*/ if (action(d, f, "##drawedit", ImVec2(x, y), ImVec2(half, 42 * k), "OPEN IN EDITOR", Look::blue))
+                else*/
+                if (action(d, f, "##drawedit", ImVec2(x, y), ImVec2(half, 42 * k), "OPEN IN EDITOR", Look::blue))
                     open_saved(name);
                 if (action(d,
                            f,
@@ -5785,22 +5787,22 @@ namespace dingosdk::overlay::detail
             }
             else
             {*/
-                if (u.label_for != name && !ImGui::IsAnyItemActive())
-                {
-                    std::snprintf(u.label.data(), u.label.size(), "%s", p ? p->label.c_str() : "");
-                    u.label_for = name;
-                }
-                bool edited = false;
-                const bool entered =
-                    field(f, "##label", u.label, ImVec2(x, y), w - 96 * k, "e.g. Steezy kickflip", &edited);
-                if (action(d, f, "##setlabel", ImVec2(x + w - 86 * k, y), ImVec2(86 * k, 34 * k), "SET") || entered ||
-                    edited)
-                {
-                    std::string m;
-                    studio::set_label(name, u.label.data(), m);
-                    say(m);
-                }
-                y += 50 * k;
+            if (u.label_for != name && !ImGui::IsAnyItemActive())
+            {
+                std::snprintf(u.label.data(), u.label.size(), "%s", p ? p->label.c_str() : "");
+                u.label_for = name;
+            }
+            bool edited = false;
+            const bool entered =
+                field(f, "##label", u.label, ImVec2(x, y), w - 96 * k, "e.g. Steezy kickflip", &edited);
+            if (action(d, f, "##setlabel", ImVec2(x + w - 86 * k, y), ImVec2(86 * k, 34 * k), "SET") || entered ||
+                edited)
+            {
+                std::string m;
+                studio::set_label(name, u.label.data(), m);
+                say(m);
+            }
+            y += 50 * k;
             //}
             heading(d, f, ImVec2(x, y), w, "Plays on");
             y += 32 * k;
@@ -18603,7 +18605,8 @@ namespace dingosdk::overlay::detail
             // Why there is nothing here to edit or copy with: said over the bar, for a MARKET preview too (its card is
             // the MARKET's).
             /*if (v.locked)
-                tag(d, f, ImVec2(a.x, a.y - 34 * k), "LOCKED BY ITS CREATOR: PREVIEW ONLY", IM_COL32(120, 34, 36, 255));*/
+                tag(d, f, ImVec2(a.x, a.y - 34 * k), "LOCKED BY ITS CREATOR: PREVIEW ONLY", IM_COL32(120, 34, 36,
+               255));*/
             skate_theme::rough_rect(d, a, b, IM_COL32(14, 14, 16, 230), seed_of(a), k);
             {
                 // Where it is: a bar to click or drag along.
@@ -19115,7 +19118,7 @@ namespace dingosdk::overlay::detail
         // where it goes (the folder ReSkate runs from) and, done, KEEP PLAYING or RESTART NOW. The card is as tall as
         // what it holds: its notes box fits the release's notes (scrolling past the tallest the screen allows), every
         // message is wrapped inside it, and nothing runs into the buttons (the UI audit's #15, the review's #10).
-        void update_card(ImDrawList * /* d */, const Fonts &/* f */, ImVec2 /* display */)
+        void update_card(ImDrawList * /* d */, const Fonts & /* f */, ImVec2 /* display */)
         {
             /*namespace up = studio::update;
             auto &u = ui();
@@ -19967,7 +19970,7 @@ namespace dingosdk::overlay::detail
             const float k = f.k;
             const auto *key = key_here(v, u.selected);
             const auto *track = track_view(v, u.selected);
-            const bool locked = false; //track && track->locked;
+            const bool locked = false; // track && track->locked;
             const auto *e = studio::editable(u.selected);
             const bool placed = studio::limb_chain(u.selected) != 0;
             const bool has_position = (e && e->moves) || placed;

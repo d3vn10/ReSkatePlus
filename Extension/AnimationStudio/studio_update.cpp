@@ -450,7 +450,8 @@ namespace dingosdk::anim_studio::update
                 options.keep_partial = true; // TRY AGAIN goes on from what came
                 options.verify = [&digest](const std::filesystem::path &file)
                 { return files::sha256_of(file) == digest; };
-                const auto got = https::get(wide(url), final_path, options.max_bytes, options.stall_ms, agent, &s.watch);
+                const auto got =
+                    https::get(wide(url), final_path, options.max_bytes, options.stall_ms, agent, &s.watch);
                 if (!got.ok)
                     return fail(Step::download_failed, got.error == ERROR_INVALID_DATA ? 1 : 0, download_failure(got));
                 logging::log(Level::info,

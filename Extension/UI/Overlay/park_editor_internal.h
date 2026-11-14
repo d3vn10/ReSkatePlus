@@ -13,6 +13,7 @@
 namespace dingosdk::overlay::park_editor_detail
 {
     inline std::atomic<ParkSurfaceQueue> surface_queue{};
+    inline std::atomic<ParkGroundQueue> ground_queue{};
     inline std::atomic<ParkPreviewQueue> preview_queue{};
     inline std::atomic<ParkSelectionQueue> selection_queue{};
     inline std::atomic<ParkPasteQueue> paste_queue{};

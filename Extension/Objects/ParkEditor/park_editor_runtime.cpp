@@ -356,6 +356,8 @@ namespace dingosdk::profile_runtime
         e.status.clear();
         e.probe.reset();
         e.surface = {};
+        e.ground_probe.reset();
+        e.ground = {};
         e.last_preview_token = 0;
         e.selection.clear();
         e.selection_time = 0;
@@ -573,6 +575,15 @@ namespace dingosdk::profile_runtime
                     e.surface.available = false;
             }
         }
+        // The snap grid's ground: answered here, on the client update, like the surface probe.
+        if (const auto ground = std::exchange(e.ground_probe, std::nullopt);
+            ground && ground->generation == e.generation)
+        {
+            std::array<std::uintptr_t, 2> context{};
+            if (r.context)
+                r.context(context.data());
+            e.ground = editor::probe_ground(e.surface_api, context[0], *ground);
+        }
         // placement_session_ready may have reset the editor after a world transition.
         if (!e.transaction)
             return;
@@ -605,12 +616,12 @@ namespace dingosdk::profile_runtime
                 e.redo.push_back(e.undo.back());
                 e.undo.pop_back();
             }
-            else if (tx.history == 1)
+            else if (tx.history > 0)
             {
                 e.undo.push_back(e.redo.back());
                 e.redo.pop_back();
             }
-            else if (tx.history == 0)
+            else
             {
                 e.undo.push_back(tx.change);
                 e.redo.clear();

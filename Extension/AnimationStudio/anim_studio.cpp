@@ -2103,12 +2103,12 @@ namespace dingosdk::anim_studio
         // (claim_account_keys).
         std::mutex account_keys_mutex;
         std::set<std::string> account_keys;
-        bool locked_key(const std::string &/*maker_key*/)
+        bool locked_key(const std::string & /*maker_key*/)
         {
-            //if (maker_key.empty() || maker_key == device_key())
-                return false;
-            //std::lock_guard lock(account_keys_mutex);
-            //return !account_keys.contains(maker_key);
+            // if (maker_key.empty() || maker_key == device_key())
+            return false;
+            // std::lock_guard lock(account_keys_mutex);
+            // return !account_keys.contains(maker_key);
         }
         // The team a pack went out under: as it was published from here ("Team-Name"), or where it was got from.
         std::string pack_team(const PresetPack &pack)

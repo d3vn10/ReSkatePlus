@@ -7,9 +7,28 @@ if(MSVC)
 endif()
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-# Windows version information (Explorer's Details tab) for the shipped binaries. The release
+# Windows version information (Explorer's Details tab) for the shipped binaries. A release is
+# named by an eight digit build number, the day of the commit it was built from (20261114), which
+# the release script works out and passes; local builds say 00000000.
+set(DINGOSDK_VERSION "00000000" CACHE STRING "Release build number (eight digits, YYYYMMDD) stamped into the shipped binaries")
 # script passes its version; local builds say 0.0.0.
-set(DINGOSDK_VERSION "0.0.0" CACHE STRING "Release version stamped into the shipped binaries")
+set(RESKATEPLUS_VERSION "0.0.0" CACHE STRING "Release version stamped into the shipped binaries")
+# A build folder configured when releases were numbered 1.2.3 still holds that default.
+if(RESKATEPLUS_VERSION STREQUAL "0.0.0")
+    set_property(CACHE DINGOSDK_VERSION PROPERTY VALUE "00000000")
+endif()
+if(NOT DINGOSDK_VERSION MATCHES "^([0-9][0-9][0-9][0-9])([0-9][0-9])([0-9][0-9])$")
+    message(FATAL_ERROR "DINGOSDK_VERSION must be an eight digit build number like 20261114, not '${DINGOSDK_VERSION}'")
+endif()
+# Windows keeps a file's version as four 16 bit numbers, none of which holds a build number:
+# its year, month and day are the first three (without leading zeros, which a resource reads as octal).
+set(reskate_version_year "${CMAKE_MATCH_1}")
+set(reskate_version_month "${CMAKE_MATCH_2}")
+set(reskate_version_day "${CMAKE_MATCH_3}")
+set(reskate_build_date "${reskate_version_month}-${reskate_version_day} (${reskate_version_year})")
+foreach(part year month day)
+    string(REGEX REPLACE "^0+([0-9]+)$" "\\1" reskate_version_${part} "${reskate_version_${part}}")
+endforeach()
 # Set by a modified build (a mod that replaces ReSkate.dll) so it is never mistaken for ReSkate itself.
 set(DINGOSDK_MOD_ID "" CACHE STRING "Name of the mod this build carries (letters, digits, underscores); empty for ReSkate itself")
 set(DINGOSDK_MOD_VERSION "" CACHE STRING "Version of that mod")
@@ -43,8 +62,8 @@ string(REPLACE "\"" "\\\"" reskate_version_escaped "${reskate_version_escaped}")
 configure_file("${PROJECT_SOURCE_DIR}/cmake/templates/reskate_version.h.in"
     "${CMAKE_CURRENT_BINARY_DIR}/generated/reskate_version.h" @ONLY)
 function(dingosdk_version_info target description file_name file_type)
-    if(NOT DINGOSDK_VERSION MATCHES "^([0-9]+)\\.([0-9]+)\\.([0-9]+)")
-        message(FATAL_ERROR "DINGOSDK_VERSION must look like 1.2.3, not '${DINGOSDK_VERSION}'")
+    if(NOT RESKATEPLUS_VERSION MATCHES "^([0-9]+)\\.([0-9]+)\\.([0-9]+)")
+        message(FATAL_ERROR "RESKATEPLUS_VERSION must look like 1.2.3, not '${RESKATEPLUS_VERSION}'")
     endif()
     if(NOT WIN32)
         return()

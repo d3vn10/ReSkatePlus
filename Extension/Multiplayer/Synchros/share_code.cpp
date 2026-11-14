@@ -194,11 +194,7 @@ namespace dingosdk::multiplayer::synchros
         return digest(key.data(), key.size(), data.data(), data.size());
     }
 
-    bool proof_matches(const CodeKey&,
-                       const Proof&,
-                       std::uint64_t,
-                       std::uint64_t,
-                       std::uint64_t) noexcept
+    bool proof_matches(const CodeKey &, const Proof &, std::uint64_t, std::uint64_t, std::uint64_t) noexcept
     {
         /*try
         {
@@ -212,6 +208,6 @@ namespace dingosdk::multiplayer::synchros
         {
             return false;
         }*/
-		return true;
+        return true;
     }
 } // namespace dingosdk::multiplayer::synchros

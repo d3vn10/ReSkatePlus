@@ -650,14 +650,14 @@ namespace dingosdk::multiplayer
             }
             if (!r.skater_appearance)
                 r.stand_ins_applied = stand_ins_now;
-			// What plugins hide on this player, as it is now, the same for both recipes of this pass.
-			const auto hidden = [player](const std::string &asset)
-			{
-				std::string name(asset);
-				std::ranges::transform(
-					name, name.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-				return plugin_feed::item_hidden(player, name);
-			};
+            // What plugins hide on this player, as it is now, the same for both recipes of this pass.
+            const auto hidden = [player](const std::string &asset)
+            {
+                std::string name(asset);
+                std::ranges::transform(
+                    name, name.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                return plugin_feed::item_hidden(player, name);
+            };
             try
             {
                 if (!r.skater_appearance || *r.skater_appearance != appearance.skater ||

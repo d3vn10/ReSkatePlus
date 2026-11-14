@@ -1,5 +1,4 @@
 #include "Engine/Core/Platform/memory.h"
-#include "Extension/Customization/steam_avatar_cards.h"
 #include "Engine/Core/Log/logging.h"
 #include "local_customization_runtime.h"
 #include "Extension/Profile/runtime_internal.h"
@@ -108,13 +107,12 @@ namespace dingosdk::profile_runtime
     }
     bool installed_item_owned(const profile::Snapshot &snapshot, std::string_view key, std::uint32_t, bool build_kit)
     {
-		if (key == steam_avatar_cards::icon_key && steam_avatar_cards::enabled())
-			return false;
-		if (!build_kit) {
+        if (!build_kit)
+        {
             if (const auto origin = item_origins::find(key);
                 origin && origin->folder.starts_with(synchros::synchros_folder))
-            return false;
-		}
+                return false;
+        }
         const auto option =
             snapshot.bool_options.find(build_kit ? profile::unlock_objects_option : profile::unlock_cosmetics_option);
         if (option != snapshot.bool_options.end() && option->second)

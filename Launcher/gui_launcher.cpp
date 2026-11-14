@@ -66,7 +66,6 @@ namespace dingosdk::launcher_gui::detail
                 settings.deprecated_mods = json.value("deprecated_mods", settings.deprecated_mods);
                 settings.gpu_diagnostics = json.value("gpu_diagnostics", settings.gpu_diagnostics);
                 settings.discord_status = json.value("discord_status", settings.discord_status);
-                settings.steam_card_pictures = json.value("steam_card_pictures", settings.steam_card_pictures);
                 settings.offline = json.value("offline", settings.offline);
                 settings.start_map = json.value("start_map", std::string());
                 settings.menu_key = json.value("menu_key", settings.menu_key);
@@ -86,11 +85,14 @@ namespace dingosdk::launcher_gui::detail
                 if (const int size = json.value("interface_size", settings.interface_size);
                     std::ranges::find(interface_sizes, size) != interface_sizes.end())
                     settings.interface_size = size;
+                settings.parallel_downloads = std::clamp(
+                    json.value("parallel_downloads", settings.parallel_downloads), 1, max_parallel_downloads);
                 // Keep the original settings key so existing launcher preferences survive.
                 settings.keep_open_after_launch = !json.value("close_on_launch", !settings.keep_open_after_launch);
                 settings.updates = json.value("updates", settings.updates);
                 settings.crash_reports = json.value("crash_reports", settings.crash_reports);
                 settings.performance_timings = json.value("performance_timings", settings.performance_timings);
+                settings.prereleases = false;
                 settings.steam_username = json.value("steam_username", std::string());
                 settings.steam_remember = json.value("steam_remember", settings.steam_remember);
                 settings.steam_prefer_code = json.value("steam_prefer_code", settings.steam_prefer_code);
@@ -135,7 +137,6 @@ namespace dingosdk::launcher_gui::detail
             json["nsfw_mods"] = settings.nsfw_mods;
             json["gpu_diagnostics"] = settings.gpu_diagnostics;
             json["discord_status"] = settings.discord_status;
-            json["steam_card_pictures"] = settings.steam_card_pictures;
             json["offline"] = settings.offline;
             json["start_map"] = settings.start_map;
             json["menu_key"] = settings.menu_key;
@@ -143,6 +144,7 @@ namespace dingosdk::launcher_gui::detail
             json["log_level"] = log_levels[static_cast<std::size_t>(settings.log_level)];
             json["arguments"] = settings.arguments;
             json["interface_size"] = settings.interface_size;
+            json["parallel_downloads"] = settings.parallel_downloads;
             json["close_on_launch"] = !settings.keep_open_after_launch;
             json["updates"] = settings.updates;
             json["crash_reports"] = settings.crash_reports;
@@ -179,8 +181,6 @@ namespace dingosdk::launcher_gui::detail
                 arguments.emplace_back(L"--gpu-diagnostics");
             if (!settings.discord_status)
                 arguments.emplace_back(L"--no-discord");
-            if (!settings.steam_card_pictures)
-                arguments.emplace_back(L"--no-steam-card-pictures");
             if (settings.offline)
                 arguments.emplace_back(L"-offline");
             arguments.push_back(std::format(L"--menu-key={}", settings.menu_key));
@@ -362,7 +362,8 @@ namespace dingosdk::launcher_gui::detail
     void Launcher::restart()
     {
         auto arguments = arguments_;
-        if (std::find(arguments.begin(), arguments.end(), L"--reskate-updated") == arguments.end())
+        if (!settings_restart_ &&
+            std::find(arguments.begin(), arguments.end(), L"--reskate-updated") == arguments.end())
             arguments.emplace_back(L"--reskate-updated");
         launcher_app::relaunch(session_.self, arguments);
     }
@@ -489,6 +490,7 @@ namespace dingosdk::launcher_gui::detail
     void Launcher::run_check()
     {
         checked_updates_ = settings_.updates;
+        checked_prereleases_ = settings_.prereleases;
         set(Phase::checking, "Checking for updates");
         update::remove_previous_launcher(session_.self);
         auto config = update::fetch_config();

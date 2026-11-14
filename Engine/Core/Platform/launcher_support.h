@@ -61,7 +61,7 @@ namespace dingosdk::launcher
         // one (a map's name, short name or asset path, or the start of one). Empty: none.
         std::wstring map;
         std::vector<std::wstring> game_arguments;
-		bool steam_card_pictures{};
+        bool steam_card_pictures{};
     };
 
     // Arguments exclude argv[0]. Saved game display settings apply by default.

@@ -366,8 +366,8 @@ namespace dingosdk::skater_animation
         std::atomic<double> preview_until{};
         struct PreviewSample
         {
-    Joint place;
-    std::uintptr_t entity{};
+            Joint place;
+            std::uintptr_t entity{};
             double at{-1e9};
             std::uint64_t sequence{};
         };
@@ -473,8 +473,8 @@ namespace dingosdk::skater_animation
                 } // Pose observation remains available when material ownership cannot be proved.
             }
             std::lock_guard lock(preview_mutex);
-    auto& sample = preview_samples[skater ? 1 : 0];
-    sample.entity = entity;
+            auto &sample = preview_samples[skater ? 1 : 0];
+            sample.entity = entity;
             sample.place = place;
             sample.at = now;
             ++sample.sequence;

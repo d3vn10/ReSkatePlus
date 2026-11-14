@@ -691,7 +691,7 @@ namespace dingosdk::multiplayer
     void SteamTransport::stop()
     {
         auto &p = *impl_;
-        close_side();
+        //close_side();
         const auto listener = p.listener;
         p.listener = 0;
         if (p.direct_listener && p.close_listener)

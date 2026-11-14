@@ -30,6 +30,7 @@ namespace dingosdk
     bool lobby_object_limit_reached();
     inline constexpr char object_limit_notice[] = "You have placed as many objects as this session allows each player.";
     bool queue_local_park_surface(const EditorSurfaceRequest &);
+    bool queue_local_park_ground(const EditorGroundRequest &);
     bool queue_local_park_preview(const EditorPreviewRequest &);
     bool queue_local_park_selection(const EditorSelectionRequest &);
     bool queue_local_park_paste(const EditorPasteRequest &);
@@ -60,8 +61,7 @@ namespace dingosdk
 
     // Invoked through the console's verified game-thread dispatcher. `texts`
     // carries a park mod's name, author, version and description (mod-create:
-    // all four; mod-details: the same after the folder in `argument`). A place,
-    // move or delete with `argument` "no-history" stays out of undo and redo.
+    // all four; mod-details: the same after the folder in `argument`).
     std::string edit_local_park(std::string_view operation,
                                 std::string_view map,
                                 std::uint64_t generation,

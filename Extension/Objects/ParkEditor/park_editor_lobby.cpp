@@ -115,6 +115,8 @@ namespace dingosdk
         e.selection.clear();
         e.probe.reset();
         e.surface = {};
+        e.ground_probe.reset();
+        e.ground = {};
         if (e.transaction && e.transaction->preview && !e.transaction->preview->cancelled)
             cancel_preview(*e.transaction);
     }

@@ -98,7 +98,6 @@ target_link_libraries(dingosdk_game_archives PUBLIC dingosdk_native_db dingosdk_
 
 if(WIN32)
     add_library(dingosdk_mods STATIC
-        Engine/Vfs/mod_asset_filter.cpp
         Engine/Vfs/mod_catalog.cpp
         Engine/Vfs/variant_additions_native.cpp
         Engine/Vfs/mod_merge.cpp
@@ -108,6 +107,11 @@ if(WIN32)
         Engine/Vfs/mod_merge_combine.cpp
         Engine/Vfs/mod_merge_overrides.cpp
         Engine/Vfs/mod_merge_conflicts.cpp
+        Engine/Vfs/mod_merge_layout.cpp
+        Engine/Vfs/mod_merge_left_out.cpp
+        Engine/Vfs/mod_items.cpp
+        Engine/Vfs/mod_vram.cpp
+        Engine/Vfs/mod_merge_scan.cpp
         Engine/Vfs/mod_merge_scan_cache.cpp
         Engine/Vfs/mod_merge_textures.cpp
         Engine/Vfs/mod_merge_grid.cpp

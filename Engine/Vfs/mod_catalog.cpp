@@ -144,11 +144,11 @@ namespace dingosdk::mods
                 return {};
             return fs::path(std::wstring(text.data(), size)) / L"ReSkate" / L"variants.json";
         }
-        // The items left out of each pack (items_left_out), beside the variant choices for the same reason.
-        fs::path items_off_file()
+        // The items left out of each mod (items_left_out), beside the choices of variant for the same reason.
+        fs::path items_left_out_file()
         {
             const auto variants = variants_file();
-            return variants.empty() ? fs::path{} : variants.parent_path() / L"items-off.json";
+            return variants.empty() ? fs::path{} : variants.parent_path() / L"items-left-out.json";
         }
         // An item's key as a choice keeps it: what the game's item Key holds, which is ASCII, in small letters.
         bool item_key_text(std::string_view key)
@@ -157,7 +157,33 @@ namespace dingosdk::mods
                    std::all_of(
                        key.begin(), key.end(), [](char c) { return c > ' ' && c < 0x7f && !(c >= 'A' && c <= 'Z'); });
         }
-        std::mutex items_off_mutex;
+        std::mutex items_left_out_mutex;
+        ItemsLeftOut read_items_left_out()
+        {
+            ItemsLeftOut out;
+            const auto path = items_left_out_file();
+            std::error_code error;
+            if (path.empty() || !fs::is_regular_file(path, error))
+                return out;
+            std::ifstream file(path, std::ios::binary);
+            const std::string text{std::istreambuf_iterator<char>(file), {}};
+            const auto root = Json::parse(text, {8u << 20, 4, 1u << 20});
+            if (!root.is_object())
+                return out;
+            for (const auto &[mod, keys] : root.items())
+            {
+                if (!keys.is_array())
+                    continue;
+                std::set<std::string> chosen;
+                for (const auto &key : keys)
+                    if (key.is_string())
+                        if (auto text_ = ascii_lower(key.string()); item_key_text(text_))
+                            chosen.insert(std::move(text_));
+                if (!chosen.empty())
+                    out[ascii_lower(mod)] = std::move(chosen);
+            }
+            return out;
+        }
         // A variant's name is its folder's: letters, digits, '_' and '-', in small letters.
         bool variant_name(std::string_view name)
         {
@@ -321,38 +347,17 @@ namespace dingosdk::mods
             return false;
         }
     }
-    ItemsOff items_left_out() noexcept
+    ItemsLeftOut items_left_out() noexcept
     {
-        ItemsOff out;
         try
         {
-            std::lock_guard lock(items_off_mutex);
-            const auto path = items_off_file();
-            std::error_code error;
-            if (path.empty() || !fs::is_regular_file(path, error))
-                return out;
-            std::ifstream file(path, std::ios::binary);
-            const std::string text{std::istreambuf_iterator<char>(file), {}};
-            const auto root = Json::parse(text, {8u << 20, 4, 1u << 20});
-            if (!root.is_object())
-                return out;
-            for (const auto &[mod, keys] : root.items())
-            {
-                if (!keys.is_array())
-                    continue;
-                std::set<std::string> chosen;
-                for (std::size_t index = 0; index < keys.size(); ++index)
-                    if (const auto &key = keys.at(index); key.is_string() && item_key_text(ascii_lower(key.string())))
-                        chosen.insert(ascii_lower(key.string()));
-                if (!chosen.empty())
-                    out[ascii_lower(mod)] = std::move(chosen);
-            }
+            std::lock_guard lock(items_left_out_mutex);
+            return read_items_left_out();
         }
         catch (...)
         {
-            out.clear(); // an unreadable file leaves nothing out
+            return {}; // an unreadable file leaves nothing out
         }
-        return out;
     }
     std::set<std::string> items_left_out(std::string_view mod) noexcept
     {
@@ -373,38 +378,50 @@ namespace dingosdk::mods
         {
             if (mod.empty())
                 return false;
-            const auto path = items_off_file();
+            const auto path = items_left_out_file();
             if (path.empty())
                 return false;
-            auto all = items_left_out();
+            std::lock_guard lock(items_left_out_mutex);
+            ItemsLeftOut all;
+            try
+            {
+                all = read_items_left_out();
+            }
+            catch (...)
+            {
+            } // an unreadable file is written again with this choice alone
             std::set<std::string> chosen;
             for (const auto &key : keys)
-                if (item_key_text(ascii_lower(key)))
-                    chosen.insert(ascii_lower(key));
+                if (auto text = ascii_lower(key); item_key_text(text))
+                    chosen.insert(std::move(text));
             if (chosen.empty())
                 all.erase(ascii_lower(mod));
             else
                 all[ascii_lower(mod)] = std::move(chosen);
             auto root = Json::object();
             for (const auto &[owner, left] : all)
-                root[owner] = Json(std::vector<std::string>(left.begin(), left.end()));
-            const auto text = root.dump(1) + '\n';
-            std::lock_guard lock(items_off_mutex);
+            {
+                auto list = Json::array();
+                for (const auto &key : left)
+                    list.push_back(key);
+                root[owner] = std::move(list);
+            }
             std::error_code error;
             fs::create_directories(path.parent_path(), error);
-            // Whole or not at all: the launcher's merge may read it while the game's starts.
-            auto temporary = path;
-            temporary += L".new";
+            // Whole or not at all: the game reads it as it starts, whatever the launcher is doing.
+            auto fresh = path;
+            fresh += L".new";
             {
-                std::ofstream file(temporary, std::ios::binary | std::ios::trunc);
-                file << text;
-                if (!file.flush())
+                std::ofstream file(fresh, std::ios::binary | std::ios::trunc);
+                file << root.dump(1) << '\n';
+                file.flush();
+                if (!file)
                     return false;
             }
-            fs::rename(temporary, path, error);
+            fs::rename(fresh, path, error);
             if (error)
             {
-                fs::remove(temporary, error);
+                fs::remove(fresh, error);
                 return false;
             }
             return true;
@@ -1141,8 +1158,6 @@ namespace dingosdk::mods
             text += "; registers no level";
         if (!mod.provides_layout)
             return text;
-        if (!mod.items_off.empty())
-            text += "; the player leaves " + std::to_string(mod.items_off.size()) + " item(s) out";
         text += mod.problems.empty()
                     ? "; no merge problem recorded"
                     : "; " + std::to_string(mod.problems.size()) + " merge problem(s), see the warning";

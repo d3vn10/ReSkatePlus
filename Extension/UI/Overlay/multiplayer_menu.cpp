@@ -424,10 +424,11 @@ namespace dingosdk::overlay::menu
         menu.multiplayer_session_seen = has_session;
         // A player's tag and item colours are on the Skater page's STYLE tab (skate_menu_skater.cpp).
         menu.multiplayer_tab = std::clamp(menu.multiplayer_tab, 0, multiplayer_outfits_tab);
-        category_tabs(menu,
-                      menu.multiplayer_tab,
-                      {"SERVERS", has_session ? "SESSION" : "HOST", "VOICE", "BANS AND IGNORED", "PLAYERS AND CHAT", "OUTFITS"},
-                      "multiplayer-categories");
+        category_tabs(
+            menu,
+            menu.multiplayer_tab,
+            {"SERVERS", has_session ? "SESSION" : "HOST", "VOICE", "BANS AND IGNORED", "PLAYERS AND CHAT", "OUTFITS"},
+            "multiplayer-categories");
         if (menu.multiplayer_tab != multiplayer_voice_tab)
             menu.voice_bind_capture = 0;
         ImGui::PushID(menu.multiplayer_tab);

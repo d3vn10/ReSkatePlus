@@ -3,7 +3,6 @@
 #include "runtime_internal.h"
 #include "Extension/Customization/developer_hoodie.h"
 #include "Extension/Customization/developer_board.h"
-#include "Extension/Customization/steam_avatar_cards.h"
 #include "Extension/Assets/live_mods.h"
 #include "Extension/Assets/map_download.h"
 #include "Extension/Assets/map_icons.h"
@@ -1098,6 +1097,9 @@ namespace dingosdk::runtime::detail
                         dingosdk::overlay::question_answer(dingosdk::overlay::question_picked());
                     else if (pressed & (0x2000 | 1u << 23))
                         dingosdk::overlay::question_answer(dingosdk::overlay::question_back());
+                    // The plugins asked about one after another: LB or Backspace goes to the one before.
+                    else if (pressed & (0x0100 | 1u << 24))
+                        dingosdk::overlay::question_step_back();
                 }
                 question_before = question_up;
                 // The vote's popup: left and right move the pick, A votes for it, B closes it.
@@ -2144,8 +2146,6 @@ namespace dingosdk::runtime::detail
                 dingosdk::map_icons::tick();
                 dingosdk::texture_handle_limit::tick();
                 dingosdk::report_native_render_resources();
-                // Player cards wearing the "Steam picture" icon show their players' Steam profile pictures.
-                dingosdk::steam_avatar_cards::tick(r.base);
                 // (Whether a menu of the game's is up, the music screen among them: a playlist changed then
                 // is the player's own choice, and one changed in play is a speaker's music being grabbed.)
                 {
