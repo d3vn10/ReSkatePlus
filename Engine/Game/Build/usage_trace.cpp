@@ -64,10 +64,12 @@ namespace dingosdk::game::usage_trace
     {
         try
         {
+            AcquireSRWLockExclusive(&file_lock);
+            const auto event_sequence = InterlockedIncrement64(&sequence);
             std::string line = std::format(
                 "{{\"sequence\":{},\"tick_ms\":{},\"thread_id\":{},\"phase\":\"{}\","
                 "\"symbol\":\"{}\",\"rva\":\"0x{:X}\",\"address\":\"0x{:X}\",\"arguments\":[",
-                InterlockedIncrement64(&sequence),
+                event_sequence,
                 GetTickCount64(),
                 GetCurrentThreadId(),
                 phase,
@@ -85,7 +87,6 @@ namespace dingosdk::game::usage_trace
             append_snapshot(line, "after", after);
             line += std::format(",\"elapsed_ms\":{}}}\n", elapsed_ms);
 
-            AcquireSRWLockExclusive(&file_lock);
             if (trace_file == INVALID_HANDLE_VALUE)
                 trace_file = open_file();
             if (trace_file != INVALID_HANDLE_VALUE)
