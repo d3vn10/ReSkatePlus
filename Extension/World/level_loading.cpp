@@ -476,13 +476,15 @@ namespace dingosdk
             usage_trace::record_call("enter", o.base, level_request_contract.rva,
                                      "client_state_request", arguments, &before, nullptr);
 #endif
+            const auto native_started = GetTickCount64();
             SetLastError(incoming_error);
             o.original_request(client, next);
             const auto outgoing_error = GetLastError();
 #if defined(DINGOSDK_DEV_TOOLS)
             const auto after = usage_snapshot(client);
             usage_trace::record_call("exit", o.base, level_request_contract.rva,
-                                     "client_state_request", arguments, &before, &after);
+                                     "client_state_request", arguments, &before, &after,
+                                     GetTickCount64() - native_started);
 #endif
             SetLastError(outgoing_error);
         }
