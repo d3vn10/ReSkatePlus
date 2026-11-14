@@ -377,7 +377,9 @@ namespace dingosdk
             // try-lock. State 24's native handler can unload assets in this same call.
             if (o.before_transition)
                 o.before_transition(o.base, next);
+#if defined(DINGOSDK_DEV_TOOLS)
             const auto native_started = GetTickCount64();
+#endif
             SetLastError(incoming_error);
             o.original(client, next, previous);
             const auto outgoing_error = GetLastError();
@@ -515,7 +517,9 @@ namespace dingosdk
                                      "connection_disconnect", arguments, nullptr, nullptr);
 #endif
             SetLastError(incoming_error);
+#if defined(DINGOSDK_DEV_TOOLS)
             const auto started = GetTickCount64();
+#endif
             o.original_disconnect(connection, reason);
             const auto outgoing_error = GetLastError();
 #if defined(DINGOSDK_DEV_TOOLS)
