@@ -53,13 +53,6 @@ can only be checked in the game, say so, and say what you did and did not verify
 
 ## Rules
 
-- **One game build, for good.** ReSkate supports exactly one `Skate.exe`, build 20260929 (pins in
-  [supported_build.h](Engine/Game/Build/supported_build.h)). It is not moving to newer Steam builds. Do not
-  add support for another build or code that adapts to one.
-- **No addresses in feature code.** Every game address, offset and patch lives in
-  `Engine/Game/Build/20260929/<area>.h` and is used as `addr::<area>::<name>`. A function that is hooked
-  or patched has a `<name>_prefix` byte array beside it, and the feature checks those bytes before
-  touching it, so wrong bytes are refused rather than patched. Follow an existing header.
 - **Hooks go through [Engine/Core/Hooks](Engine/Core/Hooks/hooks.h)** (Microsoft Detours): `hook_prepare`,
   then `hook_enable`. Hooks installed while the game is running go inside a `HookBatch`. Patches
   Detours does not make go through [patches.h](Engine/Core/Hooks/patches.h) beside it: `patch_table_slot`,
@@ -68,16 +61,6 @@ can only be checked in the game, say so, and say what you did and did not verify
   feature that a plugin could provide. Add the general building block to the SDK and build the feature
   on it as a Luau plugin mod (a mod folder with a `reskate-plugin.json`). The goal is that
   nobody has to send a pull request to the SDK to make a mode or mod.
-- **Plugins are sandboxed; keep them that way.** A new `reskate.*` API goes in
-  `Extension/Plugins/plugin_api*.cpp` behind a permission in `plugin_manifest.cpp`, with tests in
-  `Extension/Plugins/Test/plugin_tests.cpp`, including one showing a plugin without the permission
-  cannot use it. Plugins never get raw
-  game memory, ReSkate's console commands, the microphone or clipboard, or a way to write cosmetics,
-  entitlements or progression.
-- **Nothing that unlocks what the game sells.** Mods and plugin APIs refuse paid store items on purpose.
-  Do not add a way around that.
-- **No EA content in the repository.** No decompiled game code, game binaries or extracted game data.
-  Addresses, byte checks and our own notes about the game are fine.
 - **Third-party code only in `External/`**, pinned, with its hash in `External/manifest.json` and its
   license in [External/README.md](External/README.md). Ask before adding a dependency.
 
