@@ -2061,7 +2061,8 @@ namespace dingosdk::runtime::detail
         const auto tick_start = dingosdk::profiler::now_ns();
         auto &r = runtime();
 #if defined(DINGOSDK_DEV_TOOLS)
-        dingosdk::game::usage_trace::record_hit(r.base, rt::client_tick, "client_tick");
+        const std::array<std::uint64_t, 2> tick_arguments{client, update};
+        dingosdk::game::usage_trace::record_hit(r.base, rt::client_tick, "client_tick", tick_arguments);
 #endif
         dingosdk::poll_level_loading(client);
         dingosdk::camera_tick_enter(client);
