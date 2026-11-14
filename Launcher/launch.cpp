@@ -784,7 +784,9 @@ namespace dingosdk::launcher_app
         if (!fs::is_regular_file(paths.directory / L"Data" / L"layout.toc", error))
             return true;
         const auto build = game_data_build(paths);
-        if (!build.empty() && build != supported_build::game_data_changelist)
+        // An unreadable/missing changelist is not evidence that the data belongs
+        // to the supported executable. Fail closed instead of guessing from file sizes.
+        if (build.empty() || build != supported_build::game_data_changelist)
             return true;
         // The supported build's data with a file missing or cut short: the game crashed on it as it
         // started or loaded (Skate.exe+0x41e0f81, +0x3df03a0, "Truncated CAS block header"; about
