@@ -309,6 +309,7 @@ add_library(dingosdk_runtime SHARED
 # and `capture depth`. The rest are guarded where they are.
 if(DINGOSDK_DEV_TOOLS)
     target_sources(dingosdk_runtime PRIVATE
+        Engine/Game/Build/usage_trace.cpp
         Extension/UI/NativeMenu/native_menu_dump.cpp
         Extension/Rendering/Capture/capture_commands.cpp)
 endif()
