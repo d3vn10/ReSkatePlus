@@ -59,6 +59,9 @@
 #include "Extension/Trainer/trainer.h"
 #include "Extension/World/level_loading.h"
 #include "Extension/World/loading_screen.h"
+#if defined(DINGOSDK_DEV_TOOLS)
+#include "Engine/Game/Build/usage_trace.h"
+#endif
 #include <Windows.h>
 #include <dxgi1_4.h>
 #include <Psapi.h>
@@ -2055,6 +2058,9 @@ namespace dingosdk::runtime::detail
         // The profiler's client update timing: the native update, and ReSkate's own work around it.
         const auto tick_start = dingosdk::profiler::now_ns();
         auto &r = runtime();
+#if defined(DINGOSDK_DEV_TOOLS)
+        dingosdk::game::usage_trace::record_hit(r.base, rt::client_tick, "client_tick");
+#endif
         dingosdk::poll_level_loading(client);
         dingosdk::camera_tick_enter(client);
         struct CameraTickScope
