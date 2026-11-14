@@ -1,6 +1,6 @@
 # Supported-build verification inventory
 
-Audited against `main` at the branch point for `research/rva-usage-telemetry`. This inventory separates whole-build gates from local fingerprint guards. It is not permission to weaken or bypass any check.
+Audited against the current repository source at the time this branch was created; the runtime SHA-256 gate described below is an additional change on this branch. This inventory separates whole-build gates from local fingerprint guards. It is not permission to weaken or bypass any check.
 
 ## Whole-build identity and launch gates
 
@@ -15,7 +15,7 @@ Audited against `main` at the branch point for `research/rva-usage-telemetry`. T
 | `Launcher/launch.cpp::validate_child_image` | After creating Skate.exe suspended, confirms the child image is the same file validated by the launcher, checks loaded AMD64 PE headers and image size, then checks `runtime::client_tick_prefix` and every entry in `runtime::image_checks`. | Refuses injection before ReSkate.dll is loaded if the actual child image does not match the expected code anchors. |
 | `Runtime/runtime_init.cpp::validate_image` | Calls `supported_build::running_image_matches` first (exact on-disk SHA-256 plus main-image/PE-header check), then independently checks DOS/NT headers, AMD64 machine, image size, client-tick prefix, and all `runtime::image_checks`. | ReSkate.dll refuses startup before runtime hooks and feature initialization if the executable hash or loaded-image anchors fail. This explicit runtime hash call is added on this branch so manual/direct DLL loading cannot bypass the launcher's file hash gate. |
 
-## Identity helper whose active call site still needs confirmation
+## Runtime image identity helper
 
 `Engine/Game/Build/image_identity.cpp::image_headers_match` checks loaded PE headers. `running_image_matches` additionally hashes the executable on disk and checks that the supplied base is the process main image. The helper is now called by `Runtime/runtime_init.cpp::validate_image` on this branch, before runtime initialization. It confirms the process main image and hashes the executable on disk against the pinned SHA-256 (cached once per process).
 
