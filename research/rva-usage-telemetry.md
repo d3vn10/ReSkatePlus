@@ -6,7 +6,7 @@ This branch carries a development-only JSONL trace on top of the current ReSkate
 
 | Symbol | RVA in the currently pinned 20260929 address set | Events |
 |---|---:|---|
-| `client_tick` | `0x2E77190` | First hit, then five-second call-count/total summaries |
+| `client_tick` | `0x2E77190` | First hit (client/update pointers), then five-second call-count/total summaries |
 | `client_state_transition` | `0x2E6BF40` | Observer armed, enter, exit; client-state snapshot |
 | `client_state_request` | `0x2E722B0` | Observer armed, enter, exit; client-state snapshot |
 | `connection_disconnect` | `0x2E9F090` | Observer armed, enter, exit; connection and reason arguments |
