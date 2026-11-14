@@ -11,6 +11,9 @@
 #include "Engine/Game/Build/addresses.h"
 #include "Engine/Game/Build/20260929/engine.h"
 #include "Engine/Game/Build/20260929/level_loading.h"
+#if defined(DINGOSDK_DEV_TOOLS)
+#include "Engine/Game/Build/usage_trace.h"
+#endif
 #include "Extension/Assets/map_download.h"
 #include "Extension/Boot/exit_watch.h"
 #include "Engine/Core/Debug/crash_report.h"
@@ -344,6 +347,19 @@ namespace dingosdk
                 return false;
             }
         }
+#if defined(DINGOSDK_DEV_TOOLS)
+        usage_trace::StateSnapshot usage_snapshot(std::uintptr_t client) noexcept
+        {
+            usage_trace::StateSnapshot state{};
+            state.valid = client >= 0x10000 && client <= highest - 0x2a0 &&
+                          read(client + 0xc4, state.client_state) && state.client_state <= 26 &&
+                          read(client + 0xc0, state.game_type) && state.game_type <= 3 &&
+                          read(client + 0x120, state.pending_requests) &&
+                          read(client + 0x298, state.descriptions);
+            return state;
+        }
+#endif
+
         void transition(std::uintptr_t client, std::uint32_t next, std::uint32_t previous)
         {
             const auto incoming_error = GetLastError();
@@ -351,6 +367,12 @@ namespace dingosdk
             const auto started = GetTickCount64();
             // Emit before forwarding so a stuck native handler leaves its stage in the log.
             const bool observed = observe(client, next, previous, started, true);
+#if defined(DINGOSDK_DEV_TOOLS)
+            const usage_trace::StateSnapshot before = usage_snapshot(client);
+            const std::array<std::uint64_t, 3> arguments{client, next, previous};
+            usage_trace::record_call("enter", o.base, level_transition_contract.rva,
+                                     "client_state_transition", arguments, &before, nullptr);
+#endif
             // Lifecycle cleanup must not depend on the logging observer obtaining its
             // try-lock. State 24's native handler can unload assets in this same call.
             if (o.before_transition)
@@ -360,6 +382,11 @@ namespace dingosdk
             o.original(client, next, previous);
             const auto outgoing_error = GetLastError();
             const auto elapsed = GetTickCount64() - native_started;
+#if defined(DINGOSDK_DEV_TOOLS)
+            const usage_trace::StateSnapshot after = usage_snapshot(client);
+            usage_trace::record_call("exit", o.base, level_transition_contract.rva,
+                                     "client_state_transition", arguments, &before, &after, elapsed);
+#endif
             if (observed && elapsed >= 1000)
             {
                 try
@@ -443,8 +470,23 @@ namespace dingosdk
                 {
                 }
             }
+#if defined(DINGOSDK_DEV_TOOLS)
+            const auto before = usage_snapshot(client);
+            const std::array<std::uint64_t, 2> arguments{client, next};
+            usage_trace::record_call("enter", o.base, level_request_contract.rva,
+                                     "client_state_request", arguments, &before, nullptr);
+#endif
+            const auto native_started = GetTickCount64();
             SetLastError(incoming_error);
             o.original_request(client, next);
+            const auto outgoing_error = GetLastError();
+#if defined(DINGOSDK_DEV_TOOLS)
+            const auto after = usage_snapshot(client);
+            usage_trace::record_call("exit", o.base, level_request_contract.rva,
+                                     "client_state_request", arguments, &before, &after,
+                                     GetTickCount64() - native_started);
+#endif
+            SetLastError(outgoing_error);
         }
         void disconnect(std::uintptr_t connection, std::uint32_t reason)
         {
@@ -467,8 +509,21 @@ namespace dingosdk
                 {
                 }
             }
+#if defined(DINGOSDK_DEV_TOOLS)
+            const std::array<std::uint64_t, 2> arguments{connection, reason};
+            usage_trace::record_call("enter", o.base, connection_disconnect_contract.rva,
+                                     "connection_disconnect", arguments, nullptr, nullptr);
+#endif
             SetLastError(incoming_error);
+            const auto started = GetTickCount64();
             o.original_disconnect(connection, reason);
+            const auto outgoing_error = GetLastError();
+#if defined(DINGOSDK_DEV_TOOLS)
+            usage_trace::record_call("exit", o.base, connection_disconnect_contract.rva,
+                                     "connection_disconnect", arguments, nullptr, nullptr,
+                                     GetTickCount64() - started);
+#endif
+            SetLastError(outgoing_error);
         }
         void trace_state_requests()
         {
@@ -491,7 +546,13 @@ namespace dingosdk
             {
                 (void)hook_remove(target);
                 emit(Level::warning, "Native level-exit tracing unavailable: hook could not be enabled.");
+                return;
             }
+#if defined(DINGOSDK_DEV_TOOLS)
+            const std::array<std::uint64_t, 0> no_arguments{};
+            usage_trace::record_call("armed", o.base, level_request_contract.rva,
+                                     "client_state_request_observer", no_arguments, nullptr, nullptr);
+#endif
         }
         void trace_disconnects()
         {
@@ -512,7 +573,13 @@ namespace dingosdk
             {
                 (void)hook_remove(target);
                 emit(Level::warning, "Native disconnect tracing unavailable: hook could not be enabled.");
+                return;
             }
+#if defined(DINGOSDK_DEV_TOOLS)
+            const std::array<std::uint64_t, 0> no_arguments{};
+            usage_trace::record_call("armed", o.base, connection_disconnect_contract.rva,
+                                     "connection_disconnect_observer", no_arguments, nullptr, nullptr);
+#endif
         }
     } // namespace
 
@@ -562,6 +629,11 @@ namespace dingosdk
             }
             o.progress.hint = &level_hint;
             o.active.store(true);
+#if defined(DINGOSDK_DEV_TOOLS)
+            const std::array<std::uint64_t, 0> no_arguments{};
+            usage_trace::record_call("armed", o.base, level_transition_contract.rva,
+                                     "client_state_transition_observer", no_arguments, nullptr, nullptr);
+#endif
             trace_disconnects();
             trace_state_requests();
             watch_for_stuck_loads();
