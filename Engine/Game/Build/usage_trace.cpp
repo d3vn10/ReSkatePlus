@@ -42,7 +42,7 @@ namespace dingosdk::game::usage_trace
                                FILE_APPEND_DATA,
                                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                                nullptr,
-                               OPEN_ALWAYS,
+                               CREATE_ALWAYS,
                                FILE_ATTRIBUTE_NORMAL,
                                nullptr);
         }
