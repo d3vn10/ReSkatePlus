@@ -546,7 +546,13 @@ namespace dingosdk
             {
                 (void)hook_remove(target);
                 emit(Level::warning, "Native level-exit tracing unavailable: hook could not be enabled.");
+                return;
             }
+#if defined(DINGOSDK_DEV_TOOLS)
+            const std::array<std::uint64_t, 0> no_arguments{};
+            usage_trace::record_call("armed", o.base, level_request_contract.rva,
+                                     "client_state_request_observer", no_arguments, nullptr, nullptr);
+#endif
         }
         void trace_disconnects()
         {
@@ -567,7 +573,13 @@ namespace dingosdk
             {
                 (void)hook_remove(target);
                 emit(Level::warning, "Native disconnect tracing unavailable: hook could not be enabled.");
+                return;
             }
+#if defined(DINGOSDK_DEV_TOOLS)
+            const std::array<std::uint64_t, 0> no_arguments{};
+            usage_trace::record_call("armed", o.base, connection_disconnect_contract.rva,
+                                     "connection_disconnect_observer", no_arguments, nullptr, nullptr);
+#endif
         }
     } // namespace
 
@@ -617,6 +629,11 @@ namespace dingosdk
             }
             o.progress.hint = &level_hint;
             o.active.store(true);
+#if defined(DINGOSDK_DEV_TOOLS)
+            const std::array<std::uint64_t, 0> no_arguments{};
+            usage_trace::record_call("armed", o.base, level_transition_contract.rva,
+                                     "client_state_transition_observer", no_arguments, nullptr, nullptr);
+#endif
             trace_disconnects();
             trace_state_requests();
             watch_for_stuck_loads();
