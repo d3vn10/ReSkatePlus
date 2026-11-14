@@ -5,6 +5,7 @@
 #include <Windows.h>
 #include <array>
 #include <cstdio>
+#include <format>
 #include <string>
 
 namespace dingosdk::game::usage_trace
