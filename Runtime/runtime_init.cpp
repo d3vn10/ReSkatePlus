@@ -40,6 +40,7 @@
 #include "Engine/Game/Build/addresses.h"
 #include "Engine/Game/Build/20260929/profiler_labels.h"
 #include "Engine/Game/Build/supported_build.h"
+#include "Engine/Game/Build/image_identity.h"
 #include "Engine/Vfs/mod_catalog.h"
 #include "Extension/Assets/map_download.h"
 #include "Extension/Boot/offline_boot.h"
@@ -112,6 +113,10 @@ namespace dingosdk::runtime::detail
         }
         bool validate_image(std::uintptr_t base)
         {
+            // Repeat the launcher's file check so direct/manual DLL loading cannot bypass
+            // the supported-build identity gate.
+            if (!dingosdk::supported_build::running_image_matches(base))
+                return false;
             IMAGE_DOS_HEADER dos{};
             IMAGE_NT_HEADERS64 nt{};
             if (!read(base, dos) || dos.e_magic != IMAGE_DOS_SIGNATURE || dos.e_lfanew <= 0 ||
