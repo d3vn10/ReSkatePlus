@@ -16,6 +16,19 @@ namespace dingosdk::game::usage_trace
         HANDLE trace_file = INVALID_HANDLE_VALUE;
         volatile LONG64 sequence{};
 
+        struct FileLock
+        {
+            explicit FileLock(SRWLOCK &value) noexcept : lock(value)
+            {
+                AcquireSRWLockExclusive(&lock);
+            }
+            ~FileLock()
+            {
+                ReleaseSRWLockExclusive(&lock);
+            }
+            SRWLOCK &lock;
+        };
+
         HANDLE open_file() noexcept
         {
             std::array<wchar_t, 32768> directory{};
@@ -64,7 +77,7 @@ namespace dingosdk::game::usage_trace
     {
         try
         {
-            AcquireSRWLockExclusive(&file_lock);
+            FileLock lock(file_lock);
             const auto event_sequence = InterlockedIncrement64(&sequence);
             std::string line = std::format(
                 "{{\"sequence\":{},\"tick_ms\":{},\"thread_id\":{},\"phase\":\"{}\","
@@ -94,7 +107,6 @@ namespace dingosdk::game::usage_trace
                 DWORD written{};
                 (void)WriteFile(trace_file, line.data(), static_cast<DWORD>(line.size()), &written, nullptr);
             }
-            ReleaseSRWLockExclusive(&file_lock);
         }
         catch (...)
         {
