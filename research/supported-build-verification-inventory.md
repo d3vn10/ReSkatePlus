@@ -17,6 +17,7 @@ This inventory describes the current source on the `research/rva-usage-telemetry
 | `Launcher/launch.cpp::game_files_supported` | Runs executable and Steam API validation, then validates game data | Launcher refuses unsupported or damaged game folders |
 | `Launcher/launch.cpp::game_data_mismatched` | Requires Data/layout.toc and a readable changelist equal to the pinned changelist; this branch rejects both unknown and mismatched changelists | Prevents an unknown or mixed data build from passing based only on file sizes |
 | `Launcher/launch.cpp::game_data_damage` | Checks manifest-listed Data files for presence, expected size, and cloud-placeholder/offline-only attributes | Rejects incomplete or unavailable game data |
+| `Launcher/launch.cpp::config_matches_build` | Compares updater configuration's Skate SHA-256, Steam app ID, depot ID, and manifest ID against the pinned contract | Checks the build an update configuration describes; installed files are still validated independently |
 | `Launcher/launch.cpp::validate_child_image` | Confirms the suspended child is the same file validated by the launcher; checks loaded AMD64 PE headers, image size, client-tick prefix, and all central image checks | Refuses injection if the created process image does not match |
 | `Runtime/runtime_init.cpp::validate_image` | Calls `supported_build::running_image_matches` before PE/header and central fingerprint checks | Rechecks the executable SHA-256 at runtime so direct/manual DLL loading cannot bypass the launcher gate |
 
