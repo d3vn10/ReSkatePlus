@@ -66,7 +66,10 @@ namespace dingosdk::game::usage_trace
         }
     }
 
-    void record_hit(std::uintptr_t image_base, std::uintptr_t rva, std::string_view symbol) noexcept
+    void record_hit(std::uintptr_t image_base,
+                    std::uintptr_t rva,
+                    std::string_view symbol,
+                    std::span<const std::uint64_t> arguments) noexcept
     {
         static volatile LONG64 first{};
         static volatile LONG64 total_calls{};
@@ -78,7 +81,6 @@ namespace dingosdk::game::usage_trace
         if (InterlockedCompareExchange64(&first, 1, 0) == 0)
         {
             InterlockedExchange64(&next_report, static_cast<LONG64>(now + 5000));
-            const std::array<std::uint64_t, 2> arguments{1, 1};
             record_call("first", image_base, rva, symbol, arguments, nullptr, nullptr);
             return;
         }
