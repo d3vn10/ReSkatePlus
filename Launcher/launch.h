@@ -24,12 +24,11 @@ namespace dingosdk::launcher_app
     // The build number the installed game's data says it is (Data\layout.toc), or empty when
     // there is none or it cannot be read.
     std::string game_data_build(const launcher::SiblingPaths &paths);
-    // Whether the game's data is missing or of another build than the supported one, whatever
-    // Skate.exe is: Steam updated the game under it, a copy of an updated game was put here, or a
-    // download stopped part-way. Such a game has to be verified against the supported build, file
-    // by file, not only topped up. Also true when a file of the supported build's data is missing,
-    // of another size, or kept online only by a cloud folder (game_data_damage). False when the
-    // data's build cannot be told and every file is there.
+    // Whether the game's data is missing, unreadable, or of another build than the supported one,
+    // whatever Skate.exe is. Unknown changelists fail closed; file sizes alone do not establish a
+    // data build. Also true when a supported-build data file is missing, of another size, or kept
+    // online only by a cloud folder (game_data_damage). False only when the exact changelist and
+    // every required file check pass.
     bool game_data_mismatched(const launcher::SiblingPaths &paths);
     // Advice for a PC whose RAM and page file are too small for the game with mods; empty when they
     // are enough.
