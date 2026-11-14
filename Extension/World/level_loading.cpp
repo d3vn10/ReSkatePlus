@@ -347,6 +347,7 @@ namespace dingosdk
                 return false;
             }
         }
+#if defined(DINGOSDK_DEV_TOOLS)
         usage_trace::StateSnapshot usage_snapshot(std::uintptr_t client) noexcept
         {
             usage_trace::StateSnapshot state{};
@@ -357,6 +358,7 @@ namespace dingosdk
                           read(client + 0x298, state.descriptions);
             return state;
         }
+#endif
 
         void transition(std::uintptr_t client, std::uint32_t next, std::uint32_t previous)
         {
@@ -476,11 +478,13 @@ namespace dingosdk
 #endif
             SetLastError(incoming_error);
             o.original_request(client, next);
+            const auto outgoing_error = GetLastError();
 #if defined(DINGOSDK_DEV_TOOLS)
             const auto after = usage_snapshot(client);
             usage_trace::record_call("exit", o.base, level_request_contract.rva,
                                      "client_state_request", arguments, &before, &after);
 #endif
+            SetLastError(outgoing_error);
         }
         void disconnect(std::uintptr_t connection, std::uint32_t reason)
         {
@@ -511,11 +515,13 @@ namespace dingosdk
             SetLastError(incoming_error);
             const auto started = GetTickCount64();
             o.original_disconnect(connection, reason);
+            const auto outgoing_error = GetLastError();
 #if defined(DINGOSDK_DEV_TOOLS)
             usage_trace::record_call("exit", o.base, connection_disconnect_contract.rva,
                                      "connection_disconnect", arguments, nullptr, nullptr,
                                      GetTickCount64() - started);
 #endif
+            SetLastError(outgoing_error);
         }
         void trace_state_requests()
         {
