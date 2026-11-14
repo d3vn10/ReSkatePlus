@@ -24,7 +24,10 @@ namespace dingosdk::game::usage_trace
     // never read or dumped by this facility.
     // Counts hot paths without writing one event per frame. Emits a first-hit event
     // and a five-second interval/total summary.
-    void record_hit(std::uintptr_t image_base, std::uintptr_t rva, std::string_view symbol) noexcept;
+    void record_hit(std::uintptr_t image_base,
+                    std::uintptr_t rva,
+                    std::string_view symbol,
+                    std::span<const std::uint64_t> arguments) noexcept;
 
     void record_call(std::string_view phase,
                      std::uintptr_t image_base,
