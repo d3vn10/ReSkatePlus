@@ -40,4 +40,4 @@ These are local feature guards, not proof of whole-build identity. A full exhaus
 
 ## Telemetry scope
 
-The first development-only tracer records entry/exit for the existing level-transition, level-request, and connection-disconnect hooks. It is a proof of concept for the logging format and selected state snapshots, not yet a complete census of all addresses in the 137 build headers. Direct calls, globals, vtables, layouts, and patch sites need different observation strategies and must be inventoried separately.
+The first development-only tracer records first-hit and five-second frequency summaries for the native client tick, plus entry/exit for the existing level-transition, level-request, and connection-disconnect hooks. It is a proof of concept for the logging format and selected state snapshots, not yet a complete census of all addresses in the 137 build headers. Direct calls, globals, vtables, layouts, and patch sites need different observation strategies and must be inventoried separately.
