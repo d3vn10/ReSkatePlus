@@ -348,9 +348,9 @@ namespace dingosdk
             }
         }
 #if defined(DINGOSDK_DEV_TOOLS)
-        usage_trace::StateSnapshot usage_snapshot(std::uintptr_t client) noexcept
+        game::usage_trace::StateSnapshot usage_snapshot(std::uintptr_t client) noexcept
         {
-            usage_trace::StateSnapshot state{};
+            game::usage_trace::StateSnapshot state{};
             state.valid = client >= 0x10000 && client <= highest - 0x2a0 &&
                           read(client + 0xc4, state.client_state) && state.client_state <= 26 &&
                           read(client + 0xc0, state.game_type) && state.game_type <= 3 &&
@@ -368,9 +368,9 @@ namespace dingosdk
             // Emit before forwarding so a stuck native handler leaves its stage in the log.
             const bool observed = observe(client, next, previous, started, true);
 #if defined(DINGOSDK_DEV_TOOLS)
-            const usage_trace::StateSnapshot before = usage_snapshot(client);
+            const game::usage_trace::StateSnapshot before = usage_snapshot(client);
             const std::array<std::uint64_t, 3> arguments{client, next, previous};
-            usage_trace::record_call("enter", o.base, level_transition_contract.rva,
+            game::usage_trace::record_call("enter", o.base, level_transition_contract.rva,
                                      "client_state_transition", arguments, &before, nullptr);
 #endif
             // Lifecycle cleanup must not depend on the logging observer obtaining its
@@ -383,8 +383,8 @@ namespace dingosdk
             const auto outgoing_error = GetLastError();
             const auto elapsed = GetTickCount64() - native_started;
 #if defined(DINGOSDK_DEV_TOOLS)
-            const usage_trace::StateSnapshot after = usage_snapshot(client);
-            usage_trace::record_call("exit", o.base, level_transition_contract.rva,
+            const game::usage_trace::StateSnapshot after = usage_snapshot(client);
+            game::usage_trace::record_call("exit", o.base, level_transition_contract.rva,
                                      "client_state_transition", arguments, &before, &after, elapsed);
 #endif
             if (observed && elapsed >= 1000)
@@ -473,7 +473,7 @@ namespace dingosdk
 #if defined(DINGOSDK_DEV_TOOLS)
             const auto before = usage_snapshot(client);
             const std::array<std::uint64_t, 2> arguments{client, next};
-            usage_trace::record_call("enter", o.base, level_request_contract.rva,
+            game::usage_trace::record_call("enter", o.base, level_request_contract.rva,
                                      "client_state_request", arguments, &before, nullptr);
 #endif
             const auto native_started = GetTickCount64();
@@ -482,7 +482,7 @@ namespace dingosdk
             const auto outgoing_error = GetLastError();
 #if defined(DINGOSDK_DEV_TOOLS)
             const auto after = usage_snapshot(client);
-            usage_trace::record_call("exit", o.base, level_request_contract.rva,
+            game::usage_trace::record_call("exit", o.base, level_request_contract.rva,
                                      "client_state_request", arguments, &before, &after,
                                      GetTickCount64() - native_started);
 #endif
@@ -511,7 +511,7 @@ namespace dingosdk
             }
 #if defined(DINGOSDK_DEV_TOOLS)
             const std::array<std::uint64_t, 2> arguments{connection, reason};
-            usage_trace::record_call("enter", o.base, connection_disconnect_contract.rva,
+            game::usage_trace::record_call("enter", o.base, connection_disconnect_contract.rva,
                                      "connection_disconnect", arguments, nullptr, nullptr);
 #endif
             SetLastError(incoming_error);
@@ -519,7 +519,7 @@ namespace dingosdk
             o.original_disconnect(connection, reason);
             const auto outgoing_error = GetLastError();
 #if defined(DINGOSDK_DEV_TOOLS)
-            usage_trace::record_call("exit", o.base, connection_disconnect_contract.rva,
+            game::usage_trace::record_call("exit", o.base, connection_disconnect_contract.rva,
                                      "connection_disconnect", arguments, nullptr, nullptr,
                                      GetTickCount64() - started);
 #endif
@@ -550,7 +550,7 @@ namespace dingosdk
             }
 #if defined(DINGOSDK_DEV_TOOLS)
             const std::array<std::uint64_t, 0> no_arguments{};
-            usage_trace::record_call("armed", o.base, level_request_contract.rva,
+            game::usage_trace::record_call("armed", o.base, level_request_contract.rva,
                                      "client_state_request_observer", no_arguments, nullptr, nullptr);
 #endif
         }
@@ -577,7 +577,7 @@ namespace dingosdk
             }
 #if defined(DINGOSDK_DEV_TOOLS)
             const std::array<std::uint64_t, 0> no_arguments{};
-            usage_trace::record_call("armed", o.base, connection_disconnect_contract.rva,
+            game::usage_trace::record_call("armed", o.base, connection_disconnect_contract.rva,
                                      "connection_disconnect_observer", no_arguments, nullptr, nullptr);
 #endif
         }
@@ -631,7 +631,7 @@ namespace dingosdk
             o.active.store(true);
 #if defined(DINGOSDK_DEV_TOOLS)
             const std::array<std::uint64_t, 0> no_arguments{};
-            usage_trace::record_call("armed", o.base, level_transition_contract.rva,
+            game::usage_trace::record_call("armed", o.base, level_transition_contract.rva,
                                      "client_state_transition_observer", no_arguments, nullptr, nullptr);
 #endif
             trace_disconnects();
