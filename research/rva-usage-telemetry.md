@@ -1,6 +1,6 @@
 # RVA usage telemetry (development branch)
 
-This branch adds an opt-in, development-only JSONL trace for selected native calls. It is deliberately separate from `ReSkate.log` and writes `RvaUsage.jsonl` in the launcher's `RESKATE_LOG_DIRECTORY`.
+This branch adds an opt-in, development-only JSONL trace for selected native calls. It is deliberately separate from `ReSkate.log` and creates a fresh `RvaUsage.jsonl` for each launch in the launcher's `RESKATE_LOG_DIRECTORY`.
 
 ## Event meaning
 
