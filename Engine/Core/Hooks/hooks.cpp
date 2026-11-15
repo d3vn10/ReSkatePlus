@@ -11,6 +11,10 @@
 #include <utility>
 #include <vector>
 
+#if defined(DINGOSDK_DEV_TOOLS)
+#include "../../Game/Build/usage_trace.h"
+#endif
+
 namespace dingosdk
 {
     namespace
@@ -220,9 +224,20 @@ namespace dingosdk
                     continue;
                 error = DetourTransactionCommit();
                 if (error != NO_ERROR)
+                {
+#if defined(DINGOSDK_DEV_TOOLS)
+                    for (const auto &change : changes)
+                        trace_hook(change.attach ? "attach_failed" : "detach_failed", *change.hook, error);
+#endif
                     return status(failure("commit transaction", error));
+                }
                 for (const auto &change : changes)
+                {
                     change.hook->attached = change.attach;
+#if defined(DINGOSDK_DEV_TOOLS)
+                    trace_hook(change.attach ? "attached" : "detached", *change.hook, HookOk);
+#endif
+                }
                 return HookOk;
             }
             return HookProtectionFailed;
@@ -246,6 +261,17 @@ namespace dingosdk
             const auto found = r.targets.find(target);
             return found == r.targets.end() ? nullptr : found->second;
         }
+
+#if defined(DINGOSDK_DEV_TOOLS)
+        void trace_hook(const char *action, const Hook &hook, LONG result) noexcept
+        {
+            dingosdk::game::usage_trace::record_lifecycle(
+                "hook", action, "detours",
+                reinterpret_cast<std::uintptr_t>(hook.target),
+                reinterpret_cast<std::uintptr_t>(hook.replacement),
+                0, result);
+        }
+#endif
     } // namespace
 
     HookStatus WINAPI hook_initialize()
