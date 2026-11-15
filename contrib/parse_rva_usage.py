@@ -87,7 +87,11 @@ def summarize(events: list[dict[str, Any]]) -> tuple[int, int, int, list[dict[st
             "address": row["address"],
             # The instrumented observer and target can share an RVA. Count all
             # events at that address in the target's row; keep observer rows too.
-            "calls": events_by_rva[rva],
+            "calls": (
+                row["symbol_events"]
+                if row["symbol"].endswith("_observer")
+                else events_by_rva[rva]
+            ),
             "symbol_events": row["symbol_events"],
         })
 
