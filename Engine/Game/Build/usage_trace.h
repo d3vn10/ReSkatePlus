@@ -2,6 +2,7 @@
 
 #if defined(DINGOSDK_DEV_TOOLS)
 
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <string_view>
@@ -28,6 +29,16 @@ namespace dingosdk::game::usage_trace
                     std::uintptr_t rva,
                     std::string_view symbol,
                     std::span<const std::uint64_t> arguments) noexcept;
+
+    // Records hook/patch lifecycle operations. Addresses are absolute process
+    // addresses; related_address is a replacement/destination when applicable.
+    void record_lifecycle(std::string_view subsystem,
+                          std::string_view action,
+                          std::string_view name,
+                          std::uintptr_t address,
+                          std::uintptr_t related_address,
+                          std::size_t size,
+                          std::int64_t status) noexcept;
 
     void record_call(std::string_view phase,
                      std::uintptr_t image_base,
