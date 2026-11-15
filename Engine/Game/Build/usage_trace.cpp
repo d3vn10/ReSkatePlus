@@ -67,8 +67,8 @@ namespace dingosdk::game::usage_trace
             {
                 switch (ch)
                 {
-                case '"': out += "\""; break;
-                case '\\': out += "\"; break;
+                case '"': out += "\\\""; break;
+                case '\\': out += "\\\\"; break;
                 case '\b': out += "\\b"; break;
                 case '\f': out += "\\f"; break;
                 case '\n': out += "\\n"; break;
