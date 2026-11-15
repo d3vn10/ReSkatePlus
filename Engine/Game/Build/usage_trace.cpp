@@ -68,7 +68,7 @@ namespace dingosdk::game::usage_trace
                 switch (ch)
                 {
                 case '"': out += "\""; break;
-                case '\\': out += "\\"; break;
+                case '\\': out += "\"; break;
                 case '\b': out += "\\b"; break;
                 case '\f': out += "\\f"; break;
                 case '\n': out += "\\n"; break;
@@ -118,7 +118,7 @@ namespace dingosdk::game::usage_trace
         void append_dropped(std::string &line)
         {
             const auto dropped = InterlockedCompareExchange64(&dropped_events, 0, 0);
-            line += std::format(",\\"dropped_before\\":{}", dropped);
+            line += std::format(",\"dropped_before\":{}", dropped);
         }
 
         void append_snapshot(std::string &line, const char *name, const StateSnapshot *snapshot)
@@ -183,19 +183,19 @@ namespace dingosdk::game::usage_trace
             FileLock lock(file_lock);
             const auto event_sequence = InterlockedIncrement64(&sequence);
             std::string line = std::format(
-                "{{\\"sequence\\":{},\\"tick_ms\\":{},\\"thread_id\\":{},\\"type\\":\\"lifecycle\\",\\"subsystem\\":",
+                "{{\"sequence\":{},\"tick_ms\":{},\"thread_id\":{},\"type\":\"lifecycle\",\"subsystem\":",
                 event_sequence, GetTickCount64(), GetCurrentThreadId());
             append_json_string(line, subsystem);
-            line += ",\\"action\\":";
+            line += ",\"action\":";
             append_json_string(line, action);
-            line += ",\\"name\\":";
+            line += ",\"name\":";
             append_json_string(line, name);
             line += std::format(
-                ",\\"address\\":\\"0x{:X}\\",\\"related_address\\":\\"0x{:X}\\","
-                "\\"size\\":{},\\"status\\":{}",
+                ",\"address\":\"0x{:X}\",\"related_address\":\"0x{:X}\","
+                "\"size\":{},\"status\":{}",
                 address, related_address, size, status);
             append_dropped(line);
-            line += "}\\n";
+            line += "}\n";
             write_line(line);
         }
         catch (...)
@@ -218,14 +218,14 @@ namespace dingosdk::game::usage_trace
             FileLock lock(file_lock);
             const auto event_sequence = InterlockedIncrement64(&sequence);
             std::string line = std::format(
-                "{{\\"sequence\\":{},\\"tick_ms\\":{},\\"thread_id\\":{},\\"phase\\":",
+                "{{\"sequence\":{},\"tick_ms\":{},\"thread_id\":{},\"phase\":",
                 event_sequence,
                 GetTickCount64(),
                 GetCurrentThreadId());
             append_json_string(line, phase);
-            line += ",\\"symbol\\":";
+            line += ",\"symbol\":";
             append_json_string(line, symbol);
-            line += std::format(",\\"rva\\":\\"0x{:X}\\",\\"address\\":\\"0x{:X}\\",\\"arguments\\":[",
+            line += std::format(",\"rva\":\"0x{:X}\",\"address\":\"0x{:X}\",\"arguments\":[",
                                 rva, image_base + rva);
             for (std::size_t i = 0; i < arguments.size(); ++i)
             {
@@ -236,9 +236,9 @@ namespace dingosdk::game::usage_trace
             line += ']';
             append_snapshot(line, "before", before);
             append_snapshot(line, "after", after);
-            line += std::format(",\\"elapsed_ms\\":{}", elapsed_ms);
+            line += std::format(",\"elapsed_ms\":{}", elapsed_ms);
             append_dropped(line);
-            line += "}\\n";
+            line += "}\n";
             write_line(line);
         }
         catch (...)
