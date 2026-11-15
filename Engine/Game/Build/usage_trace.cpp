@@ -63,8 +63,9 @@ namespace dingosdk::game::usage_trace
         {
             static constexpr char hex[] = "0123456789ABCDEF";
             out.push_back('"');
-            for (const unsigned char ch : value)
+            for (const char raw : value)
             {
+                const auto ch = static_cast<unsigned char>(raw);
                 switch (ch)
                 {
                 case '"': out += "\\\""; break;
