@@ -253,7 +253,13 @@ namespace dingosdk
         const auto bytes = std::span{jump}.first(expected.size());
         if (!code_jump_bytes(address, destination, bytes))
             return HookOutOfReach;
-        return patch_code(name, address, expected, bytes);
+        const auto result = patch_code(name, address, expected, bytes);
+#if defined(DINGOSDK_DEV_TOOLS)
+        if (result == HookOk)
+            game::usage_trace::record_lifecycle(
+                "patch", "code_jump_destination", name, address, destination, expected.size(), result);
+#endif
+        return result;
     }
     HookStatus patch_code_restore(std::uintptr_t address, std::span<const std::uint8_t> original) noexcept
     {
