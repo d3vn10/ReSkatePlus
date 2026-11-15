@@ -15,6 +15,7 @@ namespace dingosdk::game::usage_trace
         SRWLOCK file_lock = SRWLOCK_INIT;
         HANDLE trace_file = INVALID_HANDLE_VALUE;
         volatile LONG64 sequence{};
+        volatile LONG64 dropped_events{};
 
         struct FileLock
         {
@@ -55,6 +56,67 @@ namespace dingosdk::game::usage_trace
                     return INVALID_HANDLE_VALUE;
             }
             return INVALID_HANDLE_VALUE;
+        }
+
+        void append_json_string(std::string &out, std::string_view value)
+        {
+            static constexpr char hex[] = "0123456789ABCDEF";
+            out.push_back('"');
+            for (const unsigned char ch : value)
+            {
+                switch (ch)
+                {
+                case '"': out += "\\\""; break;
+                case '\\': out += "\\\\"; break;
+                case '\b': out += "\\b"; break;
+                case '\f': out += "\\f"; break;
+                case '\n': out += "\\n"; break;
+                case '\r': out += "\\r"; break;
+                case '\t': out += "\\t"; break;
+                default:
+                    if (ch < 0x20)
+                    {
+                        out += "\\u00";
+                        out.push_back(hex[ch >> 4]);
+                        out.push_back(hex[ch & 0x0f]);
+                    }
+                    else
+                        out.push_back(static_cast<char>(ch));
+                }
+            }
+            out.push_back('"');
+        }
+
+        void write_line(std::string &line) noexcept
+        {
+            if (trace_file == INVALID_HANDLE_VALUE)
+                trace_file = open_file();
+            if (trace_file == INVALID_HANDLE_VALUE)
+            {
+                InterlockedIncrement64(&dropped_events);
+                return;
+            }
+            std::size_t offset{};
+            while (offset < line.size())
+            {
+                DWORD written{};
+                const auto remaining = line.size() - offset;
+                const auto chunk = static_cast<DWORD>(std::min<std::size_t>(remaining, MAXDWORD));
+                if (!WriteFile(trace_file, line.data() + offset, chunk, &written, nullptr) || !written)
+                {
+                    CloseHandle(trace_file);
+                    trace_file = INVALID_HANDLE_VALUE;
+                    InterlockedIncrement64(&dropped_events);
+                    return;
+                }
+                offset += written;
+            }
+        }
+
+        void append_dropped(std::string &line)
+        {
+            const auto dropped = InterlockedExchange64(&dropped_events, 0);
+            line += std::format(",\\"dropped_before\\":{}", dropped);
         }
 
         void append_snapshot(std::string &line, const char *name, const StateSnapshot *snapshot)
@@ -106,6 +168,40 @@ namespace dingosdk::game::usage_trace
         (void)interval;
     }
 
+    void record_lifecycle(std::string_view subsystem,
+                          std::string_view action,
+                          std::string_view name,
+                          std::uintptr_t address,
+                          std::uintptr_t related_address,
+                          std::size_t size,
+                          std::int64_t status) noexcept
+    {
+        try
+        {
+            FileLock lock(file_lock);
+            const auto event_sequence = InterlockedIncrement64(&sequence);
+            std::string line = std::format(
+                "{{\\"sequence\\":{},\\"tick_ms\\":{},\\"thread_id\\":{},\\"type\\":\\"lifecycle\\",\\"subsystem\\":",
+                event_sequence, GetTickCount64(), GetCurrentThreadId());
+            append_json_string(line, subsystem);
+            line += ",\\"action\\":";
+            append_json_string(line, action);
+            line += ",\\"name\\":";
+            append_json_string(line, name);
+            line += std::format(
+                ",\\"address\\":\\"0x{:X}\\",\\"related_address\\":\\"0x{:X}\\","
+                "\\"size\\":{},\\"status\\":{}",
+                address, related_address, size, status);
+            append_dropped(line);
+            line += "}\\n";
+            write_line(line);
+        }
+        catch (...)
+        {
+            InterlockedIncrement64(&dropped_events);
+        }
+    }
+
     void record_call(std::string_view phase,
                      std::uintptr_t image_base,
                      std::uintptr_t rva,
@@ -120,15 +216,15 @@ namespace dingosdk::game::usage_trace
             FileLock lock(file_lock);
             const auto event_sequence = InterlockedIncrement64(&sequence);
             std::string line = std::format(
-                "{{\"sequence\":{},\"tick_ms\":{},\"thread_id\":{},\"phase\":\"{}\","
-                "\"symbol\":\"{}\",\"rva\":\"0x{:X}\",\"address\":\"0x{:X}\",\"arguments\":[",
+                "{{\\"sequence\\":{},\\"tick_ms\\":{},\\"thread_id\\":{},\\"phase\\":",
                 event_sequence,
                 GetTickCount64(),
-                GetCurrentThreadId(),
-                phase,
-                symbol,
-                rva,
-                image_base + rva);
+                GetCurrentThreadId());
+            append_json_string(line, phase);
+            line += ",\\"symbol\\":";
+            append_json_string(line, symbol);
+            line += std::format(",\\"rva\\":\\"0x{:X}\\",\\"address\\":\\"0x{:X}\\",\\"arguments\\":[",
+                                rva, image_base + rva);
             for (std::size_t i = 0; i < arguments.size(); ++i)
             {
                 if (i)
@@ -138,15 +234,10 @@ namespace dingosdk::game::usage_trace
             line += ']';
             append_snapshot(line, "before", before);
             append_snapshot(line, "after", after);
-            line += std::format(",\"elapsed_ms\":{}}}\n", elapsed_ms);
-
-            if (trace_file == INVALID_HANDLE_VALUE)
-                trace_file = open_file();
-            if (trace_file != INVALID_HANDLE_VALUE)
-            {
-                DWORD written{};
-                (void)WriteFile(trace_file, line.data(), static_cast<DWORD>(line.size()), &written, nullptr);
-            }
+            line += std::format(",\\"elapsed_ms\\":{}", elapsed_ms);
+            append_dropped(line);
+            line += "}\\n";
+            write_line(line);
         }
         catch (...)
         {
