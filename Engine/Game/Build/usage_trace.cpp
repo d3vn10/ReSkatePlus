@@ -3,6 +3,7 @@
 #if defined(DINGOSDK_DEV_TOOLS)
 
 #include <Windows.h>
+#include <algorithm>
 #include <array>
 #include <cstdio>
 #include <format>
@@ -66,8 +67,8 @@ namespace dingosdk::game::usage_trace
             {
                 switch (ch)
                 {
-                case '"': out += "\\\""; break;
-                case '\\': out += "\\\\"; break;
+                case '"': out += "\""; break;
+                case '\\': out += "\\"; break;
                 case '\b': out += "\\b"; break;
                 case '\f': out += "\\f"; break;
                 case '\n': out += "\\n"; break;
@@ -111,11 +112,12 @@ namespace dingosdk::game::usage_trace
                 }
                 offset += written;
             }
+            InterlockedExchange64(&dropped_events, 0);
         }
 
         void append_dropped(std::string &line)
         {
-            const auto dropped = InterlockedExchange64(&dropped_events, 0);
+            const auto dropped = InterlockedCompareExchange64(&dropped_events, 0, 0);
             line += std::format(",\\"dropped_before\\":{}", dropped);
         }
 
