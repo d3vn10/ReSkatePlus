@@ -176,6 +176,9 @@ namespace dingosdk
             Hook *hook;
             bool attach;
         };
+#if defined(DINGOSDK_DEV_TOOLS)
+        void trace_hook(const char *action, const Hook &hook, LONG result) noexcept;
+#endif
         HookStatus transact(const std::vector<Change> &changes)
         {
             if (changes.empty())
