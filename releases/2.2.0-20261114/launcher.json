@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "launcher": {
+    "version": "2.2.0-20261114",
+    "url": "asset:ReSkateLauncher.exe",
+    "sha256": "45ec55f0f7bfddd138263edeacfb32e9e4c07abf53b40dec9ea90f0cf360454e",
+    "size": 6966784
+  },
+  "runtime": {
+    "version": "2.2.0-20261114",
+    "url": "asset:ReSkate.dll",
+    "sha256": "ae400d1f1013d1c3730f44a863bee699676ac3ee9748ddfe149921c5c9650b91",
+    "size": 61596160
+  },
+  "game": {
+    "app_id": 3354750,
+    "depot_id": 3354751,
+    "manifest_id": "4621099302092747785",
+    "build_id": "25414733",
+    "skate_sha256": "fbce74d5e28ef525dbba2cb4adbebc13405bdbd88f31bc940bca45e4ae88b8f9"
+  },
+  "depot_downloader": {
+    "version": "3.4.0",
+    "url": "https://github.com/SteamRE/DepotDownloader/releases/download/DepotDownloader_3.4.0/DepotDownloader-windows-x64.zip",
+    "sha256": "41c9e9f0df54b3ad02e67a11726756e5c73283bd7c2e1b04acfa5ae4c2ed3767",
+    "size": 33474005
+  }
+}
