@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Print a complete console report for ReSkatePlus RvaUsage JSONL telemetry."""
+"""Print a summary of ReSkatePlus RvaUsage JSONL telemetry."""
 
 from __future__ import annotations
 
@@ -147,18 +147,12 @@ def format_report(path: Path, events: list[dict[str, Any]]) -> str:
                 f"{row['calls']}"
             )
 
-    # Do not discard unfamiliar or non-symbol records. Emit every input event,
-    # in original order, with every field intact (including lifecycle details).
-    output.extend(["", f"COMPLETE EVENT LOG ({len(events)} records; original order)"])
-    for event in events:
-        output.append(json.dumps(event, ensure_ascii=False, separators=(",", ":")))
-
     return "\n".join(output)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Print a complete summary and every event from an RvaUsage JSONL file."
+        description="Print an event summary and function-symbol table from an RvaUsage JSONL file."
     )
     parser.add_argument("file", type=Path, help="Path to RvaUsageN.json")
     args = parser.parse_args()
