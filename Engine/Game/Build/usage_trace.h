@@ -20,7 +20,7 @@ namespace dingosdk::game::usage_trace
         bool valid{};
     };
 
-    // Writes one JSONL event to RvaUsage.jsonl in RESKATE_LOG_DIRECTORY.
+    // Writes JSON Lines events to a unique RvaUsageN.json file in RESKATE_LOG_DIRECTORY.
     // Arguments are recorded as scalar/pointer values only; pointed-to memory is
     // never read or dumped by this facility.
     // Counts hot paths without writing one event per frame. Emits a first-hit event
