@@ -89,9 +89,9 @@ namespace dingosdk::game::usage_trace
             InterlockedCompareExchange64(&next_report, static_cast<LONG64>(now + 5000), due) == due)
         {
             const auto count = InterlockedExchange64(&interval_calls, 0);
-            const std::array<std::uint64_t, 2> arguments{
+            const std::array<std::uint64_t, 2> summary_arguments{
                 static_cast<std::uint64_t>(count), static_cast<std::uint64_t>(total)};
-            record_call("summary", image_base, rva, symbol, arguments, nullptr, nullptr, 5000);
+            record_call("summary", image_base, rva, symbol, summary_arguments, nullptr, nullptr, 5000);
         }
         (void)interval;
     }
