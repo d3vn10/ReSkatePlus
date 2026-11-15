@@ -29,7 +29,8 @@ analysis/raw/**/*.res
 # Local research and extended documentation are not shipped.
 /analysis/
 /docs/
-/release
+/release/
+/releases/
 
 # Plugin mods are kept on this machine, out of the repository.
 /contrib/plugins/
