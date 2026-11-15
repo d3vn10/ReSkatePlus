@@ -36,15 +36,25 @@ namespace dingosdk::game::usage_trace
                 L"RESKATE_LOG_DIRECTORY", directory.data(), static_cast<DWORD>(directory.size()));
             if (!length || length >= directory.size())
                 return INVALID_HANDLE_VALUE;
-            std::wstring path(directory.data(), length);
-            path += L"\\RvaUsage.jsonl";
-            return CreateFileW(path.c_str(),
-                               FILE_APPEND_DATA,
-                               FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                               nullptr,
-                               CREATE_ALWAYS,
-                               FILE_ATTRIBUTE_NORMAL,
-                               nullptr);
+            const std::wstring directory_path(directory.data(), length);
+            for (std::uint64_t index = 1; index != 0; ++index)
+            {
+                const auto path = directory_path + L"\\RvaUsage" + std::to_wstring(index) + L".json";
+                const auto file = CreateFileW(path.c_str(),
+                                              FILE_APPEND_DATA,
+                                              FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                              nullptr,
+                                              CREATE_NEW,
+                                              FILE_ATTRIBUTE_NORMAL,
+                                              nullptr);
+                if (file != INVALID_HANDLE_VALUE)
+                    return file;
+
+                const auto error = GetLastError();
+                if (error != ERROR_FILE_EXISTS && error != ERROR_ALREADY_EXISTS)
+                    return INVALID_HANDLE_VALUE;
+            }
+            return INVALID_HANDLE_VALUE;
         }
 
         void append_snapshot(std::string &line, const char *name, const StateSnapshot *snapshot)
