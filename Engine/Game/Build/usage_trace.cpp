@@ -174,6 +174,7 @@ namespace dingosdk::game::usage_trace
                           std::size_t size,
                           std::int64_t status) noexcept
     {
+        const auto incoming_error = GetLastError();
         try
         {
             FileLock lock(file_lock);
@@ -198,6 +199,7 @@ namespace dingosdk::game::usage_trace
         {
             InterlockedIncrement64(&dropped_events);
         }
+        SetLastError(incoming_error);
     }
 
     void record_call(std::string_view phase,
@@ -209,6 +211,7 @@ namespace dingosdk::game::usage_trace
                      const StateSnapshot *after,
                      std::uint64_t elapsed_ms) noexcept
     {
+        const auto incoming_error = GetLastError();
         try
         {
             FileLock lock(file_lock);
@@ -240,6 +243,7 @@ namespace dingosdk::game::usage_trace
         catch (...)
         {
         }
+        SetLastError(incoming_error);
     }
 }
 
