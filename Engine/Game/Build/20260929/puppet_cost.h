@@ -1,6 +1,7 @@
 #pragma once
 #include "Engine/Game/Build/fingerprint.h"
 #include <cstdint>
+#include "puppet_cost_rvas.h"
 
 // Native per-frame work that remote multiplayer puppets can skip or defer
 // (Extension/Multiplayer/Remote/puppet_cost.cpp).
@@ -9,29 +10,22 @@ namespace dingosdk::game::build::v20260929::puppet_cost {
 // PreSim, PostSim, PostFrame, PreInput, PreFrame, PreAnimation, PostAnimation") and are
 // called at +0x138..+0x168 with (component, const UpdateInfo*). UpdateInfo is 0x20 bytes:
 // +0 command buffer, +8 float dt (group time scale applied), +0xc float raw dt.
-inline constexpr std::uintptr_t update_info_size = 0x20;
-inline constexpr std::uintptr_t update_info_dt = 8;
-inline constexpr std::uintptr_t presim_handler_slot = 0x138;
-inline constexpr std::uintptr_t postsim_handler_slot = 0x140;
 
 // DelMarNavigatorComponent PreSim (vtable navigator_vtable + 0x138, shared with one other
 // navigator class). Refreshes the actor's crowd-avoidance agent through 0x36d2190.
 inline constexpr Fingerprint navigator_update{0x36d1e60, {
     0x48,0x89,0x5c,0x24,0x08,0x57,0x48,0x83,0xec,0x20,0x48,0x8b,0xd9,0x48,0x8b,0xfa,
     0x48,0x8b,0x49,0x08,0x48,0x8b,0x01,0xff,0x50,0x30,0x85,0xc0,0x74,0x38,0x48,0x8b}};
-inline constexpr std::uintptr_t navigator_vtable = 0x6078f30;
 // StimBroadcastComponent PreSim (vtable stim_vtable + 0x138, shared with one other class):
 // if dt > 0, broadcasts AI stimuli through 0x328e140(component + 0x40, dt).
 inline constexpr Fingerprint stim_update{0x328f9a0, {
     0xc5,0xfa,0x10,0x4a,0x08,0xc5,0xf8,0x57,0xc0,0xc5,0xf8,0x2f,0xc8,0x76,0x09,0x48,
     0x83,0xc1,0x40,0xe9,0x88,0xe7,0xff,0xff,0xc3,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc}};
-inline constexpr std::uintptr_t stim_vtable = 0x6438908;
 // PedestrianColliderComponent PostSim (vtable collider_vtable + 0x140): velocity from the
 // position change over dt, then moves its pedestrian-crowd collider.
 inline constexpr Fingerprint collider_update{0x32ad350, {
     0x48,0x89,0x5c,0x24,0x18,0x57,0x48,0x83,0xec,0x30,0xc5,0xfa,0x10,0x4a,0x08,0xc5,
     0xf8,0x57,0xc0,0xc5,0xf8,0x2e,0xc8,0x48,0x8b,0xfa,0x48,0x8b,0xd9,0x7a,0x06,0x0f}};
-inline constexpr std::uintptr_t collider_vtable = 0x6439560;
 // SkaterEcsInteropComponent PreSim (vtable ecs_vtable + 0x138). While component + 0x79 is
 // clear (its pass test at vtable +0x100 is "+0x79 == 0") it queues command 0xf977b0, which
 // retries the ECS prefab attach 0x105cfc0. It never completes on a remote actor, so the
@@ -39,7 +33,6 @@ inline constexpr std::uintptr_t collider_vtable = 0x6439560;
 inline constexpr Fingerprint ecs_update{0xf97760, {
     0x40,0x53,0x48,0x83,0xec,0x20,0x80,0x79,0x79,0x00,0x48,0x8b,0xc2,0x48,0x8b,0xd9,
     0x75,0x2f,0x48,0x8b,0x08,0xba,0x10,0x00,0x00,0x00,0xe8,0x81,0xca,0x91,0x00,0x48}};
-inline constexpr std::uintptr_t ecs_vtable = 0x61712b8;
 
 
 // AntDrivenComponent (blueprint ClientIndex 4). Its init (vtable +0xe8 = 0x2c37af0) registers
@@ -49,14 +42,6 @@ inline constexpr std::uintptr_t ecs_vtable = 0x61712b8;
 // update 0x2c3eee0 reads a joint of the rig's pose buffer (rig + 0xd0, through 0x12e08d0) and
 // re-places the entity with entity vtable +0x158 every frame. Its deinit (vtable +0xc0 =
 // 0x2c37870) unregisters with manager vtable +0x38 (manager_unregister).
-inline constexpr std::uintptr_t ant_driven_vtable = 0x63aaee8;
-inline constexpr std::uintptr_t ant_driven_hooks_vtable = 0x63aae90;
-inline constexpr std::uintptr_t ant_driven_item = 0x50;
-inline constexpr std::uintptr_t ant_driven_manager = 0x58;
-inline constexpr std::uintptr_t ant_driven_animatable = 0x68;
-inline constexpr std::uintptr_t manager_hooks = 0x40;
-inline constexpr std::uintptr_t manager_hooks_storage = 0x98;
-inline constexpr std::uintptr_t manager_kind = 0x90;
 inline constexpr std::uint32_t ant_driven_kind = 6;
 // Generic manager vtable +0x30 register(manager, item, uint16 interval) and +0x38
 // unregister(manager, item). Both queue the change and ignore duplicates.
