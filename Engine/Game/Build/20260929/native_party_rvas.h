@@ -56,4 +56,16 @@ inline constexpr std::uintptr_t in_group = 0x849d70;           // () -> bool
 inline constexpr std::uintptr_t player_group_status = 0x775ee0; // (const u64* eaid, GameGroupStatus* out, bool* found)
 inline constexpr std::uintptr_t voice_unavailable = 0x848e60;
 
+inline constexpr std::uintptr_t result_make = 0x83de30;
+inline constexpr std::uintptr_t delegate_invoke = 0x58b1d60;
+inline constexpr std::uintptr_t null_handle = 0x3dc5bd0;
+inline constexpr std::uintptr_t request_accept_invite = 0x842cd0;
+inline constexpr std::uintptr_t delegate_invoke_text = 0x58b1cf0;
+inline constexpr std::uintptr_t current_context = 0x18b6ae0;
+inline constexpr std::uintptr_t event_dispatcher = 0x4b257a0;
+inline constexpr std::uintptr_t event_post = 0x4b30ab0;
+inline constexpr std::uintptr_t group_join_event = 0x720ef80;
+inline constexpr std::uintptr_t group_leave_event = 0x720efe8;
+inline constexpr std::uintptr_t leader_changed_event = 0x720f048;
+inline constexpr std::uintptr_t game_invite_event = 0x720f210;
 }
