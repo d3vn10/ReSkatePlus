@@ -3,6 +3,7 @@
 #include "physics_bodies.h"
 #include <array>
 #include <cstdint>
+#include "rigid_bodies_rvas.h"
 
 // Native rigid-body operations and the body/shape layout of the supported game build, for
 // Extension/World/owned_bodies.cpp. Callers still qualify their own world and body and compare
@@ -44,7 +45,6 @@ inline constexpr std::uintptr_t allocated_bits = 0x9c8, dynamic_bits = 0xa08;
 // that shape through F98; 0x25d7e00 checks its allocation bit and byte generation in this state.
 inline constexpr std::uintptr_t shape_allocated_bits = 0xf58, shape_body_indices = 0xf98, shape_generations = 0xff8;
 // 0x25d7b10 compares a body's u32 generation in the world, not its state.
-inline constexpr std::uintptr_t world_body_generations = 0x680;
 inline constexpr std::uintptr_t shape_categories = 0xfe8, shape_collides = 0xff0;
 // A shape's owner slot is physics_bodies::body_owner_offset, indexed by the shape. A slot of
 // FFFFFFFF has no owner: set_shape_owner stores the owner's u32 index there, -1 for none, and
@@ -55,7 +55,6 @@ inline constexpr std::uint32_t unassigned_shape_owner = 0xffffffffU;
 // The SDK never calls it. Its bytes qualify the store_offset/shape_categories
 // layout that guarded reads use for the optional in_categories hit field; a
 // mismatch disables that field only.
-inline constexpr std::uintptr_t shape_in_categories_rva = 0x25d55d0;
 inline constexpr std::array<unsigned char, 32> shape_in_categories_prefix{
     0x48,0x8b,0x01,0x44,0x8b,0x41,0x08,0x48,0x8b,0x48,0x28,0x48,0x8b,0x81,0xe8,0x0f,
     0x00,0x00,0x42,0x8b,0x0c,0x80,0x48,0x8b,0xc2,0x89,0x0a,0xc3,0xcc,0xcc,0xcc,0xcc};
@@ -70,9 +69,7 @@ inline constexpr std::uintptr_t player_entity = 0xb8, player_handle = 0xb0;
 inline constexpr std::uintptr_t entity_context = 0x20, entity_player = 0xf8, entity_teleport = 0x7e0;
 inline constexpr std::uintptr_t entity_collection = 0x70, entity_component = 0x628;
 // The local player's handle points this far into its skater entity, at a secondary subobject.
-inline constexpr std::uintptr_t entity_handle_target = 8;
 inline constexpr std::uintptr_t component_collection = 0x18, component_core = 0x70;
 inline constexpr std::uintptr_t core_context = 0x3c0, core_rig = 0x438, rig_core = 0x4630;
-inline constexpr std::uintptr_t context_seconds = 0x17ec;
 inline constexpr std::uint32_t safe_categories = 0, safe_world_collisions = 0x101;
 } // namespace dingosdk::game::build::v20260929::rigid_bodies
