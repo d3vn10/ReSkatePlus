@@ -7,6 +7,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include "physics_world_size_rvas.h"
 #include <span>
 
 namespace dingosdk::game::build::v20260929::physics_world_size {
@@ -68,5 +69,4 @@ inline constexpr std::size_t fixed_partition_count = 0x3c;
 inline constexpr std::size_t persistent_spatial_index_count = 0xa0;
 
 // fb::FBPhysicsWorld creation: (void* world, Descriptor* descriptor).
-inline constexpr std::uintptr_t create_rva = 0x02606ff0;
 } // namespace dingosdk::game::build::v20260929::physics_world_size
