@@ -26,7 +26,6 @@ namespace dingosdk::game::build::v20260929::local_placements {
 // forced solid +0x3c, a "decide now" byte +0x3d, ghost +0x3e, shown +0x3f. 0x7b33e0 decides one
 // record again: void (store*, record*). The rules it follows are the build kit settings
 // (0x18d6ef0(*0x7482ce0, 0x723a510)): nothing is decided while their +0x8f byte is clear.
-inline constexpr std::uintptr_t thread_context = 0x18b6ae0, object_ghost_decide = 0x7b33e0;
 // A realm's context by its id: void* (context* out, u32 realm). ReSkate's placement updates run
 // in the local server's context, so the client's store is reached through the client realm.
 // Setting the store's +0xfb byte has the client decide every record again on its next update.
@@ -36,7 +35,6 @@ inline constexpr std::uintptr_t thread_context = 0x18b6ae0, object_ghost_decide 
 inline constexpr std::array<unsigned char, 16> realm_context_prefix{
     0x89,0x54,0x24,0x10,0x53,0x48,0x83,0xec,0x30,0x4c,0x8b,0x05,0xe8,0xb7,0x70,0x05};
 inline constexpr std::uint32_t client_realm = 0xbf0f9789, server_realm = 0x98be5555;
-inline constexpr std::uintptr_t settings_lookup = 0x18d6ef0, settings_manager = 0x7482ce0, build_kit_settings = 0x723a510;
 inline constexpr std::array<unsigned char, 16> object_ghost_prefix{
     0x48,0x89,0x6c,0x24,0x20,0x56,0x48,0x83,0xec,0x20,0x48,0x8b,0xf1,0x0f,0xb6,0xea};
 // Expression native 0xcba97fb7: bool (const u64* entity), whether the placed object that entity
@@ -45,7 +43,6 @@ inline constexpr std::array<unsigned char, 16> object_ghost_prefix{
 // any entity of it: void (u64 out[2], u64 entity, bool); out[0] is the object's own entity.
 // object_component: void (const u64 object[2], u64 out[]); out[1] is set and out[2] is the
 // placed-object component when the object has one.
-inline constexpr std::uintptr_t object_owned = 0x7ad210, object_root = 0x6fdb00, object_component = 0x46aa70;
 // Expression native 0x0b092a7b: bool (const u64 *const *entities), an array of placed objects'
 // entities (count in the u32 before its first element, top bit apart). Whether all of them may
 // be edited now; the owner is not part of it. The object card's script (flow_buildkit
