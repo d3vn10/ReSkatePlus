@@ -2,25 +2,19 @@
 #include "engine.h"
 #include <array>
 #include <cstdint>
-
+#include "runtime_rvas.h"
 namespace dingosdk::game::build::v20260929::runtime {
 // Client game update (client vtable tick) hooked by the runtime controller.
-inline constexpr std::uintptr_t client_tick = 0x2e77190;
 inline constexpr std::array<unsigned char, 17> client_tick_prefix{
     0x40,0x53,0x57,0x41,0x55,0x41,0x56,0x48,0x83,0xec,0x38,0x8b,0x81,0xc4,0,0,0};
 // Main-menu expression hooked to catch session failures.
-inline constexpr std::uintptr_t menu_expression = 0x2d39900;
 inline constexpr std::array<unsigned char, 25> menu_expression_prefix{
     0x40,0x53,0x55,0x56,0x57,0x48,0x83,0xec,0x38,0x80,0x79,0x28,0x00,
     0x49,0x8b,0xd9,0x49,0x8b,0x30,0x48,0x8b,0xf9,0x48,0x8b,0x2a};
 
 // LevelDescription constructor and destructor.
-inline constexpr std::uintptr_t level_description_init = 0x5c6dcd0;
-inline constexpr std::uintptr_t level_description_destroy = 0x50ddf0;
 // Returns whether a level asset loads through a local hosted server.
-inline constexpr std::uintptr_t hosted_level_selector = 0x2f60fe0;
 // Client vtable +0x70: submits a local level request.
-inline constexpr std::uintptr_t local_level_request = 0x2e72bb0;
 
 // Code checked before the runtime controller starts.
 struct ImageCheck { std::uintptr_t rva; std::array<unsigned char, 15> bytes; };
@@ -33,12 +27,7 @@ inline constexpr ImageCheck image_checks[]{
 };
 
 // Pointer to the loaded-sublevel list object, its vtable and its listener vtable (+0x40).
-inline constexpr std::uintptr_t sublevel_list = 0x75c26f8;
-inline constexpr std::uintptr_t sublevel_list_vtable = 0x63e1e70;
-inline constexpr std::uintptr_t sublevel_listener_vtable = 0x63e1f40;
 // Type record whose uint16 variant offsets (+0x20, +0x50, +0x68, +0x80) the
 // level description copy relies on.
-inline constexpr std::uintptr_t level_description_layout = 0x83a2180;
 // uint32 offset of the message bus in a game context.
-inline constexpr std::uintptr_t context_message_bus_offset = 0x7482e18;
 }
