@@ -13,7 +13,6 @@ namespace dingosdk::game::build::v20260929::placement_adapters {
 // (controller, const entity list*, bool keep, bool cancel, bool force) ends it, committing unless
 // cancel. pose(float out[12], const query*) -> out reads an entity's transform (scale, rotation,
 // position), as the selection does to start from an object's pose.
-inline constexpr std::uintptr_t select = 0x7bdb20, finish = 0x7c1710, pose = 0x287ac10;
 inline constexpr std::array<unsigned char, 16> select_prefix{0x4c, 0x8b, 0xdc, 0x55, 0x53, 0x57, 0x49, 0x8d,
                                                              0xab, 0x18, 0xfe, 0xff, 0xff, 0x48, 0x81, 0xec};
 inline constexpr std::array<unsigned char, 16> finish_prefix{0x4c, 0x8b, 0xdc, 0x55, 0x53, 0x57, 0x49, 0x8d,
@@ -32,8 +31,6 @@ inline constexpr std::array<unsigned char, 16> pose_prefix{0x48, 0x89, 0x5c, 0x2
 // (registry, const float bounds[8], out) -> bool: gathers edges overlapping a box, bounds being its min
 // (floats 0-2) and max (floats 4-6). chain(const u64 identity[2], {const Edge*, u32 count}* out) ->
 // bool: the whole chain an edge belongs to.
-inline constexpr std::uintptr_t friction = 0x4811800, point_velocity = 0x25d7060, shape_body = 0x25d3cb0, edges = 0x47e2350,
-                                edge_query = 0x47e0e10, chain = 0x47e61d0;
 inline constexpr std::array<unsigned char, 16> friction_prefix{0x48, 0x8b, 0xc4, 0x48, 0x89, 0x58, 0x10, 0x57,
                                                                0x48, 0x81, 0xec, 0xc0, 0x00, 0x00, 0x00, 0x48};
 inline constexpr std::array<unsigned char, 16> point_velocity_prefix{0x48, 0x89, 0x5c, 0x24, 0x08, 0x48, 0x89, 0x7c,
@@ -58,8 +55,7 @@ inline constexpr std::uint32_t root_dynamic_restriction = 0x800;
 // (the edges cache's first pointer) has its flags (context_flags; disabled_query set means it gathers
 // nothing) and position; the gather box is that position +/- query_half, a global vec3 that is
 // (1.2, 1.2, 1.2) in this build. shape_generations is a world state's byte array of shape generations.
-inline constexpr std::uintptr_t edge_data = 0x10, shape_generations = 0xff8, context_flags = 0x13cc, context_position = 0x70,
-                                query_half = 0x65e7540;
+inline constexpr std::uintptr_t edge_data = 0x10, shape_generations = 0xff8, context_flags = 0x13cc, context_position = 0x70;
 inline constexpr std::uint32_t disabled_query = 0x400000;
 // A grind's skater context pointer (grind + grind_context).
 // A skater's board (core + skater_board, skater_movement.h) has its physics object (board_physics,
