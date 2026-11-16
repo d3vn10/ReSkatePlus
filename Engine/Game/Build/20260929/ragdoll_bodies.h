@@ -38,4 +38,8 @@ inline constexpr Fingerprint handle_valid{0x25d7b10, {
 // 23 times in a row, then confirmed in a bail: a spin set through handle 8 turned the right upper arm (body 9), 17 the
 // left thigh, 21 the right thigh, 1 the neck. The entry after the 23rd is empty (slot 0xffffffff).
 inline constexpr std::size_t rig_handle_count = 23;
+inline constexpr std::uintptr_t system_generations_offset = 0x680; // system: uint32 per slot
+inline constexpr std::uintptr_t board_handles_offset = 0x718;
+inline constexpr std::uintptr_t rig_handles_offset = 0x6f8; // core
+
 }
