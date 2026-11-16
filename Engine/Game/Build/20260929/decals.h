@@ -1,4 +1,6 @@
 #pragma once
+#include <cstdint>
+#include "decals_rvas.h"
 #include "Engine/Game/Build/fingerprint.h"
 #include <utility>
 namespace dingosdk::game::build::v20260929::decals {
@@ -6,23 +8,11 @@ namespace dingosdk::game::build::v20260929::decals {
 // Native EnvironmentDecalVolume factory 0x199f740 and service constructor 0x198f450.
 inline constexpr std::uintptr_t manager=0x749b1d8, manager_vtable=0x6289f70;
 inline constexpr std::uintptr_t manager_realm = 0x70, realm_update_queue = 0x400;
-inline constexpr std::uintptr_t create=0x1987220;
-inline constexpr std::uintptr_t release=0x19862f0;
-inline constexpr std::uintptr_t properties_init=0x5b09bb0;
-inline constexpr std::uintptr_t settings_init=0x5b09c70;
-inline constexpr std::uintptr_t reference_assign=0x3dd1d70;
-inline constexpr std::uintptr_t reference_release=0x3dc5e90;
-inline constexpr std::uintptr_t manager_create=0x1991bf0;
-inline constexpr std::uintptr_t manager_release=0x19925c0;
-inline constexpr std::uintptr_t resource_release=0x48a9f80;
-inline constexpr std::uintptr_t current_context=0x18b6ae0;
 // Service vtable +0x20: (manager, owned decal id, Properties*). This merges
 // flagged fields into the realm's queued properties; it is not the +0x30
 // time setter. Properties +0x60 is opacity, selected by flag 4 at +0x70.
-inline constexpr std::uintptr_t update_properties=0x19939a0;
 // Service vtable +0x40 forwards the owned decal's resource and a 64-byte
 // world matrix to resource transform setter 0x48c2e50.
-inline constexpr std::uintptr_t update_transform=0x1993590;
 // Properties merge 0x5b0a460 selects receiver mask +0x6c with flag 0x2000.
 inline constexpr std::array<Fingerprint,3> surface_contracts{{
     {0x1993590, {0x48,0x89,0x5c,0x24,0x08,0x48,0x89,0x74,0x24,0x10,0x57,0x48,0x83,0xec,0x20,0x4c,0x8d,0x91,0xc8,0x00,0x00,0x00,0x48,0xbb,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0x7f}},
