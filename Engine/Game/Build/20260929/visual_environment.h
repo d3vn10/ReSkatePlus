@@ -1,4 +1,6 @@
 #pragma once
+#include <cstdint>
+#include "visual_environment_rvas.h"
 #include "Engine/Game/Build/fingerprint.h"
 namespace dingosdk::game::build::v20260929::visual_environment {
 inline constexpr std::array<Fingerprint, 2> visual_environment_sites{{
@@ -6,10 +8,7 @@ inline constexpr std::array<Fingerprint, 2> visual_environment_sites{{
     {0x52ced50, {0x48,0x89,0x5c,0x24,0x08,0x57,0x48,0x83,0xec,0x20,0x48,0x8d,0x05,0x37,0xbf,0x50,0x01,0x48,0x8b,0xd9,0x48,0x89,0x01,0x8b,0xfa,0x48,0x8d,0x05,0x78,0xc0,0x50,0x01}},
 }};
 // VisualEnvironment entity vtable and the TypeInfo of its data.
-inline constexpr std::uintptr_t entity_vtable = 0x67dac98;
-inline constexpr std::uintptr_t entity_data_type = 0x78c6c48;
 // TypeInfo of the owner's tagged reference data, selected the same way as
 // native 28fc000.
-inline constexpr std::uintptr_t reference_data_type = 0x78c6df8;
 
 }
