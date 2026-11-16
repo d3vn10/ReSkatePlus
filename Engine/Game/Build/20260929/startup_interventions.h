@@ -12,4 +12,11 @@ inline constexpr std::array<std::uint8_t, 8> frame_fingerprint{
 inline constexpr std::uint64_t frame_count = 0xdaf400c0;
 inline constexpr std::array<std::uint8_t, 6> exit_instruction{
     0xff, 0x25, 0x7f, 0x43, 0x5e, 0xfd};
+inline constexpr std::uintptr_t frame_size = 0xc0;
+inline constexpr std::uintptr_t frame_stack_offset = 0xb70;
+inline constexpr std::uintptr_t frame_vm_offset = 0xb40;
+inline constexpr std::uintptr_t frame_saved_registers_offset = 0x1b0;
+inline constexpr std::uintptr_t frame_cursor_offset = 0xd8;
+inline constexpr std::uintptr_t exit_stack_offset = 0x128;
+
 }
