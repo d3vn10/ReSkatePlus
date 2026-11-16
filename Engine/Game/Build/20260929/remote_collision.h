@@ -1,6 +1,7 @@
 #pragma once
 #include "Engine/Game/Build/fingerprint.h"
 #include <cstdint>
+#include "remote_collision_rvas.h"
 
 // Collision capsules for other players (Extension/Multiplayer/Remote/remote_collision.cpp).
 // The engine's physics is EA FBPhysics: bodies and shapes are 16-byte handles
@@ -10,7 +11,6 @@
 namespace dingosdk::game::build::v20260929::remote_collision {
 // The client physics world: world(*(game_context_global)); what skater physics creation
 // (0xf8d730) uses. Null while no level physics exists.
-inline constexpr std::uintptr_t game_context_global = 0x73c7cb0;
 inline constexpr Fingerprint physics_world{0x3d2e920, {
     0x48,0x83,0xec,0x28,0x48,0x85,0xc9,0x74,0x41,0x8b,0x05,0x61,0x3b,0x29,0x03,0x83,
     0x3c,0x08,0x03,0x74,0x35,0x48,0x89,0x4c,0x24,0x30,0x48,0x8d,0x4c,0x24,0x30,0xe8}};
@@ -92,5 +92,4 @@ inline constexpr float proxy_radius = 0.5f, proxy_bottom = 0.15f, proxy_top = 1.
 // Local skater: the physics core (skater component +0x70, no_bail::bail_core_vtable) keeps
 // the game's party-collision switch at +0x40e1 (0x102aad0; "Enable Party Collision" AND
 // DingoAdvanceSettings.PlayerVsPlayerCollisionEnabled).
-inline constexpr std::uintptr_t core_party_collision = 0x40e1;
 } // namespace dingosdk::game::build::v20260929::remote_collision
