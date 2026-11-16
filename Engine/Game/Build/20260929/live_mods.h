@@ -2,6 +2,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include "live_mods_rvas.h"
 
 namespace dingosdk::game::build::v20260929::live_mods {
 template<std::size_t N> consteval auto hex_bytes(const char (&hex)[N]) {
@@ -22,11 +23,8 @@ template<std::size_t N> consteval auto hex_bytes(const char (&hex)[N]) {
 // does at launch; find(registry, name, prefixed) looks one up by name; attach
 // (superbundle, 0, install chunk, 1) lists it under an install chunk, which is
 // what lets its bundles be located. All run under the layout manager's lock.
-inline constexpr std::uintptr_t register_superbundle = 0x41de0e0;
 inline constexpr auto register_superbundle_prefix = hex_bytes("48895c241048897424185557415441564157488bec4883ec");
-inline constexpr std::uintptr_t find_superbundle = 0x41e5cb0;
 inline constexpr auto find_superbundle_prefix = hex_bytes("48895c24184889742420574881ecd0000000");
-inline constexpr std::uintptr_t attach_superbundle = 0x41dfb70;
 inline constexpr auto attach_superbundle_prefix = hex_bytes("48895c242056574155415641574883ec30488b4120488bf1");
 
 // Object layout.
@@ -53,7 +51,6 @@ inline constexpr std::uintptr_t toc_file_size = 0x30;
 inline constexpr std::size_t toc_header = 0x22c;
 // Converts a TOC's data from the file's big-endian words to native order, in
 // place (data = file + toc_header); the loader runs it on every TOC it mounts.
-inline constexpr std::uintptr_t prepare_toc = 0x41f8ed0;
 inline constexpr auto prepare_toc_prefix = hex_bytes("4883ec28c5fa6f01c5fa6f15");
 
 // The root level's LevelDescriptionAsset, loaded from globals at launch only. Its
