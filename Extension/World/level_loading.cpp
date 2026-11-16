@@ -375,9 +375,7 @@ namespace dingosdk
             // try-lock. State 24's native handler can unload assets in this same call.
             if (o.before_transition)
                 o.before_transition(o.base, next);
-#if defined(DINGOSDK_DEV_TOOLS)
             const auto native_started = GetTickCount64();
-#endif
             SetLastError(incoming_error);
             o.original(client, next, previous);
             const auto outgoing_error = GetLastError();
@@ -481,8 +479,8 @@ namespace dingosdk
             const std::array<std::uint64_t, 2> arguments{client, next};
             game::usage_trace::record_call(
                 "enter", o.base, level_request_contract.rva, "client_state_request", arguments, &before, nullptr);
-#endif
             const auto native_started = GetTickCount64();
+#endif
             SetLastError(incoming_error);
             o.original_request(client, next);
             const auto outgoing_error = GetLastError();

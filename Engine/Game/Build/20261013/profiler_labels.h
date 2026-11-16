@@ -1,0 +1,25 @@
+#pragma once
+#include "Engine/Game/Build/fingerprint.h"
+#include <cstdint>
+#include "profiler_labels_rvas.h"
+// Engine functions the profiler's stack sampler names in its report (Engine/Core/Profiling,
+// labelled in Runtime/runtime_init.cpp). Anything else shows as its Ghidra address; name more in
+// ReSkate.labels.tsv next to Skate.exe without rebuilding.
+namespace dingosdk::game::build::v20260929::profiler_labels {
+// The client game update ReSkate's tick hooks (runtime::client_tick).
+// The client frame job: names its end job "clientEndJob", runs the frame's update passes
+// (0x4b3c750; ReSkate's tick is called from one of them) and returns when the frame is done.
+// Runtime/frame_timing.cpp times it as the client frame. Once per client frame.
+
+// The expression VM's entry points: scripts, UI and gameplay graphs (profile.h contracts).
+// The main-menu expression evaluator (runtime::menu_expression).
+// Job system. The run loop pops and runs jobs until a condition holds: a worker's main loop, and
+// a thread waiting on other jobs runs them meanwhile ("help while waiting"). Execute runs one
+// job's function (job + 0x00); idle wait is where a worker with nothing to do blocks.
+// The "GameSimulationLoop" thread's entry (started by 0x463f790).
+// A job worker's main loop, and the two pops it polls with (scheduler list walk, queue pop):
+// where idle workers spin (job_system.h has the spin budget).
+// Named jobs (by the name each is created with) that lead an all-threads profile in free roam.
+// Input: the per-frame dispatch, and the UI pointer update under it, which hit-tests the mouse
+// through every input-enabled UI view's widget tree each client frame (0x4323f50 per view).
+}
