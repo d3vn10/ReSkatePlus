@@ -361,7 +361,13 @@ namespace dingosdk::world_entities
         {
             // No lock held: the shared destroy hook calls entity_destroyed back.
             if (ptr(l.entity, 0x20) == l.context && ptr(l.entity, 0x40) == l.owner)
+            {
+#if defined(DINGOSDK_DEV_TOOLS)
+                const std::array<std::uint64_t, 2> arguments{l.entity, l.owner};
+                trace_native_call(base, e::destroy_entity, "skater_entities::destroy_entity", arguments);
+#endif
                 reinterpret_cast<void (*)(std::uintptr_t, std::uintptr_t)>(base + e::destroy_entity)(l.entity, l.owner);
+            }
         }
         void destroy_all(std::uintptr_t base)
         {
