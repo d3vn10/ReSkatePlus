@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include "skater_render_rvas.h"
 
 namespace dingosdk::game::build::v20260929::skater_render {
 // Supported SHA-256 fbce74d5e28ef525dbba2cb4adbebc13405bdbd88f31bc940bca45e4ae88b8f9.
@@ -20,26 +21,14 @@ namespace dingosdk::game::build::v20260929::skater_render {
 inline constexpr Fingerprint draw_packet_contract{0x48db8e0, {
     0x4c,0x8b,0xdc,0x55,0x56,0x57,0x48,0x81,0xec,0x80,0x00,0x00,0x00,0x48,0x8b,0x41,
     0x28,0x48,0x8b,0xf2,0x48,0x8b,0xf9,0x48,0x8b,0x68,0x40,0x48,0x85,0xed,0x0f,0x84}};
-inline constexpr std::uintptr_t render_object_vtable = 0x65f2910;
-inline constexpr std::uintptr_t render_index_offset = 0x108; // render object, uint32
-inline constexpr std::uintptr_t render_object_lock_offset = 0x104; // render object, uint32: set while packing
-inline constexpr std::uintptr_t packet_actor_offset = 0x00;     // float[16], copied from object+0x50
-inline constexpr std::uintptr_t packet_bones_offset = 0x80;     // pointer to float[12] per bone (object+0xe0)
-inline constexpr std::uintptr_t packet_bone_count_offset = 0x88; // uint32 (object+0xf8)
-inline constexpr std::uintptr_t packet_root_offset = 0x90;      // pointer to float[4] (object+0xd8)
-inline constexpr std::uintptr_t packet_relative_offset = 0x98;  // byte (object+0xfe)
-inline constexpr std::uintptr_t packet_visible_offset = 0x99;   // byte (object+0xff)
 
 // Which render object is the local skater's: the skater entity keeps a render handle for riding
 // and one for walking (entity+0x4d0, 8 bytes apart; each mode its own render object). A handle
 // names a record in a manager's paged pool (handle - 2 is its index; index + 16 has its highest
 // bit at page + 4, the pages from pool+8 on), checked in each manager's own lookup: the first
 // record keeps the second manager's handle at +0x40, the second the render index + 2 at +0x0c.
-inline constexpr std::uintptr_t entity_render_handles_offset = 0x4d0; // skater entity, uint32 x 2
 inline constexpr std::size_t render_modes = 2;
-inline constexpr std::uintptr_t entity_render_handle_stride = 8;
 inline constexpr std::uint32_t first_handle = 2;
-inline constexpr std::uintptr_t manager_pool_offset = 0xc8;
 struct RenderManager {
     std::uintptr_t global; // the manager's pointer
     std::uintptr_t vtable;
@@ -69,9 +58,6 @@ inline constexpr Fingerprint render_view_contract{0x3f8b2b0, {
     0x48,0x8b,0xc4,0x53,0x56,0x57,0x41,0x55,0x41,0x56,0x41,0x57,0x48,0x81,0xec,0x88,
     0x0c,0x00,0x00,0xc5,0xf8,0x29,0x70,0xb8,0xc5,0xf8,0x29,0x78,0xa8,0xc5,0x78,0x29}};
 inline constexpr std::size_t view_size = 0x140;
-inline constexpr std::uintptr_t view_camera_offset = 0x40;  // float[16]
-inline constexpr std::uintptr_t view_fov_offset = 0x104;    // float, radians
-inline constexpr std::uintptr_t view_kind_back = 0x38;      // uint32, before the view
 inline constexpr std::uint32_t main_view_kind = 0;
 
 inline constexpr std::array<Fingerprint, 4> contracts{draw_packet_contract, first_lookup_contract,
