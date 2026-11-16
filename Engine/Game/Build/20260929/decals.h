@@ -6,7 +6,6 @@
 namespace dingosdk::game::build::v20260929::decals {
 // Steam build 25414733; executable SHA256 fbce74d5e28ef525dbba2cb4adbebc13405bdbd88f31bc940bca45e4ae88b8f9.
 // Native EnvironmentDecalVolume factory 0x199f740 and service constructor 0x198f450.
-inline constexpr std::uintptr_t manager=0x749b1d8, manager_vtable=0x6289f70;
 inline constexpr std::uintptr_t manager_realm = 0x70, realm_update_queue = 0x400;
 // Service vtable +0x20: (manager, owned decal id, Properties*). This merges
 // flagged fields into the realm's queued properties; it is not the +0x30
