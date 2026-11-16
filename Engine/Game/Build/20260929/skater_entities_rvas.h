@@ -6,13 +6,9 @@
 namespace dingosdk::game::build::v20260929::skater_entities {
 inline constexpr std::uintptr_t blueprint_type = 0x7586ce8;
 inline constexpr std::uintptr_t object_blueprint_type = 0x75043a8;
-inline constexpr std::uintptr_t object_data_offset = 0x80;            // blueprint
 inline constexpr std::uintptr_t object_data_vtable = 0x64062a0;
-inline constexpr std::uintptr_t object_data_mesh_offset = 0xd8;       // object data -> mesh asset
 inline constexpr std::uintptr_t mesh_asset_vtable = 0x64e6f30;
-inline constexpr std::uintptr_t mesh_asset_loaded_offset = 0x70;      // mesh asset -> loaded mesh
 inline constexpr std::uintptr_t loaded_mesh_vtable = 0x64f2ba8;
-inline constexpr std::uintptr_t loaded_mesh_bounds_offset = 0x28;     // loaded mesh -> {min, max}
 inline constexpr std::uintptr_t source_apply_appearance = 0x511d20;
 inline constexpr std::uintptr_t descriptor_init = 0x2e90d90;
 inline constexpr std::uintptr_t descriptor_destroy = 0x4ca880;
