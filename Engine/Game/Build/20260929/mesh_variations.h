@@ -2,6 +2,7 @@
 #include "Engine/Game/Build/fingerprint.h"
 #include <array>
 #include <cstdint>
+#include "mesh_variations_rvas.h"
 
 // The game's mesh variation databases (Extension/World/mesh_unload_guard.cpp).
 namespace dingosdk::game::build::v20260929::mesh_variations {
@@ -15,10 +16,8 @@ inline constexpr Fingerprint remove_databases{0x3f5fbc0, {
 // The read of the mesh's name hash (mov edx, [rax + 0xc8]), with no check that the entry still
 // has its mesh: an access violation reading 0xc8 when the mesh was unloaded before its
 // database (crash reports of 2026-10-08 to 2026-10-11, always on leaving one custom map).
-inline constexpr std::uintptr_t mesh_hash_read = 0x3f5fc52;
 inline constexpr std::array<unsigned char, 6> mesh_hash_read_bytes{0x8b, 0x90, 0xc8, 0x00, 0x00, 0x00};
 // The step to the next entry (add rbx, 0x30), after the call that takes one out: where an entry
 // without a mesh goes on from.
-inline constexpr std::uintptr_t next_entry = 0x3f5fc67;
 inline constexpr std::array<unsigned char, 4> next_entry_bytes{0x48, 0x83, 0xc3, 0x30};
 }
