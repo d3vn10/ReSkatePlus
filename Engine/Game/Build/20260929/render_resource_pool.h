@@ -7,6 +7,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include "render_resource_pool_rvas.h"
 #include <span>
 
 namespace dingosdk::game::build::v20260929::render_resource_pool {
@@ -92,7 +93,6 @@ inline constexpr std::ptrdiff_t metadata_end_offset = 0x11aae30;
 inline constexpr std::ptrdiff_t resource_state_vector_offset = 0x2da920;
 inline constexpr std::ptrdiff_t relation_mask_vector_offset = 0x114ab60;
 
-inline constexpr std::uintptr_t constructor_rva = 0x03e7f300;
 // The constructor is the base of two renderers. Only the one constructed here
 // (vtable 0x64f2c10, 0x11ab080 bytes) has the resource-state and relation-mask
 // vectors: every read of owner+0x2da920 and owner+0x114ab60 is in its code. The
@@ -102,10 +102,6 @@ inline constexpr std::uintptr_t constructor_rva = 0x03e7f300;
 // (0x03e94fe6, called from 0x30d8ebb) read its pointers at +0x11aae28/+0x11aae30.
 // The other renderer was allocated 0x2daa00 bytes, which ends before them, so it
 // is allocated the state owner's 0x11ab080 instead (other_renderer_size, above).
-inline constexpr std::uintptr_t state_owner_call_rva = 0x03f33a46;
-inline constexpr std::uintptr_t index_table_constructor_rva = 0x03e7e400;
-inline constexpr std::uintptr_t resource_flags_priority_rva = 0x03f56073;
-inline constexpr std::uintptr_t resource_flags_visibility_rva = 0x03f5789a;
 inline constexpr Patch patches[]{
     // The other renderer's allocation, large enough for the metadata pointers.
     {0x030c64cc, other_renderer_size_before, other_renderer_size_after},
