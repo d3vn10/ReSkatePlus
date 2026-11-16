@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <cstdint>
+#include "unload_guard_rvas.h"
 
 // Level unload crash guard. A job run while a level unloads walks each unloading object's table
 // of 0x30-byte entries and reads a number at +0xc8 of the asset each entry points to
@@ -10,7 +11,6 @@
 // straight after the `and`, the two moves the jump displaced follow it, and the loop's jump
 // back is retargeted to the new start. Everything from the read on is where it was.
 namespace dingosdk::game::build::v20260929::unload_guard {
-inline constexpr std::uintptr_t rva = 0x3f5fc3e;
 inline constexpr std::array<unsigned char, 50> contract{
     0x66,0x90,                               // nop
     0x48,0x8b,0x43,0x08,                     // loop: mov rax,[rbx+8]
