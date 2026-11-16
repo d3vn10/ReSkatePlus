@@ -61,7 +61,9 @@ namespace dingosdk::runtime::detail
                                               image,
                                               rt::level_description_init,
                                               "level_description_init",
-                                              arguments);
+                                              arguments,
+                                              nullptr,
+                                              nullptr);
 #endif
                 reinterpret_cast<DescriptionInit>(image + rt::level_description_init)(bytes.data());
             }
@@ -73,7 +75,9 @@ namespace dingosdk::runtime::detail
                                               image,
                                               rt::level_description_destroy,
                                               "level_description_destroy",
-                                              arguments);
+                                              arguments,
+                                              nullptr,
+                                              nullptr);
 #endif
                 destroy(bytes.data());
             }
@@ -88,7 +92,9 @@ namespace dingosdk::runtime::detail
                                           base,
                                           engine::string_assign,
                                           "engine::string_assign",
-                                          arguments);
+                                          arguments,
+                                          nullptr,
+                                          nullptr);
             assign(destination, source, length);
         };
 #else
@@ -114,7 +120,9 @@ namespace dingosdk::runtime::detail
                                       base,
                                       rt::local_level_request,
                                       "local_level_request",
-                                      request_arguments);
+                                      request_arguments,
+                                      nullptr,
+                                      nullptr);
 #endif
         reinterpret_cast<LocalRequest>(base + rt::local_level_request)(client, description.bytes.data(), nullptr, 0);
     }
