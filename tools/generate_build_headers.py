@@ -94,8 +94,8 @@ def build_mapping(
 def replace_raw_fingerprint_rvas(text, header_name, mapping, stats):
     # Keep numeric fingerprint entries in sync with the sweep's fingerprint_N naming.
     pattern = re.compile(
-        r"(?P<open>\\{\\s*)(?P<address>0[xX][0-9a-fA-F]+|[A-Za-z_]\\w*)"
-        r"(?P<rest>\\s*,\\s*\\{(?P<bytes>[^{}]*)\\}\\s*\\})",
+        r"(?P<open>\{\s*)(?P<address>0[xX][0-9a-fA-F]+|[A-Za-z_]\w*)"
+        r"(?P<rest>\s*,\s*\{(?P<bytes>[^{}]*)\}\s*\})",
         re.S,
     )
     index = 0
@@ -107,8 +107,8 @@ def replace_raw_fingerprint_rvas(text, header_name, mapping, stats):
         if not address.lower().startswith("0x"):
             return match.group(0)
         byte_text = match.group("bytes")
-        tokens = re.findall(r"0[xX][0-9a-fA-F]+|\\b\\d+\\b", byte_text)
-        residue = re.sub(r"0[xX][0-9a-fA-F]+|\\b\\d+\\b|[\\s,]", "", byte_text)
+        tokens = re.findall(r"0[xX][0-9a-fA-F]+|\b\d+\b", byte_text)
+        residue = re.sub(r"0[xX][0-9a-fA-F]+|\b\d+\b|[\s,]", "", byte_text)
         if residue or not tokens:
             return match.group(0)
         values = [int(t, 16) if t.lower().startswith("0x") else int(t) for t in tokens]
