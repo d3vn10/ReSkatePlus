@@ -2036,14 +2036,15 @@ namespace dingosdk::runtime::detail
             selected.flags[0] = selected_level->level_flag68;
             const auto hosted_selector = reinterpret_cast<HostedSelector>(r.base + rt::hosted_level_selector);
 #if defined(DINGOSDK_DEV_TOOLS)
-            static dingosdk::game::usage_trace::HitCounter hosted_selector_usage_counter;
             const std::array<std::uint64_t, 1> hosted_arguments{
                 reinterpret_cast<std::uintptr_t>(request->asset.c_str())};
-            dingosdk::game::usage_trace::record_hit(hosted_selector_usage_counter,
-                                                    r.base,
-                                                    rt::hosted_level_selector,
-                                                    "hosted_level_selector",
-                                                    hosted_arguments);
+            dingosdk::game::usage_trace::record_call("call",
+                                                     r.base,
+                                                     rt::hosted_level_selector,
+                                                     "hosted_level_selector",
+                                                     hosted_arguments,
+                                                     nullptr,
+                                                     nullptr);
 #endif
             const bool hosted = hosted_selector(request->asset.c_str());
             activity_line(dingosdk::ConsoleSource::level,
