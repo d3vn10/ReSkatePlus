@@ -1,11 +1,12 @@
 #pragma once
+#include <cstdint>
+#include "effects_rvas.h"
 #include "Engine/Game/Build/fingerprint.h"
 
 namespace dingosdk::game::build::v20260929::effects {
 // Supported Skate.exe SHA-256 fbce74d5e28ef525dbba2cb4adbebc13405bdbd88f31bc940bca45e4ae88b8f9.
 // EffectEntity::onStart (29d0b40) and the skater VFX factory (486e720)
 // construct the same 0x100-byte descriptor and own an 8-byte effect reference.
-inline constexpr std::uintptr_t service=0x74deb20;
 // Asset+8 is its TypeInfo; *TypeInfo is the record whose first word is the
 // generated type identity, not native_name_hash(class name). Confirmed on the
 // loaded private assets and in records 0x80c7870 / 0x8090360 of the pinned image.
@@ -14,7 +15,6 @@ inline constexpr std::uintptr_t client_world = 0x8, asset_type = 0x8;
 // 2990dd0 copies the blueprint's u16 compartment at +0x16 into the effect
 // descriptor. Looking up a name in Game can also return an asset inherited
 // from a parent registry, so check the returned asset's own compartment too.
-inline constexpr std::uintptr_t asset_compartment = 0x16;
 inline constexpr std::uint16_t resident_compartment = 5;
 // Loaded by Level::startLoadLevelResources (4649bf0) for the whole level.
 // A resident declaration preserves merge additions; it does not load or pin a
@@ -35,5 +35,4 @@ inline constexpr Fingerprint stop{0x299b5e0,{0x44,0x0f,0xb6,0xc2,0x48,0x8b,0x11,
 inline constexpr Fingerprint release{0x29915a0,{0x40,0x53,0x48,0x83,0xec,0x20,0x48,0x8b,0x11,0x48,0x8b,0xd9,0x48,0x85,0xd2,0x74,0x14,0x48,0x8b,0x0d,0x68,0xd5,0xb4,0x04,0x48,0x8b,0x01,0xff,0x50,0x20,0x48,0xc7}};
 inline constexpr std::size_t descriptor_size = 0x100, descriptor_flags = 0xc0;
 inline constexpr std::uint32_t descriptor_flags_value = 0x20;
-inline constexpr std::array<std::uintptr_t, 4> service_methods{0x10, 0x20, 0x28, 0x30};
 }
