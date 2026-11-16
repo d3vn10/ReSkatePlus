@@ -1,4 +1,5 @@
 #pragma once
+#include "20260929/rvas.h"
 // Game addresses for the supported Skate.exe build, one header per area in
 // Engine/Game/Build/<build>/. Features include the area headers they use and refer to
 // values as addr::<area>::<name>. Supporting a new game build means adding a
