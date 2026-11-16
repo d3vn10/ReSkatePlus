@@ -10,4 +10,7 @@ inline constexpr std::uintptr_t query_manager_load = 0x473e312;
 inline constexpr std::uintptr_t foot_gravity = 0x4834a95;
 inline constexpr std::uintptr_t foot_speed_cap = 0x65e8238;
 
+inline constexpr std::uintptr_t grind_pop_call = 0x482f646;
+inline constexpr std::uintptr_t ollie_call = 0x4824f7f;
+inline constexpr std::uintptr_t boneless_call = 0x47691f8;
 }
