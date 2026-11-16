@@ -1,4 +1,6 @@
 #pragma once
+#include <cstdint>
+#include "graphics_controls_rvas.h"
 #include "Engine/Game/Build/fingerprint.h"
 #include "engine.h"
 
@@ -13,17 +15,9 @@ inline constexpr std::array<Fingerprint, 5> graphics_sites{{
     {0x5e2d60, {0x48,0x89,0x5c,0x24,0x18,0x48,0x89,0x74,0x24,0x20,0x55,0x57,0x41,0x56,0x48,0x8d,0x6c,0x24,0xb9,0x48,0x81,0xec,0xd0,0x00,0x00,0x00,0x48,0x8b,0x01,0x48,0x8b,0xf1}},
 }};
 // DingoVideoFilterRenderPass and its module; the pass caches the video effect mask.
-inline constexpr std::uintptr_t video_filter_pass_vtable = 0x60ca0d8;
-inline constexpr std::uintptr_t video_filter_module_vtable = 0x60ca020;
 // Filmic component vtable (destructor at +8, property setter at +0x18) and its data TypeInfo.
-inline constexpr std::uintptr_t filmic_vtable = 0x67d57f8;
-inline constexpr std::uintptr_t filmic_data_type = 0x78c6968;
 // GlobalPostProcessSettings TypeInfo. The native renderer settings service
 // (3bc72f0) caches PostProcess copies by its DdcDirtyVersion.
-inline constexpr std::uintptr_t post_process_settings_type = 0x76f54e8;
 // GlobalPostProcessSettings reflected field records.
-inline constexpr std::uintptr_t film_grain_enable_field = 0x8407cb8;
-inline constexpr std::uintptr_t vignette_enable_field = 0x8407b80;
-inline constexpr std::uintptr_t ddc_dirty_version_field = 0x8408720;
 
 }
