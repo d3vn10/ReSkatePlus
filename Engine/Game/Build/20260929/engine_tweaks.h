@@ -100,4 +100,22 @@ inline constexpr std::array<unsigned char, 6> server_step_reader_lock_patch{
     0x0f,0x1f,0x40,0x00};                    // 4-byte nop
 static_assert(static_cast<signed char>(server_step_reader_lock_patch[1]) ==
               0 - static_cast<int>(server_step_reader_lock_patch_offset + 2));
+inline constexpr std::uintptr_t mesh_cull_tree_enabled = 0x95d;
+inline constexpr std::uintptr_t job_scheduler_immediate = 0x271;
+inline constexpr std::uintptr_t job_scheduler_queue = 0x10;
+inline constexpr std::uintptr_t job_scheduler_inline = 0x2c0;
+inline constexpr std::uintptr_t job_scheduler_waiters = 0x2a8;
+inline constexpr std::uintptr_t job_link = 0x40;
+inline constexpr std::uintptr_t worker_stride = 0x178;
+inline constexpr std::uintptr_t worker_state = 0x5c;
+inline constexpr std::uintptr_t tls_worker = 0x6c8;
+inline constexpr std::uintptr_t sleep_timer_handle = 0x8;
+inline constexpr std::uintptr_t sleep_abort = 0x10;
+inline constexpr std::uintptr_t section_list_begin = 0x128;
+inline constexpr std::uintptr_t section_list_end = 0x130;
+inline constexpr std::uintptr_t section_dirty = 0x18;            // dword
+inline constexpr std::uintptr_t section_list_dirty = 0x1c;       // word
+inline constexpr std::uintptr_t task_queue_runner_exit_patch_offset = 16;
+inline constexpr std::uintptr_t server_step_reader_lock_patch_offset = 22;
+
 }
