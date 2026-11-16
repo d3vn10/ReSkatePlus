@@ -4,6 +4,7 @@
 #include "remote_collision.h"
 #include <array>
 #include <cstdint>
+#include "park_editor_rvas.h"
 
 namespace dingosdk::game::build::v20260929::park_editor {
 // The calls native dropper movement (0x7c63f0) uses to update an existing
@@ -19,7 +20,6 @@ inline constexpr std::array<Fingerprint, 3> movement_contracts{
       {0x48, 0x8b, 0xc4, 0x53, 0x57, 0x41, 0x55, 0x41, 0x56, 0x48, 0x81, 0xec, 0x18, 0x01, 0x00, 0x00,
        0xc5, 0xf8, 0x10, 0x01, 0xc5, 0xfb, 0x10, 0x49, 0x10, 0x49, 0x8b, 0xd8, 0x48, 0x8b, 0xf9, 0x4c}}}};
 // Source argument for the native transform setter's change notification.
-inline constexpr std::uintptr_t transform_notification_source = 0x74d5868;
 
 // Native Build Kit color override scope: query (constructor), finish (destructor)
 // and the settings manager lookup.
