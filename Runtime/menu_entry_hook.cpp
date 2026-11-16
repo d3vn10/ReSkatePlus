@@ -23,16 +23,6 @@ namespace dingosdk::runtime::detail
                              std::uintptr_t observer)
         {
             const auto incoming_error = GetLastError();
-#if defined(DINGOSDK_DEV_TOOLS)
-            static game::usage_trace::HitCounter menu_expression_usage_counter;
-            const std::array<std::uint64_t, 4> arguments{context, inputs, outputs, observer};
-            game::usage_trace::record_hit(menu_expression_usage_counter,
-                                          runtime().base,
-                                          rt::menu_expression,
-                                          "menu_expression",
-                                          arguments);
-            SetLastError(incoming_error);
-#endif
             bool handled = false;
             try
             {
@@ -49,7 +39,19 @@ namespace dingosdk::runtime::detail
             } // Queue failures preserve native behavior.
             SetLastError(incoming_error);
             if (!handled)
+            {
+#if defined(DINGOSDK_DEV_TOOLS)
+                static game::usage_trace::HitCounter menu_expression_usage_counter;
+                const std::array<std::uint64_t, 4> arguments{context, inputs, outputs, observer};
+                game::usage_trace::record_hit(menu_expression_usage_counter,
+                                              runtime().base,
+                                              rt::menu_expression,
+                                              "menu_expression",
+                                              arguments);
+                SetLastError(incoming_error);
+#endif
                 original_menu_expression(context, inputs, outputs, observer);
+            }
         }
     } // namespace
     void observe_player_card_expression(std::uintptr_t graph, std::uintptr_t runtime_graph, void **inputs)
