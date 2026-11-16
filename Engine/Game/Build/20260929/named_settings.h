@@ -1,4 +1,6 @@
 #pragma once
+#include <cstdint>
+#include "named_settings_rvas.h"
 #include "engine.h"
 #include "Engine/Game/Build/fingerprint.h"
 namespace dingosdk::game::build::v20260929::named_settings {
@@ -6,8 +8,6 @@ namespace dingosdk::game::build::v20260929::named_settings {
 // parser at 0x5f77ef independently establish these ABIs. The typed setter
 // increments DdcDirtyVersion and calls registered setting listeners.
 inline constexpr std::uintptr_t named_settings_manager = engine::settings_manager;
-inline constexpr std::uintptr_t named_settings_get = 0x18d95e0;
-inline constexpr std::uintptr_t named_settings_set = 0x18d9c50;
 inline constexpr std::uintptr_t native_bool = engine::bool_type;
 inline constexpr std::uintptr_t native_int32 = engine::int32_type;
 inline constexpr std::uintptr_t native_uint32 = engine::uint32_type;
@@ -15,7 +15,6 @@ inline constexpr std::uintptr_t native_float32 = engine::float_type;
 inline constexpr std::uintptr_t native_cstring = engine::string_type;
 // Pointer to the reflection symbol registry (count at +0xd0); populated before
 // named lookups are attempted.
-inline constexpr std::uintptr_t symbol_registry = 0x765d318;
 // Enumeration (reads only). The manager's group map (FUN_1418d2630 registers,
 // FUN_1418d2d30 walks it): buckets +0xa0, bucket count u32 +0xa8, element count
 // u32 +0xac; node {char* name, object*, ..., next +0x40}; object +8 = class
@@ -35,7 +34,6 @@ inline constexpr std::size_t name_buckets = 0x78, name_bucket_count = 0x80;
 inline constexpr std::size_t type_super = 0x20, descriptor_field_count = 0x2a,
     class_fields = 0x38, value_fields = 0x60, field_size = 0x18, field_type = 0x10;
 // SystemSettings: every group inherits its "Platform" field; not a setting.
-inline constexpr std::uintptr_t system_settings_type = 0x7490460;
 inline constexpr std::array<Fingerprint, 6> named_settings_sites{{
     {named_settings_get, {0x48,0x83,0xec,0x48,0x44,0x88,0x4c,0x24,0x20,0x4d,0x8b,0xc8,0x4c,0x8b,0xc2,0x48,0x8d,0x54,0x24,0x30,0xe8,0x87,0xda,0xff,0xff,0x48,0x8b,0x00,0x48,0x83,0xc4,0x48}},
     {0x18d7080, {0x40,0x53,0x55,0x56,0x57,0x41,0x56,0x48,0x81,0xec,0x60,0x01,0x00,0x00,0x48,0x8b,0x05,0x2b,0xd3,0x8e,0x05,0x48,0x33,0xc4,0x48,0x89,0x84,0x24,0x58,0x01,0x00,0x00}},
