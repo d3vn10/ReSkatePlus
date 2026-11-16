@@ -17,4 +17,6 @@ inline constexpr std::uintptr_t current_context=0x18b6ae0;
 inline constexpr std::uintptr_t update_properties=0x19939a0;
 inline constexpr std::uintptr_t update_transform=0x1993590;
 
+inline constexpr std::uintptr_t manager = 0x749b1d8;
+inline constexpr std::uintptr_t manager_vtable = 0x6289f70;
 }
