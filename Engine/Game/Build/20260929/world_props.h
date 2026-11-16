@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include "world_props_rvas.h"
 
 // Props spawned by ReSkate itself (Extension/Multiplayer/Remote/native_prop.cpp): an object
 // blueprint loaded on the map, created as a client-only entity the way the remote skateboard is
@@ -10,7 +11,5 @@
 namespace dingosdk::game::build::v20260929::world_props {
 // An ObjectBlueprint's vtable (the cone's). The skater code's blueprint vtable is
 // engine::blueprint_vtable; an object blueprint has its own.
-inline constexpr std::uintptr_t object_blueprint_vtable = 0x638dfa8;
 // The entity a static-model object blueprint creates on the client (the cone's).
-inline constexpr std::uintptr_t static_model_entity_vtable = 0x6403720;
 } // namespace dingosdk::game::build::v20260929::world_props
