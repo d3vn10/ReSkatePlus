@@ -1,6 +1,7 @@
 #pragma once
 #include "Engine/Game/Build/fingerprint.h"
 #include <cstdint>
+#include "reference_lists_rvas.h"
 
 // A level load's asset reference lists (Extension/World/reference_list_guard.cpp).
 //
@@ -25,7 +26,6 @@ inline constexpr Fingerprint register_assets{0x891c80, {
 inline constexpr std::uint32_t asset_references = 0x28;
 inline constexpr std::uint32_t asset_type = 0x08; // the Asset's type (a widget blueprint's is native_menu.h's widget_blueprint_type)
 inline constexpr std::uint32_t asset_name = 0x18; // Asset.Name, a char*
-inline constexpr std::uintptr_t pointer_flag = 4;
 inline constexpr std::uint32_t array_count_before = 4; // the count's dword immediately before an array
 inline constexpr std::uint32_t array_count_flag = 0x80000000;
 }
