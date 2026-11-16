@@ -4,8 +4,9 @@
 #include <cstdint>
 #include <span>
 
-namespace dingosdk::game::build::v20260929::native_patch_support {
 #include "native_patch_support_rvas.h"
+
+namespace dingosdk::game::build::v20260929::native_patch_support {
 template<std::size_t N> consteval auto hex_bytes(const char (&hex)[N]) {
     static_assert(N % 2 == 1);
     std::array<std::uint8_t, (N - 1) / 2> result{};
@@ -49,6 +50,11 @@ inline constexpr auto layout_call = hex_bytes("488b4c2468488d5588e832df0300");
 inline constexpr auto unwind_root = hex_bytes("191a04000bf204600350023010b94605");
 inline constexpr auto unwind_middle = hex_bytes("2108020008741600c0b41f0471b51f04e480e406");
 inline constexpr auto unwind_return = hex_bytes("21000000c0b41f0471b51f04e480e406");
-
+struct Contract { std::uintptr_t rva; std::span<const std::uint8_t> bytes; };
+inline constexpr Contract contracts[]{
+    {verifier, verifier_bytes}, {crypto_thunk_rva, crypto_thunk},
+    {reader_call_rva, reader_call}, {layout_call_rva, layout_call},
+    {unwind_root_rva, unwind_root}, {unwind_middle_rva, unwind_middle},
+    {unwind_return_rva, unwind_return}
 };
 }
