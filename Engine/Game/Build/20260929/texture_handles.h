@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include "texture_handles_rvas.h"
 
 // The renderer's texture handles (Extension/World/texture_handle_guard.cpp).
 //
@@ -41,7 +42,6 @@
 // those two slots before resolve reads through them, and answers no texture otherwise. Every caller
 // of resolve takes null (0x3f86270 and 0x469a000 as above; the others store it or check it).
 namespace dingosdk::game::build::v20260929::texture_handles {
-inline constexpr std::uintptr_t textures = 0x76e0010;
 // The pool within the object `textures` points at.
 inline constexpr std::uint32_t pool_offset = 0x10;
 // resolve(handle) -> the texture a {u16 id, u8 weak} handle names, retained; the entry's own
@@ -86,11 +86,7 @@ inline constexpr Fingerprint redirect{0x3e9b770, {
 //   add rbx, 0xae8                ; its write lock
 // the two complete instructions moved into the stub, which goes on at `view_cache_resume`, or for a
 // null texture to `view_cache_return` (mov rsi, [rsp + 0xe8]; mov rax, r14; the cookie check; ret).
-inline constexpr std::uintptr_t view_cache_insert_rva = 0x3e6dcf1;
 inline constexpr std::array<unsigned char, 14> view_cache_insert{
     0x48,0x8b,0x1d,0x50,0xb8,0x87,0x03,0x48,0x81,0xc3,0xe8,0x0a,0x00,0x00};
-inline constexpr std::uintptr_t view_cache_resume_rva = 0x3e6dcff;
-inline constexpr std::uintptr_t view_cache_return_rva = 0x3e6df03;
-inline constexpr std::uintptr_t view_cache = 0x76e9548;
 inline constexpr std::uint32_t view_cache_lock_offset = 0xae8;
 }
