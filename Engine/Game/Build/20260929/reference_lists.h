@@ -28,4 +28,6 @@ inline constexpr std::uint32_t asset_type = 0x08; // the Asset's type (a widget 
 inline constexpr std::uint32_t asset_name = 0x18; // Asset.Name, a char*
 inline constexpr std::uint32_t array_count_before = 4; // the count's dword immediately before an array
 inline constexpr std::uint32_t array_count_flag = 0x80000000;
+inline constexpr std::uintptr_t pointer_flag = 4;
+
 }
