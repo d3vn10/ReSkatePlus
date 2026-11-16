@@ -51,4 +51,15 @@ inline constexpr Fingerprint manager_register{0x2b94b50, {
 inline constexpr Fingerprint manager_unregister{0x2b94fe0, {
     0x48,0x89,0x5c,0x24,0x08,0x48,0x89,0x74,0x24,0x10,0x57,0x48,0x83,0xec,0x30,0x4c,
     0x8b,0x41,0x50,0x48,0x8b,0xf9,0x48,0x8b,0x49,0x48,0x48,0x8b,0xda,0x49,0x3b,0xc8}};
+inline constexpr std::uintptr_t update_info_size = 0x20;
+inline constexpr std::uintptr_t update_info_dt = 8;
+inline constexpr std::uintptr_t presim_handler_slot = 0x138;
+inline constexpr std::uintptr_t postsim_handler_slot = 0x140;
+inline constexpr std::uintptr_t ant_driven_item = 0x50;
+inline constexpr std::uintptr_t ant_driven_manager = 0x58;
+inline constexpr std::uintptr_t ant_driven_animatable = 0x68;
+inline constexpr std::uintptr_t manager_hooks = 0x40;
+inline constexpr std::uintptr_t manager_hooks_storage = 0x98;
+inline constexpr std::uintptr_t manager_kind = 0x90;
+
 }
