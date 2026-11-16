@@ -3,9 +3,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
-#include "native_patch_support_rvas.h"
 
 namespace dingosdk::game::build::v20260929::native_patch_support {
+#include "native_patch_support_rvas.h"
 template<std::size_t N> consteval auto hex_bytes(const char (&hex)[N]) {
     static_assert(N % 2 == 1);
     std::array<std::uint8_t, (N - 1) / 2> result{};
