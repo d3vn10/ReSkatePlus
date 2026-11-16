@@ -5,6 +5,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include "morph_memory_pool_rvas.h"
 #include <span>
 
 namespace dingosdk::game::build::v20260929::morph_memory_pool {
@@ -173,12 +174,7 @@ inline constexpr std::size_t max_contract_size = [] {
 }();
 
 // Morph heap constructor hooked to raise the render heap capacity.
-inline constexpr std::uintptr_t constructor_rva = 0x01b21580;
 // Return addresses of the temporary and permanent morph heap constructions.
-inline constexpr std::uintptr_t temporary_return = 0x01b0e724;
-inline constexpr std::uintptr_t permanent_return = 0x01b0e6db;
 // Globals holding the temporary and permanent morph pools (null until built).
-inline constexpr std::uintptr_t temporary_pool = 0x074b3d80;
-inline constexpr std::uintptr_t permanent_pool = 0x074b3d88;
 } // namespace dingosdk::game::build::v20260929::morph_memory_pool
 
