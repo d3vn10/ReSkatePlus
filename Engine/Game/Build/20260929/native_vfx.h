@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <cstdint>
+#include "native_vfx_rvas.h"
 
 // Skater effects (sparks, dust, landing puffs, costume and board effects): the game's skater
 // effects manager.
@@ -57,7 +58,6 @@ inline constexpr std::size_t materials_grid = 0x28;        // the grid
 inline constexpr std::size_t grid_data = 8;                // its data (bit 2 is a flag)
 inline constexpr std::size_t grid_index_table = 0x48;      // data: pointer to the index table
 // The effects component of a skater entity.
-inline constexpr std::uintptr_t component_vtable = 0x65ec508;
 inline constexpr std::size_t component_size = 0x68;
 // The impact: position, velocity and normal as four floats each, then the material.
 inline constexpr std::size_t impact_size = 0x40, impact_velocity = 0x10, impact_normal = 0x20, impact_material = 0x30;
