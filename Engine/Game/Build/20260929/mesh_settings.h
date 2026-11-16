@@ -1,6 +1,7 @@
 #pragma once
 #include "Engine/Game/Build/fingerprint.h"
 #include <cstdint>
+#include "mesh_settings_rvas.h"
 
 // A mesh's render settings (Extension/World/mesh_settings_guard.cpp).
 namespace dingosdk::game::build::v20260929::mesh_settings {
@@ -18,5 +19,4 @@ inline constexpr std::ptrdiff_t settings_offset = 0x340;
 inline constexpr std::ptrdiff_t unload_string_offset = 0x360;
 inline constexpr std::ptrdiff_t applied_flag_offset = 0x3b0;
 // The game's empty string: a string that holds it frees nothing (0x1584c50 compares with it).
-inline constexpr std::uintptr_t empty_string = 0x72fe704;
 }
