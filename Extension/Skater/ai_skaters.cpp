@@ -413,6 +413,16 @@ namespace dingosdk::ai_skaters
         {
             const auto getter =
                 reinterpret_cast<std::uintptr_t (*)(std::uintptr_t)>(base + entities::customization_component);
+#if defined(DINGOSDK_DEV_TOOLS)
+            const std::array<std::uint64_t, 1> customization_arguments{entity};
+            trace_native_call(
+                base, entities::customization_component, "skater_entities::customization_component", customization_arguments);
+            const std::array<std::uint64_t, 1> local_customization_arguments{local_entity};
+            trace_native_call(base,
+                              entities::customization_component,
+                              "skater_entities::customization_component",
+                              local_customization_arguments);
+#endif
             const auto customization = getter(entity), local_customization = getter(local_entity);
             require(customization && local_customization && customization != local_customization &&
                         ptr(customization) == ptr(local_customization) && code(base, ptr(customization)) &&
@@ -422,8 +432,16 @@ namespace dingosdk::ai_skaters
             const std::uint32_t mode = 1;
             require(write(customization + 0x110, &enabled, 1), "Cannot enable AI customization.");
             if (ptr(customization, 0x120))
+            {
+#if defined(DINGOSDK_DEV_TOOLS)
+                const std::array<std::uint64_t, 3> arguments{
+                    customization + 0x120, reinterpret_cast<std::uintptr_t>(&enabled), 1};
+                trace_native_call(
+                    base, addr::engine::set_customization_flag, "engine::set_customization_flag", arguments);
+#endif
                 reinterpret_cast<void (*)(std::uintptr_t, const void *, std::uint32_t)>(
                     base + addr::engine::set_customization_flag)(customization + 0x120, &enabled, 1);
+            }
             require(write(customization + 0x134, &mode, 4) && write(customization + 0x10a, &enabled, 1) &&
                         write(customization + 0x10d, &enabled, 1),
                     "Cannot request AI appearance.");
@@ -438,8 +456,14 @@ namespace dingosdk::ai_skaters
         {
             // The shared destruction hook reports this entity to entity_destroyed().
             if (owned(base, skater))
+            {
+#if defined(DINGOSDK_DEV_TOOLS)
+                const std::array<std::uint64_t, 2> arguments{skater.entity, skater.parent};
+                trace_native_call(base, entities::destroy_entity, "skater_entities::destroy_entity", arguments);
+#endif
                 reinterpret_cast<void (*)(std::uintptr_t, std::uintptr_t)>(base + entities::destroy_entity)(
                     skater.entity, skater.parent);
+            }
         }
         void forget(std::uintptr_t entity)
         {
