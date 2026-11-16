@@ -9,7 +9,6 @@ namespace dingosdk::game::build::v20260929::game_states {
 // A game state is an asset object; its value is in one of the skater's state pages, which hang off
 // its AntDrivenComponent (the same vtable as puppet_cost::ant_driven_vtable) in a block of pages
 // known by its vtable.
-inline constexpr std::uintptr_t ant_driven_vtable = 0x63aaee8, states_block_vtable = 0x61a8bd8;
 
 // Hooked functions.
 // The lookup of a state's value: (state object, context with the pages) -> where the value is, 0
