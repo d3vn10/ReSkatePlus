@@ -5,8 +5,6 @@
 // September 29 2026 executable RVAs. Keep these separate from build-independent layouts/contracts.
 namespace dingosdk::game::build::v20260929::native_skater {
 inline constexpr std::uintptr_t animation_update = 0xf96b80;
-inline constexpr std::uintptr_t render_animation_interface_offset = 0xc0;
-inline constexpr std::uintptr_t board_embedded_holder_offset = 0xd10;
 inline constexpr std::uintptr_t board_render_pose_interface_vtable = 0x63db790;
 inline constexpr std::uintptr_t submit_render_pose = 0x4c7e7a0;
 inline constexpr std::uintptr_t entity_helper = 0x2b761d0;
