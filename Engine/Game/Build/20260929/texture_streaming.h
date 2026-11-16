@@ -2,6 +2,7 @@
 #include "Engine/Game/Build/fingerprint.h"
 #include <array>
 #include <cstdint>
+#include "texture_streaming_rvas.h"
 
 // The game's TextureStreamingManager and its limit of streamed textures
 // (Extension/World/texture_handle_limit.cpp).
@@ -46,13 +47,11 @@
 // blocks become raised_count floats each, the fields behind them move up, and the two
 // lea/shl/add become an imul and the same add (renderer_rewrites).
 namespace dingosdk::game::build::v20260929::texture_streaming {
-inline constexpr std::uintptr_t manager = 0x76e92e0; // TextureStreamingManager*, null until made
 inline constexpr Fingerprint constructor{0x3e5b350, {
     0x48,0x89,0x5c,0x24,0x18,0x55,0x56,0x57,0x41,0x54,0x41,0x55,0x41,0x56,0x41,0x57,
     0x48,0x8d,0xac,0x24,0x20,0xff,0xff,0xff,0x48,0x81,0xec,0xe0,0x01,0x00,0x00,0x48}};
 // __report_gsfailure: mov ecx, 2; int 0x29; ret. Every function's stack check jumps to it
 // (FUN_14546ba30) when its cookie is not what it left (Extension/World/stack_check_report.cpp).
-inline constexpr std::uintptr_t stack_check_failed = 0x546be9c;
 inline constexpr std::array<unsigned char, 8> stack_check_failed_bytes{0xb9, 0x02, 0x00, 0x00, 0x00, 0xcd, 0x29, 0xc3};
 inline constexpr std::uint32_t stock_count = 0x5000;
 // The most the 15-bit index allows, a multiple of four (the floats are reset sixteen bytes at
