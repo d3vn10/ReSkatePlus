@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <cstdint>
+#include "park_rotation_rvas.h"
 
 // Authored BAM park-pack event adapter.
 namespace dingosdk::game::build::v20260929::park_rotation {
@@ -12,8 +13,5 @@ inline constexpr std::array<Site, 3> sites{{
     {0x888a70, {0x48,0x89,0x5c,0x24,0x08,0x48,0x89,0x74,0x24,0x10,0x57,0x48,0x83,0xec,0x50,0x48}},
 }};
 // Pointer to the current park manager.
-inline constexpr std::uintptr_t manager = 0x71f8878;
-inline constexpr std::uintptr_t manager_vtable = 0x60e0370;
 // uint32 registered offset from the manager's reference (manager+8) to its park context.
-inline constexpr std::uintptr_t context_offset = 0x77dd848;
 }
