@@ -1,5 +1,6 @@
 #pragma once
 #include "park_editor.h"
+#include "effect_surface_rvas.h"
 
 namespace dingosdk::game::build::v20260929::effect_surface {
 // Same executable as decals.h. Paired position/quaternion readers are used
