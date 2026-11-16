@@ -70,4 +70,6 @@ inline constexpr std::array<unsigned char, 6> foot_gravity_prefix{0xc7, 0x83, 0x
 // +0x1807 bit 7 follow it. Whether it means "switch" or "left foot leads" is the same thing for a
 // goofy skater; a regular skater's scan would tell them apart. Plugins get it as "switch".
 inline constexpr std::uint8_t stance_switch_mask = 0x20;
+inline constexpr std::uintptr_t stance_flags_offset = 0x13c4; // context
+
 }
