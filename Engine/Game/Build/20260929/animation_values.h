@@ -12,8 +12,6 @@ inline constexpr std::uintptr_t state_root = 0x3b8, export_state = 0x60, exporte
 inline constexpr std::uintptr_t provider = 0x630, model = 0x610;
 inline constexpr std::uintptr_t input = 0x28, output = 0x38, graph_bytes = 0x500;
 inline constexpr std::uintptr_t type = 0x20, secondary_type = 0x60, key = 0x28;
-inline constexpr std::uintptr_t bool_type = 0x61ab030, bool_secondary = 0x61ab080;
-inline constexpr std::uintptr_t enum_type = 0x61926d8, enum_secondary = 0x6192728;
 inline constexpr std::uintptr_t bool_name = 0x88, float_name = 0x78;
 inline constexpr std::uintptr_t pages = 0x60, occupied = 0x71c, last_value = 0x718;
 }
