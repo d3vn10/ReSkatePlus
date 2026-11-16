@@ -60,4 +60,9 @@ inline constexpr std::array<unsigned char, 8> set_customization_flag_prefix{
 // Skater component animation physics flag setters (component, value) for +0xc7 and +0xcb.
 inline constexpr std::array<unsigned char, 13> physics_c7_setter_prefix{
     0x40,0x53,0x48,0x83,0xec,0x20,0x48,0x8b,0x81,0xa0,0x00,0x00,0x00};
+inline constexpr std::uintptr_t object_data_offset = 0x80;            // blueprint
+inline constexpr std::uintptr_t object_data_mesh_offset = 0xd8;       // object data -> mesh asset
+inline constexpr std::uintptr_t mesh_asset_loaded_offset = 0x70;      // mesh asset -> loaded mesh
+inline constexpr std::uintptr_t loaded_mesh_bounds_offset = 0x28;     // loaded mesh -> {min, max}
+
 }
