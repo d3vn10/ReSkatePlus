@@ -22,4 +22,8 @@ inline constexpr std::uintptr_t body_bit_40_set = 0x25d3330;
 inline constexpr std::uintptr_t body_bit_40_clear = 0x25d2e60;
 inline constexpr std::uintptr_t body_bit_1680_set = 0x25d3530;
 
+inline constexpr std::uintptr_t ghost_body = 0x25d3610;
+inline constexpr std::uintptr_t solid_body = 0x25d3170;
+inline constexpr std::uintptr_t main_ghost = 0x25d3360;
+inline constexpr std::uintptr_t main_solid = 0x25d2e90;
 }
