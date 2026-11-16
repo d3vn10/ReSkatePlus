@@ -63,4 +63,7 @@ inline constexpr std::array<unsigned char, 7> free_creation_page_prefix{
 // Returns the board entity's animation holder (+0xf0).
 // Resolves the current output pose with a signed table index; the live 395-bone skater uses -1,
 // selecting table word 18.
+inline constexpr std::uintptr_t render_animation_interface_offset = 0xc0;
+inline constexpr std::uintptr_t board_embedded_holder_offset = 0xd10;
+
 }
