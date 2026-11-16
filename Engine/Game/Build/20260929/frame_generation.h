@@ -4,6 +4,7 @@
 
 #include <array>
 #include <cstdint>
+#include "frame_generation_rvas.h"
 
 namespace dingosdk::game::build::v20260929::frame_generation {
 // The frame generation update (0x03f224b0) fills a DLSSGOptions on its stack every frame and passes
@@ -23,7 +24,6 @@ namespace dingosdk::game::build::v20260929::frame_generation {
 //   movzx eax, byte ptr [rbx + 0x180]   ; the retain byte
 //   neg al / sbb ecx, ecx / and ecx, 8 / or dword ptr [rbp - 0x21], ecx   (left as they are)
 // No branch lands inside the movzx (the jumps above all land on its first byte).
-inline constexpr std::uintptr_t retain_flag_rva = 0x03f225e8;
 inline constexpr std::uint32_t mode_offset = 0x17c;
 inline constexpr std::array<std::uint8_t, 7> retain_flag_prefix{0x0f, 0xb6, 0x83, 0x80, 0x01, 0x00, 0x00};
 } // namespace dingosdk::game::build::v20260929::frame_generation
