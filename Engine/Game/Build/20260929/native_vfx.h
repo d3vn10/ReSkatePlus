@@ -51,7 +51,6 @@ inline constexpr Function thread_world{
     0x18b6ae0, {0x48,0x89,0x5c,0x24,0x08,0x57,0x48,0x83,0xec,0x20,0x65,0x48,0x8b,0x04,0x25,0x58}};
 // Offsets into the world, each stored as a 32-bit value: the effects manager, and the object
 // that holds the level's material grid.
-inline constexpr std::uintptr_t manager_offset = 0x77abaa8, materials_offset = 0x74f8e38;
 inline constexpr std::size_t manager_ready = 0x240;        // byte: the manager is in use
 inline constexpr std::size_t materials_ready = 0x50;       // byte: the grid object is in use
 inline constexpr std::size_t materials_grid = 0x28;        // the grid
