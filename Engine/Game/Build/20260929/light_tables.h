@@ -2,11 +2,11 @@
 #include "Engine/Game/Build/fingerprint.h"
 #include <array>
 #include <cstdint>
+#include "light_tables_rvas.h"
 
 // The light renderer (Extension/World/light_table_guard.cpp). Each kind of light has a table of 64
 // pages of 128 and an ID allocator at manager+0xb8; nothing checks the IDs against the table.
 namespace dingosdk::game::build::v20260929::light_tables {
-inline constexpr std::uintptr_t renderer = 0x77ef140; // the light renderer, null until made
 // The allocator: the free list head at +0xe8 (low 32 bits 0xffffffff when empty), fresh IDs given at +0xf0.
 inline constexpr std::uint32_t allocator = 0xb8, free_head = 0xe8, issued = 0xf0;
 inline constexpr std::uint32_t capacity = 64 * 128;
