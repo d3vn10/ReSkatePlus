@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <cstdint>
+#include "placement_adapters_rvas.h"
 
 // The hooks that let a claimed placement be selected and edited while it moves, and be skated as a
 // moving surface (Extension/Objects/placement_adapters.cpp). Functions are checked by their first 16
@@ -21,14 +22,9 @@ inline constexpr std::array<unsigned char, 16> pose_prefix{0x48, 0x89, 0x5c, 0x2
                                                            0xec, 0x30, 0x01, 0x00, 0x00, 0x48, 0x8b, 0x05};
 // The dropper's own calls of the transform setter (park_editor.h movement_contracts[2]), all in the
 // selection code 0x7c1cc8-0x7d161c: a pose set from one of them is a preview or commit of an edit.
-inline constexpr std::array<std::uintptr_t, 11> transform_calls{0x7c1cc8, 0x7c65c3, 0x7c9fa1, 0x7cb1dd, 0x7cbc73, 0x7cef58,
-                                                                0x7cf547, 0x7d0785, 0x7d0c61, 0x7d0f30, 0x7d161c};
 // Callers of motion_type (placement_physics.h) in the skater's surface code that treat a dynamic body
 // as something not to stand or grind on: they are shown a claimed surface as keyframed (moving_calls)
 // or, for the material lookups, fixed (material_calls).
-inline constexpr std::array<std::uintptr_t, 11> moving_calls{0xfb6cc6,  0xfb7534,  0xfc1cfc,  0xfeb7f9,  0x1027c6d, 0x1027c7c,
-                                                             0x1044140, 0x1044ce9, 0x1045784, 0x10457a4, 0x105709d};
-inline constexpr std::array<std::uintptr_t, 2> material_calls{0x102bcf5, 0x102bd47};
 // friction(grind, float, float, float): a grind's friction step, reading the skater context's velocity.
 // point_velocity(const Handle* body, float out[4], const float point[4]) -> out: a body's velocity at
 // a world point. shape_body(const Handle* shape, Handle* out) -> out: the body a shape belongs to.
@@ -57,7 +53,6 @@ inline constexpr std::uintptr_t selection_buckets = 0x248, selection_count = 0x2
 // root_dynamic_restriction (0x800) for a placed object; while it is set the game keeps the object's
 // body fixed. root_hook clears it in the returned copy (never in the entity) for claimed objects only.
 // What the bit is called in the game is not known; its effect is the PR author's finding.
-inline constexpr std::uintptr_t root_flags = 8;
 inline constexpr std::uint32_t root_dynamic_restriction = 0x800;
 // An edge list is a u32 count, then at edge_data at most 100 edges of 0x70 bytes. A grind context
 // (the edges cache's first pointer) has its flags (context_flags; disabled_query set means it gathers
@@ -67,7 +62,6 @@ inline constexpr std::uintptr_t edge_data = 0x10, shape_generations = 0xff8, con
                                 query_half = 0x65e7540;
 inline constexpr std::uint32_t disabled_query = 0x400000;
 // A grind's skater context pointer (grind + grind_context).
-inline constexpr std::uintptr_t grind_context = 8;
 // A skater's board (core + skater_board, skater_movement.h) has its physics object (board_physics,
 // whose vtable is skater_state.h board_physics_vtable) and that its parts: a count of board_part_count
 // (u32), the owner back pointer and the deck part's position.
