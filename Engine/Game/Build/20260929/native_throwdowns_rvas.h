@@ -43,4 +43,13 @@ inline constexpr std::uintptr_t leaderboard_write = 0x810a70;
 inline constexpr std::uintptr_t order_participants = 0x813660;
 inline constexpr std::uintptr_t set_participants = 0x811de0;
 
+inline constexpr std::uintptr_t empty_string = 0x72fe704;
+inline constexpr std::uintptr_t string_destroy = 0x1586050;
+inline constexpr std::uintptr_t find_player_by_name = 0x834d90;
+inline constexpr std::uintptr_t player_persona_id = 0x822170;
+inline constexpr std::uintptr_t bool_and = 0x16e7130;
+inline constexpr std::uintptr_t bool_or = 0x16eb6e0;
+inline constexpr std::uintptr_t bool_not = 0x16eb600;
+inline constexpr std::uintptr_t component_lookup = 0x7215d0;
+inline constexpr std::uintptr_t leaderboard_manager_type = 0x7225350;
 }
