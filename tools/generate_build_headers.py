@@ -91,6 +91,40 @@ def build_mapping(
     return mapping, conflicts, accepted_records
 
 
+def replace_raw_fingerprint_rvas(text, header_name, mapping, stats):
+    # Keep numeric fingerprint entries in sync with the sweep's fingerprint_N naming.
+    pattern = re.compile(
+        r"(?P<open>\\{\\s*)(?P<address>0[xX][0-9a-fA-F]+|[A-Za-z_]\\w*)"
+        r"(?P<rest>\\s*,\\s*\\{(?P<bytes>[^{}]*)\\}\\s*\\})",
+        re.S,
+    )
+    index = 0
+
+    def replace(match):
+        nonlocal index
+        index += 1
+        address = match.group("address")
+        if not address.lower().startswith("0x"):
+            return match.group(0)
+        byte_text = match.group("bytes")
+        tokens = re.findall(r"0[xX][0-9a-fA-F]+|\\b\\d+\\b", byte_text)
+        residue = re.sub(r"0[xX][0-9a-fA-F]+|\\b\\d+\\b|[\\s,]", "", byte_text)
+        if residue or not tokens:
+            return match.group(0)
+        values = [int(t, 16) if t.lower().startswith("0x") else int(t) for t in tokens]
+        if any(value > 0xFF for value in values):
+            return match.group(0)
+        stats["raw_fingerprint_rvas"] += 1
+        candidate = mapping.get((header_name, f"fingerprint_{index}"), 0)
+        if candidate:
+            stats["mapped"] += 1
+        else:
+            stats["missing"] += 1
+        return match.group("open") + f"0x{candidate:x}" + match.group("rest")
+
+    return pattern.sub(replace, text)
+
+
 def generate(
     source_dir: Path,
     output_dir: Path,
@@ -108,7 +142,7 @@ def generate(
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True)
 
-    stats = {"headers": 0, "rva_constants": 0, "mapped": 0, "missing": 0, "unreported": 0}
+    stats = {"headers": 0, "rva_constants": 0, "raw_fingerprint_rvas": 0, "mapped": 0, "missing": 0, "unreported": 0}
     for source in sorted(source_dir.rglob("*.h")):
         relative = source.relative_to(source_dir)
         target = output_dir / relative
@@ -145,6 +179,8 @@ def generate(
                 return match.group("prefix") + rendered + match.group("suffix")
 
             text = RVA_DECLARATION.sub(replace, text)
+        else:
+            text = replace_raw_fingerprint_rvas(text, source.name, mapping, stats)
 
         target.write_text(text, encoding="utf-8", newline="\n")
         stats["headers"] += 1
@@ -186,6 +222,7 @@ def main() -> int:
     print(f"Generated headers: {output_dir}")
     print(f"Headers copied: {stats['headers']}")
     print(f"RVA constants: {stats['rva_constants']}")
+    print(f"Raw numeric fingerprint RVAs: {stats['raw_fingerprint_rvas']}")
     print(f"Mapped RVAs: {stats['mapped']}")
     print(f"Reported but unresolved: {stats['missing']}")
     print(f"Not present in either report: {stats['unreported']}")
