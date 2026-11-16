@@ -2,6 +2,7 @@
 #include "Engine/Game/Build/fingerprint.h"
 #include <cstddef>
 #include <cstdint>
+#include "ragdoll_bodies_rvas.h"
 
 namespace dingosdk::game::build::v20260929::ragdoll_bodies {
 // Supported SHA-256 fbce74d5e28ef525dbba2cb4adbebc13405bdbd88f31bc940bca45e4ae88b8f9.
@@ -19,7 +20,6 @@ struct BodyHandle {
     std::uint32_t slot{}, generation{};
 };
 static_assert(sizeof(BodyHandle) == 16);
-inline constexpr std::uintptr_t system_generations_offset = 0x680; // system: uint32 per slot
 inline constexpr std::uint32_t no_slot = 0xffffffff;
 // The world's setters the board sync calls: (const BodyHandle*, const float[4]*). Both refuse a non-finite value
 // and keep the body under its own top speed.
@@ -33,11 +33,9 @@ inline constexpr Fingerprint handle_valid{0x25d7b10, {
     0x8b,0x41,0x08,0x83,0xf8,0xff,0x74,0x19,0x44,0x8b,0xc0,0x48,0x8b,0x01,0x48,0x8b,
     0x90,0x80,0x06,0x00,0x00,0x8b,0x41,0x0c,0x42,0x39,0x04,0x82,0x75,0x03,0xb0,0x01}};
 // The board's handles (the board holder, core+0x430, +0x718: one per board body).
-inline constexpr std::uintptr_t board_handles_offset = 0x718;
 // The ragdoll's handles: in the skater's core from +0x6f8, one per ragdoll body, handle k for the rig's body k + 1
 // (skater_body.h: head first, pelvis last). Found 2026-11-01 by the board's physics system pointer turning up there
 // 23 times in a row, then confirmed in a bail: a spin set through handle 8 turned the right upper arm (body 9), 17 the
 // left thigh, 21 the right thigh, 1 the neck. The entry after the 23rd is empty (slot 0xffffffff).
-inline constexpr std::uintptr_t rig_handles_offset = 0x6f8; // core
 inline constexpr std::size_t rig_handle_count = 23;
 }
