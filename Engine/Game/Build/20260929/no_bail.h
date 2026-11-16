@@ -161,4 +161,12 @@ inline constexpr Fingerprint mount_request_test_contract{0x4746a94, {
     0xff,0x48,0x8b,0x82,0xb0,0x0d,0x00,0x00,0x48,0x85,0xc0,0x74,0x15,0x48,0x83,0xe0}};
 // Native recovery/stumble predicate. Its result is also exported to animation
 // at +0x9e, so No Bail never forces it. Reference only.
+inline constexpr std::uintptr_t teleport_on_board_option = 0xc0;
+inline constexpr std::uintptr_t body_contact_output_offset = 0xfb8;
+inline constexpr std::uintptr_t body_contact_context_offset = 0x13c4;
+inline constexpr std::uintptr_t animation_request_offset = 0x13d4;
+inline constexpr std::uintptr_t impact_request_offset = 0x13c4;
+inline constexpr std::uintptr_t recovery_animation_output = 0x38; // core+3b8 -> trick state
+inline constexpr std::uintptr_t recovery_animation_flag = 0x9e;   // animation output, byte
+
 }
