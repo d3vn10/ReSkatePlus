@@ -1,38 +1,32 @@
 #pragma once
 #include <array>
 #include <cstdint>
+#include "native_indicators_rvas.h"
 
 namespace dingosdk::game::build::v20260929::native_indicators {
 // Hooked HUD indicator functions.
 // HUD indicator presenter tick.
-inline constexpr std::uintptr_t hud_tick = 0x1aec120;
 inline constexpr std::array<unsigned char, 16> hud_tick_prefix{
     0x48, 0x8b, 0xc4, 0x48, 0x89, 0x48, 0x08, 0x41, 0x54, 0x48, 0x81, 0xec, 0xe0, 0x04, 0, 0};
 // Removes a provider from the indicator registry.
-inline constexpr std::uintptr_t provider_remove = 0x1aebd90;
 inline constexpr std::array<unsigned char, 16> provider_remove_prefix{
     0x48, 0x89, 0x54, 0x24, 0x10, 0x48, 0x89, 0x4c, 0x24, 0x08, 0x41, 0x54, 0x48, 0x83, 0xec, 0x70};
 // Creates an indicator widget through the presenter's widget cache.
-inline constexpr std::uintptr_t widget_create = 0x4379f80;
 inline constexpr std::array<unsigned char, 16> widget_create_prefix{
     0x48, 0x89, 0x5c, 0x24, 0x10, 0x48, 0x89, 0x6c, 0x24, 0x20, 0x44, 0x89, 0x44, 0x24, 0x18, 0x56};
 
 // Called indicator functions.
 // Registers a provider with the indicator registry.
-inline constexpr std::uintptr_t indicator_register = 0x1ae76a0;
 inline constexpr std::array<unsigned char, 16> indicator_register_prefix{
     0x40, 0x53, 0x41, 0x57, 0x48, 0x83, 0xec, 0x38, 0x48, 0x8b, 0x02, 0x48, 0x8b, 0xd9, 0x48, 0x8b};
 // Presenter pending-removal pass.
-inline constexpr std::uintptr_t presenter_flush = 0x1ae7920;
 inline constexpr std::array<unsigned char, 16> presenter_flush_prefix{
     0x48, 0x8b, 0xc4, 0x48, 0x89, 0x48, 0x08, 0x41, 0x56, 0x48, 0x81, 0xec, 0x90, 0, 0, 0};
 // Initializes a widget's output property binding.
-inline constexpr std::uintptr_t property_bind = 0x2b7e930;
 inline constexpr std::array<unsigned char, 16> property_bind_prefix{
     0x48, 0x89, 0x5c, 0x24, 0x08, 0x48, 0x89, 0x74, 0x24, 0x10, 0x57, 0x48, 0x83, 0xec, 0x60, 0x49};
 // Native class-reference getter: *(out) = *(storage) & ~4. The property
 // setters at 0x4651af0 / 0x4657040 pass class values as the referenced asset.
-inline constexpr std::uintptr_t class_reference_getter = 0x3dd1890;
 inline constexpr std::array<unsigned char, 11> class_reference_getter_prefix{
     0x48, 0x8b, 0x01, 0x48, 0x83, 0xe0, 0xfb, 0x48, 0x89, 0x02, 0xc3};
 
@@ -49,17 +43,10 @@ inline constexpr std::array<unsigned char, 16> native_text_release_prefix{
 
 // Globals and vtables
 // Indicator provider registry object.
-inline constexpr std::uintptr_t presenter_registry = 0x71267e0;
-inline constexpr std::uintptr_t hud_presenter_vtable = 0x629ea70;
 // Indicator template source.
-inline constexpr std::uintptr_t indicator_source_vtable = 0x629f0e0;
 // Parent of a created indicator widget.
-inline constexpr std::uintptr_t widget_parent_vtable = 0x6388c90;
 
 // Type information
 // Compass icon asset property.
-inline constexpr std::uintptr_t compass_icon_type = 0x76e2850;
-inline constexpr std::uintptr_t vec3_type = 0x765d350;
 // UIPlayerInfo user-info field.
-inline constexpr std::uintptr_t user_info_type = 0x7258fb0;
 }
