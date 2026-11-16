@@ -1,6 +1,7 @@
 #pragma once
 #include "Engine/Game/Build/fingerprint.h"
 #include <cstdint>
+#include "ui_pointer_rvas.h"
 
 // The UI's per-frame pointer hit-test and the mouse cursor mode that says whether it matters
 // (Extension/UI/ui_pointer_skip.cpp; analysis/sim-performance.md).
@@ -35,8 +36,4 @@ inline constexpr Fingerprint mouse_construct{0x3153f80, {
 // InputManMouse fields: the force count (> 0 keeps the cursor on), a deferral byte (0xff from
 // the constructor; while non-zero a cursor change is held back), the cursor mode asked for, and
 // the one applied (bytes; 0 = no cursor).
-inline constexpr std::uintptr_t mouse_force_count = 0x14;
-inline constexpr std::uintptr_t mouse_forced = 0x18;
-inline constexpr std::uintptr_t mouse_cursor_requested = 0x19;
-inline constexpr std::uintptr_t mouse_cursor_applied = 0xe9;
 }
