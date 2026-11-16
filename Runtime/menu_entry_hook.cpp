@@ -2,6 +2,10 @@
 #include "Engine/Core/Hooks/hooks.h"
 #include "Engine/Core/Profiling/profiler.h"
 #include "Engine/Game/UI/menu_entry.h"
+#if defined(DINGOSDK_DEV_TOOLS)
+#include "Engine/Game/Build/usage_trace.h"
+#endif
+#include <array>
 #include <set>
 #include <utility>
 
@@ -19,6 +23,16 @@ namespace dingosdk::runtime::detail
                              std::uintptr_t observer)
         {
             const auto incoming_error = GetLastError();
+#if defined(DINGOSDK_DEV_TOOLS)
+            static game::usage_trace::HitCounter menu_expression_usage_counter;
+            const std::array<std::uint64_t, 4> arguments{context, inputs, outputs, observer};
+            game::usage_trace::record_hit(menu_expression_usage_counter,
+                                          runtime().base,
+                                          rt::menu_expression,
+                                          "menu_expression",
+                                          arguments);
+            SetLastError(incoming_error);
+#endif
             bool handled = false;
             try
             {
