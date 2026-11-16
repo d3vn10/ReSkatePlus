@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <atomic>
 #include <span>
 #include <string_view>
 
@@ -23,9 +24,15 @@ namespace dingosdk::game::usage_trace
     // Writes JSON Lines events to a unique RvaUsageN.json file in RESKATE_LOG_DIRECTORY.
     // Arguments are recorded as scalar/pointer values only; pointed-to memory is
     // never read or dumped by this facility.
-    // Counts hot paths without writing one event per frame. Emits a first-hit event
-    // and a five-second interval/total summary.
-    void record_hit(std::uintptr_t image_base,
+    // Each instrumented call site owns its counters. Hot paths emit a first-hit event
+    // and five-second interval/total summaries without writing one event per call.
+    struct HitCounter
+    {
+        std::atomic<std::uint64_t> first{}, total_calls{}, interval_calls{}, next_report{};
+    };
+
+    void record_hit(HitCounter &counter,
+                    std::uintptr_t image_base,
                     std::uintptr_t rva,
                     std::string_view symbol,
                     std::span<const std::uint64_t> arguments) noexcept;
