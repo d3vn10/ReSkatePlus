@@ -2,6 +2,7 @@
 #include "Engine/Game/Build/fingerprint.h"
 #include <cstddef>
 #include <cstdint>
+#include "replay_keyframes_rvas.h"
 
 // The replay editor's camera keyframes (Extension/ReplayKeyframes/replay_keyframes.h): framing keys
 // (Behaviour, Subject, offsets, FOV), the free camera's among them, played as cubic Hermite segments
@@ -43,7 +44,6 @@ inline constexpr Fingerprint segment_eval{0x6220d0, {
 // A segment this short or shorter plays as its end (s = 1).
 inline constexpr double tiny_gap = 1.0 / 65536.0;
 // The manager singleton.
-inline constexpr std::uintptr_t manager = 0x71f2130;
 inline constexpr std::size_t manager_sessions = 0x10; // EASTL map<int, Session>: anchor; root at +0x20
 
 // A key's node in a session's framing map: time at + 0x20, value at + 0x30.
