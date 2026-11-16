@@ -4,7 +4,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::local_music {
+namespace dingosdk::game::build::v20261013::local_music {
 inline constexpr std::uintptr_t asset_manager = 0x71e39a0;
 inline constexpr std::uintptr_t graph_asset_vtable = 0x6204638;
 inline constexpr std::uintptr_t metadata_vtable = 0x60f72a8;

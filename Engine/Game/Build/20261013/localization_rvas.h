@@ -4,7 +4,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::localization {
+namespace dingosdk::game::build::v20261013::localization {
 inline constexpr std::uintptr_t override_store = 0x331d5e0;
 inline constexpr std::uintptr_t override_set = 0x3333770;
 inline constexpr std::uintptr_t string_exists = 0x33377c0;

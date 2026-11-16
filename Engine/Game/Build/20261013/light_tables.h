@@ -6,7 +6,7 @@
 
 // The light renderer (Extension/World/light_table_guard.cpp). Each kind of light has a table of 64
 // pages of 128 and an ID allocator at manager+0x00; nothing checks the IDs against the table.
-namespace dingosdk::game::build::v20260929::light_tables {
+namespace dingosdk::game::build::v20261013::light_tables {
 // The allocator: the free list head at +0x00 (low 32 bits 0x00000000 when empty), fresh IDs given at +0x00.
 
 

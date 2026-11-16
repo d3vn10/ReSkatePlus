@@ -4,7 +4,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::reference_lists {
+namespace dingosdk::game::build::v20261013::reference_lists {
 
 inline constexpr Fingerprint register_named{0x560d60, {
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,

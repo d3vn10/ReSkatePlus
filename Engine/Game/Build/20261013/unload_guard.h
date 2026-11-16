@@ -10,7 +10,7 @@
 // rewritten in place to skip such an entry: the 2-byte nop before it makes room for a `jz`
 // straight after the `and`, the two moves the jump displaced follow it, and the loop's jump
 // back is retargeted to the new start. Everything from the read on is where it was.
-namespace dingosdk::game::build::v20260929::unload_guard {
+namespace dingosdk::game::build::v20261013::unload_guard {
 inline constexpr std::array<unsigned char, 50> contract{
     0x00,0x00,                               // nop
     0x00,0x00,0x00,0x00,                     // loop: mov rax,[rbx+8]

@@ -3,7 +3,7 @@
 
 #include "lua_startup_rvas.h"
 
-namespace dingosdk::game::build::v20260929::lua_startup {
+namespace dingosdk::game::build::v20261013::lua_startup {
 // Native post-startup routine hooked to run the Lua startup callbacks.
 
 // Executes a Lua source buffer in a context.

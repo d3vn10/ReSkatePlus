@@ -3,7 +3,7 @@
 #include <array>
 #include <cstdint>
 #include "atmosphere_rvas.h"
-namespace dingosdk::game::build::v20260929::atmosphere {
+namespace dingosdk::game::build::v20261013::atmosphere {
 struct AtmosphereBinding {
     unsigned kind; std::uint32_t hash; unsigned cache, size, mask_offset;
     std::uint32_t mask; unsigned group, asset_offset; bool texture;

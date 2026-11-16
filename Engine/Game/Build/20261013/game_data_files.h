@@ -7,7 +7,7 @@
 // 3354751 (manifest 4621099302092747785, as DepotDownloader keeps it in .DepotDownloader), so the
 // launcher can tell a missing or cut-short file before the game reads it
 // (Launcher/launch.cpp, game_data_damage). Generated from that manifest; not edited by hand.
-namespace dingosdk::game::build::v20260929::game_data_files {
+namespace dingosdk::game::build::v20261013::game_data_files {
 struct File {
     std::string_view path; // from the game's folder, '/' between parts
     std::uint64_t size;

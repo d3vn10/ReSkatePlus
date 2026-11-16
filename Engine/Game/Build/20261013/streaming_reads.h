@@ -16,7 +16,7 @@
 // bytes from the start of the buffer; 2026-10-21).
 #include "streaming_reads_rvas.h"
 
-namespace dingosdk::game::build::v20260929::streaming_reads {
+namespace dingosdk::game::build::v20261013::streaming_reads {
 
 inline constexpr std::ptrdiff_t places_offset = 0x00; // request + 0x00: the places
 inline constexpr std::ptrdiff_t flags_offset = 0x00;  // request + 0x00: u32

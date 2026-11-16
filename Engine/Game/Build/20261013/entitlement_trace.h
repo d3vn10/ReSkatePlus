@@ -4,7 +4,7 @@
 #include <cstdint>
 #include "entitlement_trace_rvas.h"
 
-namespace dingosdk::game::build::v20260929::entitlement_trace {
+namespace dingosdk::game::build::v20261013::entitlement_trace {
 // CheckUsersEntitlements entry.
 inline constexpr std::uintptr_t check_entitlements = engine::check_entitlements;
 inline constexpr std::array<unsigned char, 40> check_entitlements_prefix{

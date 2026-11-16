@@ -8,8 +8,8 @@
 // (skater_entities::place_entity). Found in game on 2026-10-15 with the traffic cone
 // (world/props/common/construction/cmn_prp_trafficcone_01/cmn_prp_trafficcone_01): the creation
 // list made one entity, and only place_entity moved it smoothly (the blueprint transform did not).
-namespace dingosdk::game::build::v20260929::world_props {
+namespace dingosdk::game::build::v20261013::world_props {
 // An ObjectBlueprint's vtable (the cone's). The skater code's blueprint vtable is
 // engine::blueprint_vtable; an object blueprint has its own.
 // The entity a static-model object blueprint creates on the client (the cone's).
-} // namespace dingosdk::game::build::v20260929::world_props
+} // namespace dingosdk::game::build::v20261013::world_props

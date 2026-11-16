@@ -4,7 +4,7 @@
 #include <cstdint>
 
 // The game's rolling replay recording (Extension/Settings/replay_guard.cpp).
-namespace dingosdk::game::build::v20260929::replay_recorder {
+namespace dingosdk::game::build::v20261013::replay_recorder {
 // end_chunk(recorder, force): run on a job worker as the game plays. Every recorder + 0x000
 // frames, or when the stream (recorder + 0x000) is as full as recorder + 0x00 allows, it ends
 // the chunk being recorded (recorder + 0x000) with a "Tail" marker and starts the next: it has

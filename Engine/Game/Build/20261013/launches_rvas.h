@@ -3,7 +3,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::launches {
+namespace dingosdk::game::build::v20261013::launches {
 inline constexpr std::uintptr_t set_trajectory = 0x4752aa0;
 inline constexpr std::uintptr_t query_manager = 0x7785da8;
 inline constexpr std::uintptr_t query_manager_load = 0x473e312;

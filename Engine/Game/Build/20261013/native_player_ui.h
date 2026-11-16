@@ -3,7 +3,7 @@
 #include <cstdint>
 #include "native_player_ui_rvas.h"
 
-namespace dingosdk::game::build::v20260929::native_player_ui {
+namespace dingosdk::game::build::v20261013::native_player_ui {
 // Hooked functions.
 // Native player map tick (map display interface vtable +8); its map
 // projection inputs are reused for remote players.

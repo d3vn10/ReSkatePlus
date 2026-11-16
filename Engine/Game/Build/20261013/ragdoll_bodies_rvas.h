@@ -4,7 +4,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::ragdoll_bodies {
+namespace dingosdk::game::build::v20261013::ragdoll_bodies {
 
 inline constexpr std::uint32_t no_slot = 0x00000000;
 // The world's setters the board sync calls: (const BodyHandle*, const float[4]*). Both refuse a non-finite value

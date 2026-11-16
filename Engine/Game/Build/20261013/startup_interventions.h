@@ -3,7 +3,7 @@
 #include <cstdint>
 #include "startup_interventions_rvas.h"
 
-namespace dingosdk::game::build::v20260929::startup_interventions {
+namespace dingosdk::game::build::v20261013::startup_interventions {
 // Build 25414733 clears the saved native frame through the VM's byte store,
 // not the 20260908 REP STOSB handler. Capture before its first zero byte.
 inline constexpr std::array<std::uint8_t, 3> frame_instruction{0x00, 0x00, 0x00}; // MOV [RDX], SIL

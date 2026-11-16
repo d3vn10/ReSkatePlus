@@ -5,7 +5,7 @@
 
 // Offline location travel catalog. The owner pointer is engine::location_owner;
 // the native hooks are in location_travel.
-namespace dingosdk::game::build::v20260929::local_location_travel {
+namespace dingosdk::game::build::v20261013::local_location_travel {
 // Location travel owner vtable.
 // Data model TypeInfos of a travel location and an access point.
 // Event types dispatched once the catalogs are published.

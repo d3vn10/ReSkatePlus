@@ -4,7 +4,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::shader_registry {
+namespace dingosdk::game::build::v20261013::shader_registry {
 
 inline constexpr Fingerprint construct{0x3f97030, {
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,

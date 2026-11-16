@@ -5,7 +5,7 @@
 // Engine functions the profiler's stack sampler names in its report (Engine/Core/Profiling,
 // labelled in Runtime/runtime_init.cpp). Anything else shows as its Ghidra address; name more in
 // ReSkate.labels.tsv next to Skate.exe without rebuilding.
-namespace dingosdk::game::build::v20260929::profiler_labels {
+namespace dingosdk::game::build::v20261013::profiler_labels {
 // The client game update ReSkate's tick hooks (runtime::client_tick).
 // The client frame job: names its end job "clientEndJob", runs the frame's update passes
 // (0x4b3c750; ReSkate's tick is called from one of them) and returns when the frame is done.

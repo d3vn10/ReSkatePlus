@@ -4,7 +4,7 @@
 #include "engine_rvas.h"
 
 // September 29 2026 executable RVAs. Keep these separate from build-independent layouts/contracts.
-namespace dingosdk::game::build::v20260929::runtime {
+namespace dingosdk::game::build::v20261013::runtime {
 inline constexpr std::uintptr_t client_tick = 0x2e8dc80;
 inline constexpr std::uintptr_t menu_expression = 0x2d4cf60;
 inline constexpr std::uintptr_t level_description_init = 0x5c6dcd0;

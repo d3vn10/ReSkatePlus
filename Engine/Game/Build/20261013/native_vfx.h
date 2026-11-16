@@ -5,7 +5,7 @@
 
 // Skater effects (sparks, dust, landing puffs, costume and board effects): the game's skater
 // effects manager.
-namespace dingosdk::game::build::v20260929::native_vfx {
+namespace dingosdk::game::build::v20261013::native_vfx {
 struct Function {
     std::uintptr_t rva;
     std::array<unsigned char, 16> prefix;

@@ -3,7 +3,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::client_source_spawn {
+namespace dingosdk::game::build::v20261013::client_source_spawn {
 inline constexpr std::uintptr_t source_create = 0x51fef0;
 inline constexpr std::uintptr_t context_client_offset = 0x6fc25f0;
 inline constexpr std::uintptr_t camera_local_id = 0x73c7ab8;

@@ -5,7 +5,7 @@
 
 // Skater and skateboard entity functions and types shared by the AI skaters,
 // the remote multiplayer actors and the local client source spawn.
-namespace dingosdk::game::build::v20260929::skater_entities {
+namespace dingosdk::game::build::v20261013::skater_entities {
 // Blueprint asset TypeInfo. Named character blueprints derive from it.
 // ObjectBlueprint ClassInfo: a world object's blueprint (props, checkpoints), a different branch
 // of the type hierarchy from the skater Blueprint above.

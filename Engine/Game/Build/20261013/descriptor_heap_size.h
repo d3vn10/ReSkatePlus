@@ -8,7 +8,7 @@
 #include <cstdint>
 #include "descriptor_heap_size_rvas.h"
 
-namespace dingosdk::game::build::v20260929::descriptor_heap_size {
+namespace dingosdk::game::build::v20261013::descriptor_heap_size {
 // In the renderer's device setup (0x00000000), where the total each heap may have (333,333, from
 // the device or from the platform's own description, PQXD; both paths join here, at the first
 // instruction) is capped at 1,000,000 unless the device's resource binding is tier 3:
@@ -42,4 +42,4 @@ inline constexpr std::array<std::uint8_t, 14> begin_frame{
 inline constexpr std::size_t heap_per_frame = 0x00;
 inline constexpr std::size_t heap_frame_start = 0x000;
 inline constexpr std::size_t heap_cursor = 0x000;
-} // namespace dingosdk::game::build::v20260929::descriptor_heap_size
+} // namespace dingosdk::game::build::v20261013::descriptor_heap_size

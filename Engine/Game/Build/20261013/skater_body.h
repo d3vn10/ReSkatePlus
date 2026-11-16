@@ -3,7 +3,7 @@
 #include "skater_body_rvas.h"
 #include "Engine/Game/Build/fingerprint.h"
 
-namespace dingosdk::game::build::v20260929::skater_body {
+namespace dingosdk::game::build::v20261013::skater_body {
 // Supported SHA-256 fbce74d5e28ef525dbba2cb4adbebc13405bdbd88f31bc940bca45e4ae88b8f9.
 // The skater's body (Engine/Game/Skater/skater_body.h), per physics step: how hard each
 // body hit something, and where its joint is. Measured in Ghidra on 2026-10-04; the ragdoll's skeleton publisher and its

@@ -3,7 +3,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::local_placements {
+namespace dingosdk::game::build::v20261013::local_placements {
 inline constexpr std::uintptr_t placement_manager_vtable = 0x60e0380;
 inline constexpr std::uintptr_t player_component_offset = 0x6f7cf60;
 inline constexpr std::uintptr_t client_ready_offset = 0x7215038;

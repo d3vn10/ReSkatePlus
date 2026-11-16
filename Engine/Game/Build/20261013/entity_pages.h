@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace dingosdk::game::build::v20260929::entity_pages {
+namespace dingosdk::game::build::v20261013::entity_pages {
 // EntityBus TransformSpace and property-space snapshots have 128 page pointers.
 // Slot 131072 formerly indexed pointer 128, overwriting snapshot bookkeeping.
 // Enlarge the leaf pages without changing owners, snapshots, IDs or their ABI.
@@ -372,4 +372,4 @@ inline constexpr Patch patches[]{
     patch(0x00000000, Kind::index_shift, "c1e80a", "c1e80b"),
     patch(0x00000000, Kind::index_shift, "c1e10a", "c1e10b"),
 };
-} // namespace dingosdk::game::build::v20260929::entity_pages
+} // namespace dingosdk::game::build::v20261013::entity_pages

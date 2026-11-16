@@ -3,7 +3,7 @@
 #include <cstdint>
 #include "native_indicators_rvas.h"
 
-namespace dingosdk::game::build::v20260929::native_indicators {
+namespace dingosdk::game::build::v20261013::native_indicators {
 // Hooked HUD indicator functions.
 // HUD indicator presenter tick.
 inline constexpr std::array<unsigned char, 16> hud_tick_prefix{

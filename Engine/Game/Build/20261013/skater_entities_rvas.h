@@ -3,7 +3,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::skater_entities {
+namespace dingosdk::game::build::v20261013::skater_entities {
 inline constexpr std::uintptr_t blueprint_type = 0x7586ce8;
 inline constexpr std::uintptr_t object_blueprint_type = 0x75043a8;
 inline constexpr std::uintptr_t object_data_vtable = 0x64062a0;

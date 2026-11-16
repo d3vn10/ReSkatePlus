@@ -3,7 +3,7 @@
 #include <cstdint>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::light_tables {
+namespace dingosdk::game::build::v20261013::light_tables {
 inline constexpr std::uintptr_t renderer = 0x77ef140; // the light renderer, null until made
 
 inline constexpr std::uint32_t allocator = 0x00, free_head = 0x00, issued = 0x00;

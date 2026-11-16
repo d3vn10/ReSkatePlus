@@ -3,7 +3,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::mission_progression {
+namespace dingosdk::game::build::v20261013::mission_progression {
 inline constexpr std::uintptr_t quest_lookup = 0x825750;
 inline constexpr std::uintptr_t component_query = 0x277e2b0;
 inline constexpr std::uintptr_t quest_status_query_call = 0x82cbb9;

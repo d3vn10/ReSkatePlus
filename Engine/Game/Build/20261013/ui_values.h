@@ -3,7 +3,7 @@
 #include <cstdint>
 #include "ui_values_rvas.h"
 
-namespace dingosdk::game::build::v20260929::ui_values {
+namespace dingosdk::game::build::v20261013::ui_values {
 // The asset loader publishes a symbolic alias separately from the typed model
 // handle. The insertion routine holds no lock; callers hold ModelWriteLock.
 inline constexpr std::array<unsigned char, 32> alias_insert_prefix{

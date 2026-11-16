@@ -3,7 +3,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::native_throwdowns {
+namespace dingosdk::game::build::v20261013::native_throwdowns {
 inline constexpr std::uintptr_t player_in_activity = 0x834520;
 inline constexpr std::uintptr_t mode_available = 0x807130;
 inline constexpr std::uintptr_t player_info = 0x793080;

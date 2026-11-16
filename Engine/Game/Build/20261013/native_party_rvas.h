@@ -3,7 +3,7 @@
 #include <cstdint>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::native_party {
+namespace dingosdk::game::build::v20261013::native_party {
 inline constexpr std::uintptr_t model_record = 0x1915650;
 inline constexpr std::uintptr_t model_type = 0x1917d70;
 inline constexpr std::uintptr_t model_singleton = 0x19192b0;

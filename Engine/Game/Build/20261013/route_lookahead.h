@@ -4,7 +4,7 @@
 #include <cstdint>
 #include "route_lookahead_rvas.h"
 
-namespace dingosdk::game::build::v20260929::route_lookahead {
+namespace dingosdk::game::build::v20261013::route_lookahead {
 
 struct RouteLookaheadSite {
     std::uint32_t rva;

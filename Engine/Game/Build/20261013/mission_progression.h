@@ -5,7 +5,7 @@
 #include "mission_progression_rvas.h"
 
 // Main mission / quest progression override.
-namespace dingosdk::game::build::v20260929::mission_progression {
+namespace dingosdk::game::build::v20261013::mission_progression {
 // Quest lookup by QuestId.
 inline constexpr std::array<unsigned char, 32> quest_lookup_prefix{
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,

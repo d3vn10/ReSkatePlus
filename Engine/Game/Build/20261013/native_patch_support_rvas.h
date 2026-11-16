@@ -2,7 +2,7 @@
 #include <cstdint>
 
 // September 29 2026 executable RVAs for the native patch contract.
-namespace dingosdk::game::build::v20260929::native_patch_support {
+namespace dingosdk::game::build::v20261013::native_patch_support {
 inline constexpr std::uintptr_t verifier = 0x00000000;
 inline constexpr std::uintptr_t signature_import = 0x00000000;
 inline constexpr std::uintptr_t signature_return = 0x00000000;

@@ -3,7 +3,7 @@
 #include <cstdint>
 #include "launches_rvas.h"
 
-namespace dingosdk::game::build::v20260929::launches {
+namespace dingosdk::game::build::v20261013::launches {
 // Supported SHA-256 fbce74d5e28ef525dbba2cb4adbebc13405bdbd88f31bc940bca45e4ae88b8f9.
 // The local skater's launches into the air (Extension/Skater/launches.h), as measured with a
 // logging-only recorder of physics steps, pad and launch calls on 2026-10-11: 48 pops out of

@@ -3,7 +3,7 @@
 #include <cstdint>
 #include "camera_observer_rvas.h"
 
-namespace dingosdk::game::build::v20260929::camera_observer {
+namespace dingosdk::game::build::v20261013::camera_observer {
 // Camera callback observed by the camera diagnostics.
 inline constexpr std::array<unsigned char, 24> camera_callback_prefix{
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,

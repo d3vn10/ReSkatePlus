@@ -5,7 +5,7 @@
 // The SDK's display-only score HUD model, mapped by read-only HUD probes on this build and checked
 // by drawing an owned model on 2026-11-06. These are field-name hashes from the game's type data;
 // feature code finds each offset through that type before reading or writing its owned model.
-namespace dingosdk::game::build::v20260929::score_hud {
+namespace dingosdk::game::build::v20261013::score_hud {
 inline constexpr std::uint16_t score_view_size = 896;
 inline constexpr std::string_view score_widget = "UI/Features/HUD/Scoring/ScoringHUD_Widget";
 inline constexpr std::string_view trick_row_widget = "UI/Features/HUD/Scoring/TrickHistoryStackItem";

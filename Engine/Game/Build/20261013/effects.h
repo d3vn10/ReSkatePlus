@@ -3,7 +3,7 @@
 #include "effects_rvas.h"
 #include "Engine/Game/Build/fingerprint.h"
 
-namespace dingosdk::game::build::v20260929::effects {
+namespace dingosdk::game::build::v20261013::effects {
 // Supported Skate.exe SHA-256 fbce74d5e28ef525dbba2cb4adbebc13405bdbd88f31bc940bca45e4ae88b8f9.
 // EffectEntity::onStart (29d0b40) and the skater VFX factory (486e720)
 // construct the same 0x000-byte descriptor and own an 8-byte effect reference.

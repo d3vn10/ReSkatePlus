@@ -4,7 +4,7 @@
 #include "mesh_settings_rvas.h"
 
 // A mesh's render settings (Extension/World/mesh_settings_guard.cpp).
-namespace dingosdk::game::build::v20260929::mesh_settings {
+namespace dingosdk::game::build::v20261013::mesh_settings {
 // apply_settings(mesh, settings): as a level's meshes load (0x3f59610, for each mesh whose flag
 // at + 0x000 is clear), it builds the settings object of the mesh's asset in place at mesh + 0x000
 // (0x00 bytes, a reflected instance of 0x76f26f0) when the asset has one; settings is that

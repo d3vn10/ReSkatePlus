@@ -5,7 +5,7 @@
 #include "traffic_vehicles_rvas.h"
 
 // The hierarchy pass for moving ECS entities. It can run on job-system threads.
-namespace dingosdk::game::build::v20260929::traffic_vehicles {
+namespace dingosdk::game::build::v20261013::traffic_vehicles {
 inline constexpr std::array<unsigned char, 16> hierarchy_update_prefix{
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
 // The mission override hooks the component query (mission_progression::component_query) that this

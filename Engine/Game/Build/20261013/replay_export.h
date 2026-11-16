@@ -4,7 +4,7 @@
 #include "replay_export_rvas.h"
 
 // The replay editor's video export (analysis/replay-editor.md).
-namespace dingosdk::game::build::v20260929::replay_export {
+namespace dingosdk::game::build::v20261013::replay_export {
 // The engine movie encoder's frame submit: (encoder, pixels, pitch). The render
 // thread calls it at the end of every rendered frame while a capture runs, and
 // it encodes the frame, video and its share of audio, before it returns.

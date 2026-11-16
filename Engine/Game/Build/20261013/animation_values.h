@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
 #include "animation_values_rvas.h"
-namespace dingosdk::game::build::v20260929::animation_values {
+namespace dingosdk::game::build::v20261013::animation_values {
 inline constexpr std::uintptr_t core_position = 0x000, core_forward = 0x000, core_backwards = 0x000;
 inline constexpr std::uintptr_t frame_source = 0x000, frame_flags = 0x00;
 inline constexpr std::uintptr_t frame_context = 0x0000, basis_context = 0x0000;

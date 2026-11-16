@@ -5,7 +5,7 @@
 #include "neighborhood_unlock_rvas.h"
 
 // NeighborhoodBoundaryComponent_UpdateIsUnlocked expression override.
-namespace dingosdk::game::build::v20260929::neighborhood_unlock {
+namespace dingosdk::game::build::v20261013::neighborhood_unlock {
 // Expression argument binder (VA 0x000000000) and its expected leading bytes.
 inline constexpr std::array<unsigned char, 48> binder_prefix{
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,

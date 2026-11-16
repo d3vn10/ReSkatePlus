@@ -4,7 +4,7 @@
 #include "progression_service_guard_rvas.h"
 
 // Progression service dispatch guard (null service skip).
-namespace dingosdk::game::build::v20260929::progression_service_guard {
+namespace dingosdk::game::build::v20261013::progression_service_guard {
 // Progression event dispatch (VA 0x000000000) and its expected leading bytes.
 inline constexpr std::array<unsigned char, 32> dispatch_prefix{
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,

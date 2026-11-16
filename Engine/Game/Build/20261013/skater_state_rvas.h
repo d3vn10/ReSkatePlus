@@ -3,6 +3,6 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::skater_state {
+namespace dingosdk::game::build::v20261013::skater_state {
 
 }

@@ -4,7 +4,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::puppet_cost {
+namespace dingosdk::game::build::v20261013::puppet_cost {
 inline constexpr std::uintptr_t navigator_vtable = 0x6078f30;
 inline constexpr std::uintptr_t stim_vtable = 0x6438908;
 inline constexpr std::uintptr_t collider_vtable = 0x6439560;

@@ -6,7 +6,7 @@
 #include <cstdint>
 #include "park_editor_rvas.h"
 
-namespace dingosdk::game::build::v20260929::park_editor {
+namespace dingosdk::game::build::v20261013::park_editor {
 // The calls native dropper movement (0x7c63f0) uses to update an existing
 // object: physics component query, physics body setter and transform setter.
 

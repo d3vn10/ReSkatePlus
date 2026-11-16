@@ -4,7 +4,7 @@
 #include <cstdint>
 #include "protossl_rvas.h"
 
-namespace dingosdk::game::build::v20260929::protossl {
+namespace dingosdk::game::build::v20261013::protossl {
 template<std::size_t N> consteval auto hex_bytes(const char (&hex)[N]) {
     static_assert(N % 2 == 1);
     std::array<unsigned char, (N - 1) / 2> result{};

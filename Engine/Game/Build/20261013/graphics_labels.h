@@ -4,7 +4,7 @@
 #include "graphics_labels_rvas.h"
 
 // Fallback labels for the TierManager graphics settings cache.
-namespace dingosdk::game::build::v20260929::graphics_labels {
+namespace dingosdk::game::build::v20261013::graphics_labels {
 // TierManager settings cache rebuild, void(manager).
 inline constexpr std::array<unsigned char, 32> tier_rebuild_prefix{
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,

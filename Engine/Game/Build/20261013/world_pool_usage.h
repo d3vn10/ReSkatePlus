@@ -9,7 +9,7 @@
 #include <cstdint>
 #include "world_pool_usage_rvas.h"
 
-namespace dingosdk::game::build::v20260929::world_pool_usage {
+namespace dingosdk::game::build::v20261013::world_pool_usage {
 // Entity snapshots: the page allocator, (owner, allocator, pages). It fills the
 // snapshot's 128 page pointers at pages[0..127], each page zeroed when handed out,
 // so the highest non-zero entry is the highest entity slot in use.
@@ -39,4 +39,4 @@ inline constexpr std::array<std::uint8_t, 15> spatial_query_entry{
 inline constexpr std::ptrdiff_t spatial_nodes_offset = 0x000;
 // The game's own blocks per bucket (its root bucket overflowed at 2,049).
 inline constexpr std::size_t spatial_blocks_stock = 2'048;
-} // namespace dingosdk::game::build::v20260929::world_pool_usage
+} // namespace dingosdk::game::build::v20261013::world_pool_usage

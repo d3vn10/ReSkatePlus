@@ -3,7 +3,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::local_challenge {
+namespace dingosdk::game::build::v20261013::local_challenge {
 inline constexpr std::uintptr_t challenge_owner_vtable = 0x6089158;
 inline constexpr std::uintptr_t challenge_context = 0x73c7cb0;
 inline constexpr std::uintptr_t challenge_owner_offset = 0x7201838;

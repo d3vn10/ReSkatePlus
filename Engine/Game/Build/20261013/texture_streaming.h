@@ -46,7 +46,7 @@
 // layer, found as (layer + 0x0000) * 16. Nothing else in the code has that arithmetic. The
 // blocks become raised_count floats each, the fields behind them move up, and the two
 // lea/shl/add become an imul and the same add (renderer_rewrites).
-namespace dingosdk::game::build::v20260929::texture_streaming {
+namespace dingosdk::game::build::v20261013::texture_streaming {
 
 // __report_gsfailure: mov ecx, 2; int 0x00; ret. Every function's stack check jumps to it
 // (FUN_14546ba30) when its cookie is not what it left (Extension/World/stack_check_report.cpp).

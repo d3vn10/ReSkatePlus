@@ -16,7 +16,7 @@
 // written; Sentry and a test install, 2026-11-02). So the guard takes the empty references out of
 // each array (moving the rest down and lowering the count) before either loader walks it, and every
 // later walk finds none.
-namespace dingosdk::game::build::v20260929::reference_lists {
+namespace dingosdk::game::build::v20261013::reference_lists {
 
 
 inline constexpr std::uint32_t asset_references = 0x00;

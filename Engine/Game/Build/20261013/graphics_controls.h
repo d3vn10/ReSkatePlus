@@ -4,7 +4,7 @@
 #include "Engine/Game/Build/fingerprint.h"
 #include "engine.h"
 
-namespace dingosdk::game::build::v20260929::graphics_controls {
+namespace dingosdk::game::build::v20261013::graphics_controls {
 // Filmic component constructor, destructor and property setter; the settings
 // manager lookup; the video filter pass setup.
 

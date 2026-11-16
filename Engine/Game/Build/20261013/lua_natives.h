@@ -6,7 +6,7 @@
 // The game's Lua is stock Lua 5.2 with every standard library open. These are the functions in
 // it that reach outside Lua (Extension/Scripting/lua_native_block.h). Found from the libraries'
 // registration tables in .rodata (package at 0x6445c30, os at 0x6445f90, io at 0x6446150).
-namespace dingosdk::game::build::v20260929::lua_natives {
+namespace dingosdk::game::build::v20261013::lua_natives {
 // int ll_loadfunc(lua_State*, const char* path, const char* symbol): the one place Lua loads a
 // DLL (LoadLibraryExA). package.loadlib calls it, and so does require through both C searchers
 // (by way of loadfunc at 0x334cfa0). 0 on success; 1 with a message pushed when the DLL does

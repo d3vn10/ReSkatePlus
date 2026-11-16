@@ -4,7 +4,7 @@
 #include <cstdint>
 #include "profile_rvas.h"
 
-namespace dingosdk::game::build::v20260929::profile {
+namespace dingosdk::game::build::v20261013::profile {
 // Named-asset lookup used by the native TextureAsset renderer (144020f90).
 
 

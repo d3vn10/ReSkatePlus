@@ -5,7 +5,7 @@
 #include "native_cosmetics_rvas.h"
 
 // Remote skater and skateboard cosmetics.
-namespace dingosdk::game::build::v20260929::native_cosmetics {
+namespace dingosdk::game::build::v20261013::native_cosmetics {
 // Customization component that owns the recipe at +0x000.
 // Deep-copies a recipe value into a component (component, recipe).
 inline constexpr std::array<unsigned char, 24> recipe_copy_prefix{

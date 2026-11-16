@@ -2,7 +2,7 @@
 #include <cstdint>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::fixed_stop_entitlement {
+namespace dingosdk::game::build::v20261013::fixed_stop_entitlement {
 inline constexpr std::uintptr_t group_enumeration = 0x77458f;
 inline constexpr std::uintptr_t result_vector_init = 0x58b1cb0;
 inline constexpr std::uintptr_t result_element_init = 0x58b1c70;

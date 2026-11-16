@@ -23,7 +23,7 @@
 // is written only by the system's init (0x3d2fe20) and read only by the wake pass (2026-10-24).
 #include "physics_wake_rvas.h"
 
-namespace dingosdk::game::build::v20260929::physics_wake {
+namespace dingosdk::game::build::v20261013::physics_wake {
 
 inline constexpr std::ptrdiff_t world_offset = 0x00;       // system + 0x00: the world
 inline constexpr std::ptrdiff_t owner_limit_offset = 0x00; // system + 0x00: u32, the bitset's size in owners

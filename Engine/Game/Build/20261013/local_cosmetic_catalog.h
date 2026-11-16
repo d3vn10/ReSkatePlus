@@ -8,7 +8,7 @@
 // constructor 14094dc10 with its normal subscriptions 1406bc560; 140695b00
 // stores the borrowed OwnableData pointer at +0x000; default-owned
 // subscription callback 1406a0c30 -> 1406b6870.
-namespace dingosdk::game::build::v20260929::local_cosmetic_catalog {
+namespace dingosdk::game::build::v20261013::local_cosmetic_catalog {
 // Shared control block vtable for a native OwnableData message.
 // OwnableData (cosmetic UI) manager.
 // Ownable inventory manager.

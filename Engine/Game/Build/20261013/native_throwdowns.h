@@ -3,7 +3,7 @@
 #include <cstdint>
 #include "native_throwdowns_rvas.h"
 
-namespace dingosdk::game::build::v20260929::native_throwdowns {
+namespace dingosdk::game::build::v20261013::native_throwdowns {
 // Hooked functions.
 // GetPlayerIsInActivity (6dae8d15). The typed fast thunk calls this same
 // implementation, including calls inlined into the activity pause menu.

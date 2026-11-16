@@ -10,7 +10,7 @@
 #include <cstdint>
 #include "spatial_cull_ids_rvas.h"
 
-namespace dingosdk::game::build::v20260929::spatial_cull_ids {
+namespace dingosdk::game::build::v20261013::spatial_cull_ids {
 // make_list(list, allocator): looks the settings up, sizes the list's two arrays (u32 next IDs,
 // u64 per-ID entries) to InitialCullIdListSize and chains them into the free list. Its only
 // callers are the two queue constructors (0x489b518, 0x489ba10).
@@ -23,4 +23,4 @@ inline constexpr std::array<std::uint8_t, 27> size_read{
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 inline constexpr std::size_t initial_cull_id_list_size = 0x00;
-} // namespace dingosdk::game::build::v20260929::spatial_cull_ids
+} // namespace dingosdk::game::build::v20261013::spatial_cull_ids

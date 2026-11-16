@@ -4,7 +4,7 @@
 #include "skater_slot_override_rvas.h"
 
 // Skater preset slot count and selection.
-namespace dingosdk::game::build::v20260929::skater_slot_override {
+namespace dingosdk::game::build::v20261013::skater_slot_override {
 // Expected code of engine::settings_lookup.
 inline constexpr std::array<unsigned char, 24> settings_lookup_prefix{
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,

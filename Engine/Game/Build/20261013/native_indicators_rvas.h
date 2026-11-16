@@ -3,7 +3,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::native_indicators {
+namespace dingosdk::game::build::v20261013::native_indicators {
 inline constexpr std::uintptr_t hud_tick = 0x1af6830;
 inline constexpr std::uintptr_t provider_remove = 0x1af64a0;
 inline constexpr std::uintptr_t widget_create = 0x4383410;

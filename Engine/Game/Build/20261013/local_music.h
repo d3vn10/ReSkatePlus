@@ -5,7 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include "local_music_rvas.h"
-namespace dingosdk::game::build::v20260929::local_music {
+namespace dingosdk::game::build::v20261013::local_music {
 // Registered music assets
 // Pointer to the music asset manager. Its CRITICAL_SECTION at +0x00 is taken
 // through the game's IAT thunks (0x158fd80/0x1590860) by registration (0x43e260,

@@ -8,7 +8,7 @@
 #include "morph_memory_pool_rvas.h"
 #include <span>
 
-namespace dingosdk::game::build::v20260929::morph_memory_pool {
+namespace dingosdk::game::build::v20261013::morph_memory_pool {
 template<std::size_t N> consteval auto hex_bytes(const char (&hex)[N]) {
     static_assert(N % 2 == 1);
     std::array<std::uint8_t, (N - 1) / 2> result{};
@@ -176,5 +176,5 @@ inline constexpr std::size_t max_contract_size = [] {
 // Morph heap constructor hooked to raise the render heap capacity.
 // Return addresses of the temporary and permanent morph heap constructions.
 // Globals holding the temporary and permanent morph pools (null until built).
-} // namespace dingosdk::game::build::v20260929::morph_memory_pool
+} // namespace dingosdk::game::build::v20261013::morph_memory_pool
 

@@ -4,7 +4,7 @@
 #include <cstdint>
 #include "localization_rvas.h"
 
-namespace dingosdk::game::build::v20260929::localization {
+namespace dingosdk::game::build::v20261013::localization {
 // The string-override store every localized-text lookup checks before the shipped string
 // database (hasString 0x3320c70 and getString 0x3322fd0 both do). Retail fills its layer 0
 // from the backend's client_strings_v1 service (handler 0x268a00, lambda 0x2696d0: clear
@@ -44,4 +44,4 @@ inline constexpr int case_lower = 1;
 inline constexpr int case_upper = 2;
 // char16_t tables indexed by code point below 0x000: upper[0x000] (dotless i) is 0x00,
 // lower[0x000] (dotted capital I) is 0x00.
-} // namespace dingosdk::game::build::v20260929::localization
+} // namespace dingosdk::game::build::v20261013::localization

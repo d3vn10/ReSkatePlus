@@ -17,7 +17,7 @@
 // a pointer in a list that nothing removes; the next walk of the lists (0x3f7ce90, reading
 // *(item + 0x00)) crashes on it (Skate.exe+0x3f7cf33 / +0x3f7ceed / +0x20960b, mostly on custom
 // map changes, 2026-10-17).
-namespace dingosdk::game::build::v20260929::shader_registry {
+namespace dingosdk::game::build::v20261013::shader_registry {
 // ExpressionShaderDatabase(this, allocator, blob, lookup, lookup size) -> this.
 
 // ~ExpressionShaderDatabase(this, delete flags) -> this.

@@ -3,7 +3,7 @@
 #include <cstdint>
 #include "native_skater_rvas.h"
 // Remote multiplayer skater and skateboard actors.
-namespace dingosdk::game::build::v20260929::native_skater {
+namespace dingosdk::game::build::v20261013::native_skater {
 // Skater animation component update (component, update). Hooked to apply remote poses.
 inline constexpr std::array<unsigned char, 18> animation_update_prefix{
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,

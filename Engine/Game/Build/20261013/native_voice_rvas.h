@@ -3,7 +3,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::native_voice {
+namespace dingosdk::game::build::v20261013::native_voice {
 inline constexpr std::uintptr_t sound_create = 0x13f3b70;
 inline constexpr std::uintptr_t sound_destroy = 0x13f3d40;
 inline constexpr std::uintptr_t sound_set_input = 0x13f4af0;

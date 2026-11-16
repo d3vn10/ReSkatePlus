@@ -4,7 +4,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::engine_tweaks {
+namespace dingosdk::game::build::v20261013::engine_tweaks {
 inline constexpr std::uintptr_t gi_update_frame_return = 0x51966f4;
 inline constexpr std::uintptr_t gi_update_loop_return = 0x519660c;
 inline constexpr std::uintptr_t settings_lookup = 0x18d6ef0;

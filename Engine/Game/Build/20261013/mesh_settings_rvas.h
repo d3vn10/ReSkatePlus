@@ -4,7 +4,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::mesh_settings {
+namespace dingosdk::game::build::v20261013::mesh_settings {
 inline constexpr std::uintptr_t empty_string = 0x72fe704;
 
 inline constexpr Fingerprint apply_settings{0x3f740d0, {

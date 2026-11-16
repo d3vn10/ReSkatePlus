@@ -6,7 +6,7 @@
 
 // Engine work the developers left on the table (Extension/Rendering/engine_tweaks.cpp, `perf`
 // toggles; analysis/sim-performance.md "Engine code").
-namespace dingosdk::game::build::v20260929::engine_tweaks {
+namespace dingosdk::game::build::v20261013::engine_tweaks {
 // 1. Enlighten GI's per-frame update(manager, mode): runs on the render thread every rendered
 // frame and dispatches the probe-set solves (SolveEntireProbeSetTask 0x54d5090, SolveIrradianceTask
 // 0x54c7350). Its own skip path (manager + 0x00 bits 0/1) returns at once with nothing done.

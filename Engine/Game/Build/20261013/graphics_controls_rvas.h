@@ -4,7 +4,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::graphics_controls {
+namespace dingosdk::game::build::v20261013::graphics_controls {
 inline constexpr std::uintptr_t video_filter_pass_vtable = 0x60ca0d8;
 inline constexpr std::uintptr_t video_filter_module_vtable = 0x60ca020;
 inline constexpr std::uintptr_t filmic_vtable = 0x67d57f8;

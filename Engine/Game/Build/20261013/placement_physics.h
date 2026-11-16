@@ -8,7 +8,7 @@
 // FBPhysics 16-byte handles {FBPhysicsWorld*, u32 index, u32 generation} (remote_collision.h).
 // Every function is checked by its first 16 bytes before it is called or hooked; the offsets were
 // found by the PR #356 author against this build and are read with memory::peek, never trusted.
-namespace dingosdk::game::build::v20260929::placement_physics {
+namespace dingosdk::game::build::v20261013::placement_physics {
 // A body's motion type, as set_motion_type (remote_collision.h) takes it and motion_type returns it.
 inline constexpr int motion_fixed = 1, motion_keyframed = 2, motion_dynamic = 3;
 

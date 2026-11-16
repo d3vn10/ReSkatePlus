@@ -8,7 +8,7 @@
 // bytes; every call site in transform_calls, moving_calls and material_calls is checked to be a direct
 // call (E8 rel32) to the function it is listed for, since the hooks tell those callers apart by return
 // address (site + 5). The addresses were found by the PR #356 author against this build.
-namespace dingosdk::game::build::v20260929::placement_adapters {
+namespace dingosdk::game::build::v20261013::placement_adapters {
 // The dropper's selection: select(controller, const entity list*, bool quiet) starts one; finish
 // (controller, const entity list*, bool keep, bool cancel, bool force) ends it, committing unless
 // cancel. pose(float out[12], const query*) -> out reads an entity's transform (scale, rotation,
@@ -67,4 +67,4 @@ inline constexpr std::uint32_t board_part_count = 9;
 // board_ray_above above the deck's position to board_ray_below under it, at these offsets across it.
 inline constexpr float board_ray_above = .4f, board_ray_below = .6f;
 inline constexpr std::array<float, 7> board_ray_offsets{0.f, -.08f, .08f, -.16f, .16f, -.24f, .24f};
-} // namespace dingosdk::game::build::v20260929::placement_adapters
+} // namespace dingosdk::game::build::v20261013::placement_adapters

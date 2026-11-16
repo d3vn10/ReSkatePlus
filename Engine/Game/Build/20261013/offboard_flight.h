@@ -3,7 +3,7 @@
 #include "offboard_flight_rvas.h"
 #include "Engine/Game/Build/fingerprint.h"
 
-namespace dingosdk::game::build::v20260929::offboard_flight {
+namespace dingosdk::game::build::v20261013::offboard_flight {
 // Supported executable. Offboard owns these embedded substates
 // (constructor RVA 480fd40), selected through +48 and updated through vtable+18.
 // Ground/Slide add context+910 to velocity XYZ at +10; Falling adds gravity*dt

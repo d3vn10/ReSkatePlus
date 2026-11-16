@@ -3,7 +3,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::skater_slot_override {
+namespace dingosdk::game::build::v20261013::skater_slot_override {
 inline constexpr std::uintptr_t settings_constructor = 0xc834c0;
 inline constexpr std::uintptr_t manager_constructor = 0x52d920;
 inline constexpr std::uintptr_t native_resize = 0x537850;

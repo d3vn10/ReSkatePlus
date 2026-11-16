@@ -10,7 +10,7 @@
 #include "physics_world_size_rvas.h"
 #include <span>
 
-namespace dingosdk::game::build::v20260929::physics_world_size {
+namespace dingosdk::game::build::v20261013::physics_world_size {
 template<std::size_t N> consteval auto hex_bytes(const char (&hex)[N]) {
     static_assert(N % 2 == 1);
     std::array<std::uint8_t, (N - 1) / 2> result{};
@@ -69,4 +69,4 @@ inline constexpr std::size_t fixed_partition_count = 0x00;
 inline constexpr std::size_t persistent_spatial_index_count = 0x00;
 
 // fb::FBPhysicsWorld creation: (void* world, Descriptor* descriptor).
-} // namespace dingosdk::game::build::v20260929::physics_world_size
+} // namespace dingosdk::game::build::v20261013::physics_world_size

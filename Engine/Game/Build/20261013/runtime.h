@@ -3,7 +3,7 @@
 #include <array>
 #include <cstdint>
 #include "runtime_rvas.h"
-namespace dingosdk::game::build::v20260929::runtime {
+namespace dingosdk::game::build::v20261013::runtime {
 // Client game update (client vtable tick) hooked by the runtime controller.
 inline constexpr std::array<unsigned char, 17> client_tick_prefix{
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0,0,0};

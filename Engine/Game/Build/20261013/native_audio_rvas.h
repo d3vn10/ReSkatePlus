@@ -3,7 +3,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::native_audio {
+namespace dingosdk::game::build::v20261013::native_audio {
 inline constexpr std::uintptr_t submit = 0x44a370;
 inline constexpr std::uintptr_t frame_copy = 0x58f03b0;
 inline constexpr std::uintptr_t frame_difference = 0x58d53a0;

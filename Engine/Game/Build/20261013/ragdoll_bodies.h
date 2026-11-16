@@ -4,7 +4,7 @@
 #include <cstdint>
 #include "ragdoll_bodies_rvas.h"
 
-namespace dingosdk::game::build::v20260929::ragdoll_bodies {
+namespace dingosdk::game::build::v20261013::ragdoll_bodies {
 // Supported SHA-256 fbce74d5e28ef525dbba2cb4adbebc13405bdbd88f31bc940bca45e4ae88b8f9.
 // Real Bails (Extension/Skater/real_bails.h): the skater's ragdoll bodies in the physics world itself.
 //

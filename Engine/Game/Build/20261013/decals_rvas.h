@@ -4,7 +4,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::decals {
+namespace dingosdk::game::build::v20261013::decals {
 inline constexpr std::uintptr_t create=0x1987220;
 inline constexpr std::uintptr_t release=0x19862f0;
 inline constexpr std::uintptr_t properties_init=0x5b09bb0;

@@ -3,7 +3,7 @@
 #include <cstdint>
 #include "game_states_rvas.h"
 
-namespace dingosdk::game::build::v20260929::game_states {
+namespace dingosdk::game::build::v20261013::game_states {
 // Supported SHA-256 fbce74d5e28ef525dbba2cb4adbebc13405bdbd88f31bc940bca45e4ae88b8f9.
 // The skater's game states as the trainer reads and holds them (Extension/Trainer/trainer_gamestate.cpp).
 // A game state is an asset object; its value is in one of the skater's state pages, which hang off

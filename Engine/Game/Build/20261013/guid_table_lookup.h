@@ -10,7 +10,7 @@
 // eb835e72f8c9, in two hang dumps, 2026-10-17). On a match it goes on to record(table, index, a, b).
 #include "guid_table_lookup_rvas.h"
 
-namespace dingosdk::game::build::v20260929::guid_table_lookup {
+namespace dingosdk::game::build::v20261013::guid_table_lookup {
 
 
 inline constexpr std::uintptr_t record = record_contract.rva;

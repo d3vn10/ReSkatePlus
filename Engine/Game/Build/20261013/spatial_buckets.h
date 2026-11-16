@@ -2,7 +2,7 @@
 
 #include "entity_pages.h"
 
-namespace dingosdk::game::build::v20260929::spatial_buckets {
+namespace dingosdk::game::build::v20261013::spatial_buckets {
 using entity_pages::Kind;
 using entity_pages::Patch;
 using entity_pages::patch;

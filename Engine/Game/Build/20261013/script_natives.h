@@ -2,7 +2,7 @@
 #include <cstdint>
 #include "script_natives_rvas.h"
 // Authored-graph natives ReSkate rebinds: the script error logger and SetFields.
-namespace dingosdk::game::build::v20260929::script_natives {
+namespace dingosdk::game::build::v20261013::script_natives {
 // Script error logger native record (hash 0x00000000) and the shared no-op
 // stub retail binds into its slots.
 // SetFields native table row (hash 0x00000000) and its function.

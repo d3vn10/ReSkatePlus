@@ -3,7 +3,7 @@
 #include <cstdint>
 #include "native_voice_rvas.h"
 
-namespace dingosdk::game::build::v20260929::native_voice {
+namespace dingosdk::game::build::v20261013::native_voice {
 // Sound functions.
 inline constexpr std::array<unsigned char, 13> sound_create_prefix{
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};

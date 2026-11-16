@@ -4,7 +4,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::profiler_labels {
+namespace dingosdk::game::build::v20261013::profiler_labels {
 inline constexpr std::uintptr_t client_update = 0x2e77190;
 inline constexpr std::uintptr_t expression_vm = 0x16d1190;
 inline constexpr std::uintptr_t expression_vm_profiled = 0x16d2010;

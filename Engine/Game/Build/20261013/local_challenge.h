@@ -8,7 +8,7 @@
 // sender 1406de170 (rejects an empty EID); 1415b4d90 places a graph's page
 // table after its aligned frame size; the criterion value copy constructor
 // 14591b5e0 treats its array fields as reference-counted ValueRefs.
-namespace dingosdk::game::build::v20260929::local_challenge {
+namespace dingosdk::game::build::v20261013::local_challenge {
 // Challenge (activity) owner system.
 // Pointer to the game context that owns the challenge system.
 // uint32 registered offset of the challenge owner in that context.

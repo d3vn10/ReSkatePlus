@@ -4,7 +4,7 @@
 
 #include "ui_model_rvas.h"
 
-namespace dingosdk::game::build::v20260929::ui_model {
+namespace dingosdk::game::build::v20261013::ui_model {
 // Supported SHA-256 fbce74d5e28ef525dbba2cb4adbebc13405bdbd88f31bc940bca45e4ae88b8f9.
 // The UI model's write of one value (manager, handle, type, value bytes, flag; true when written),
 // found on 2026-10-07. The game's widget logic is data (expression functions: no native code names

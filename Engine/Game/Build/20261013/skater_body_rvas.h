@@ -4,7 +4,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::skater_body {
+namespace dingosdk::game::build::v20261013::skater_body {
 
 inline constexpr Fingerprint contacts_before_skeleton_contract{0x47da3b9, {
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,

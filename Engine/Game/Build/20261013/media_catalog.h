@@ -6,7 +6,7 @@
 // The game's media catalogue: thumbnails and labels of saved replay drafts (and the game's own
 // park saves), kept as numbered folders with a manifest.json under <CatalogVFSRoot>/<user id>
 // (Extension/Settings/replay_drafts.cpp; analysis/replay-editor.md, section 6).
-namespace dingosdk::game::build::v20260929::media_catalog {
+namespace dingosdk::game::build::v20261013::media_catalog {
 // The backend services object (engine.h backend_services) when it is the game's own.
 // lookup(services): the registered "catalog" container, or null.
 

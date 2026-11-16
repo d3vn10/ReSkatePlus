@@ -4,7 +4,7 @@
 #include "world_layers_rvas.h"
 
 // SubWorldReference adapter for the seasonal world layers.
-namespace dingosdk::game::build::v20260929::world_layers {
+namespace dingosdk::game::build::v20261013::world_layers {
 struct Site { std::uintptr_t rva; std::array<unsigned char, 16> bytes; };
 // SubWorldReference constructor, destructor and void(entity, event*) handler,
 // then the subworld event's clone function. The handler clones the 16-byte

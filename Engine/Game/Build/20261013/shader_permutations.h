@@ -6,7 +6,7 @@
 // The game's expression shaders (Extension/World/shader_permutation_guard.cpp).
 #include "shader_permutations_rvas.h"
 
-namespace dingosdk::game::build::v20260929::shader_permutations {
+namespace dingosdk::game::build::v20261013::shader_permutations {
 // prepare(shader, renderer, state, bool, bool): run on a job worker (from 0x3f72b90, for every
 // shader each view has registered, and from 0x3f79b70 for one). The shader keeps its compiled
 // permutations as an array of pointers (begin at +0x00, end at +0x00). The function asks the

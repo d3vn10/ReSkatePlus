@@ -4,7 +4,7 @@
 #include <cstdint>
 #include "skater_state_rvas.h"
 
-namespace dingosdk::game::build::v20260929::skater_state {
+namespace dingosdk::game::build::v20261013::skater_state {
 // Supported SHA-256 fbce74d5e28ef525dbba2cb4adbebc13405bdbd88f31bc940bca45e4ae88b8f9.
 // The skater's live state, read-only (Extension/Skater/skater_physics.h).
 

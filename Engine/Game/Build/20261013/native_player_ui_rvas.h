@@ -3,7 +3,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::native_player_ui {
+namespace dingosdk::game::build::v20261013::native_player_ui {
 inline constexpr std::uintptr_t map_tick = 0x6bd2c0;
 inline constexpr std::uintptr_t ui_copy = 0x69d210;
 inline constexpr std::uintptr_t map_destroy = 0x66a730;

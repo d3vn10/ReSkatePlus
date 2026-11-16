@@ -8,7 +8,7 @@
 // {FBPhysicsWorld*, u32 index, u32 generation}; per-shape category masks live in the world
 // state (world+0x00): InCategories at +0x000, CollidesWith at +0x000. Full notes:
 // analysis/party-collision.md.
-namespace dingosdk::game::build::v20260929::remote_collision {
+namespace dingosdk::game::build::v20261013::remote_collision {
 // The client physics world: world(*(game_context_global)); what skater physics creation
 // (0xf8d730) uses. Null while no level physics exists.
 
@@ -60,4 +60,4 @@ inline constexpr float proxy_radius = 0.5f, proxy_bottom = 0.15f, proxy_top = 1.
 // Local skater: the physics core (skater component +0x00, no_bail::bail_core_vtable) keeps
 // the game's party-collision switch at +0x0000 (0x102aad0; "Enable Party Collision" AND
 // DingoAdvanceSettings.PlayerVsPlayerCollisionEnabled).
-} // namespace dingosdk::game::build::v20260929::remote_collision
+} // namespace dingosdk::game::build::v20261013::remote_collision

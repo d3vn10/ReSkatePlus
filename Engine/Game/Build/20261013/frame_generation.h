@@ -6,7 +6,7 @@
 #include <cstdint>
 #include "frame_generation_rvas.h"
 
-namespace dingosdk::game::build::v20260929::frame_generation {
+namespace dingosdk::game::build::v20261013::frame_generation {
 // The frame generation update (0x00000000) fills a DLSSGOptions on its stack every frame and passes
 // it to slDLSSGSetOptions. Its mode is off for any frame where one of its own checks fails, which
 // happens in bursts for 10 to 15 s after every map load and now and then while riding, on every map
@@ -26,4 +26,4 @@ namespace dingosdk::game::build::v20260929::frame_generation {
 // No branch lands inside the movzx (the jumps above all land on its first byte).
 inline constexpr std::uint32_t mode_offset = 0x000;
 inline constexpr std::array<std::uint8_t, 7> retain_flag_prefix{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-} // namespace dingosdk::game::build::v20260929::frame_generation
+} // namespace dingosdk::game::build::v20261013::frame_generation

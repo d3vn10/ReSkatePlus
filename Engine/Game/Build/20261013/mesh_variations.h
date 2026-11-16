@@ -5,7 +5,7 @@
 #include "mesh_variations_rvas.h"
 
 // The game's mesh variation databases (Extension/World/mesh_unload_guard.cpp).
-namespace dingosdk::game::build::v20260929::mesh_variations {
+namespace dingosdk::game::build::v20261013::mesh_variations {
 // remove_databases(registry, ?, list): run on a job worker as a level's bundles unload. For
 // each MeshVariationDatabase in the list it takes every entry out of the registry
 // (0x3f5a200), keyed by the entry's mesh (its name hash, mesh + 0x00) and variation hashes

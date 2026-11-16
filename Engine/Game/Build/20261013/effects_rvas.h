@@ -4,7 +4,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::effects {
+namespace dingosdk::game::build::v20261013::effects {
 inline constexpr std::uintptr_t service=0x74deb20;
 
 inline constexpr std::uintptr_t client_world = 0x0, asset_type = 0x0;

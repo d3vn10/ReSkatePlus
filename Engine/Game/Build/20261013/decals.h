@@ -3,7 +3,7 @@
 #include "decals_rvas.h"
 #include "Engine/Game/Build/fingerprint.h"
 #include <utility>
-namespace dingosdk::game::build::v20260929::decals {
+namespace dingosdk::game::build::v20261013::decals {
 // Steam build 25414733; executable SHA256 fbce74d5e28ef525dbba2cb4adbebc13405bdbd88f31bc940bca45e4ae88b8f9.
 // Native EnvironmentDecalVolume factory 0x199f740 and service constructor 0x198f450.
 

@@ -4,7 +4,7 @@
 #include "skater_observer_rvas.h"
 
 // Skater creation and player binding lifecycle logging.
-namespace dingosdk::game::build::v20260929::skater_observer {
+namespace dingosdk::game::build::v20261013::skater_observer {
 // Skater factory (factory, context).
 inline constexpr std::array<unsigned char, 24> skater_factory_prefix{
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,

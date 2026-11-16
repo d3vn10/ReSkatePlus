@@ -3,7 +3,7 @@
 #include <cstdint>
 #include "native_audio_rvas.h"
 // Remote skater sound.
-namespace dingosdk::game::build::v20260929::native_audio {
+namespace dingosdk::game::build::v20261013::native_audio {
 // Skater sound component submit (handle, frame). Hooked to capture local sound.
 inline constexpr std::array<unsigned char, 17> submit_prefix{
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,

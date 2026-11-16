@@ -8,7 +8,7 @@
 // by command: the gesture graph's intents").
 #include "game_state_values_rvas.h"
 
-namespace dingosdk::game::build::v20260929::game_state_values {
+namespace dingosdk::game::build::v20261013::game_state_values {
 // The setter for the graph's int and enum values: (setter, instance, value), where `setter` is the value's descriptor
 // + descriptor_to_setter and `instance` the graph instance that owns the storage.
 
@@ -19,4 +19,4 @@ inline constexpr std::size_t descriptor_name = 0x00;
 // standing, quick flick: a crouch of 3-5 game ticks gave 1, 7-11 gave 2, 13 and up 3 (kickflip and nollie inward
 // heelflip alike).
 inline constexpr char pop_height_name[] = "Animation/Dingo/EnumGS.PopHeight";
-} // namespace dingosdk::game::build::v20260929::game_state_values
+} // namespace dingosdk::game::build::v20261013::game_state_values

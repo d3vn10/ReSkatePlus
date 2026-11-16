@@ -2,7 +2,7 @@
 #include "Engine/Game/Build/fingerprint.h"
 #include "replay_activity_rvas.h"
 
-namespace dingosdk::game::build::v20260929::replay_activity {
+namespace dingosdk::game::build::v20261013::replay_activity {
 // Supported SHA-256 fbce74d5e28ef525dbba2cb4adbebc13405bdbd88f31bc940bca45e4ae88b8f9.
 // Client ctor 50c1f0 publishes the singleton and creates the session manager
 // at +568 with backend +50 (vtable 6084518). 6240e0/6241e0 install a lease

@@ -3,7 +3,7 @@
 
 #include "location_travel_rvas.h"
 
-namespace dingosdk::game::build::v20260929::location_travel {
+namespace dingosdk::game::build::v20261013::location_travel {
 
 
 

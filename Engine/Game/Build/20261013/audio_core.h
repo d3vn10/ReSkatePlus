@@ -7,7 +7,7 @@
 // ("SndPlayer1"), which is what the music player's songs come out of.
 #include "audio_core_rvas.h"
 
-namespace dingosdk::game::build::v20260929::audio_core {
+namespace dingosdk::game::build::v20261013::audio_core {
 // SndPlayer1's processing routine: (player, mixer) -> nonzero when it produced a block.
 
 // SndPlayer1's command routine: (player, command, arguments). Command 4 asks it to play a

@@ -4,7 +4,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::native_menu {
+namespace dingosdk::game::build::v20261013::native_menu {
 inline constexpr std::uintptr_t action_prototype = 0x7f72df0;
 inline constexpr std::uintptr_t action_invoker = 0x9769a0;
 inline constexpr std::uintptr_t widget_blueprint_type = 0x77658b8;

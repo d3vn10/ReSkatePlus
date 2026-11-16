@@ -4,7 +4,7 @@
 #include <cstdint>
 #include "live_mods_rvas.h"
 
-namespace dingosdk::game::build::v20260929::live_mods {
+namespace dingosdk::game::build::v20261013::live_mods {
 template<std::size_t N> consteval auto hex_bytes(const char (&hex)[N]) {
     static_assert(N % 2 == 1);
     std::array<std::uint8_t, (N - 1) / 2> result{};

@@ -4,7 +4,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::media_catalog {
+namespace dingosdk::game::build::v20261013::media_catalog {
 inline constexpr std::uintptr_t services_vtable = 0x6070f98;
 inline constexpr std::uintptr_t container_vtable = 0x60cd120;
 inline constexpr std::uintptr_t listener_vtable = 0x60cd140;

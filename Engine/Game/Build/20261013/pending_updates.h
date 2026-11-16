@@ -2,7 +2,7 @@
 
 #include "entity_pages.h"
 
-namespace dingosdk::game::build::v20260929::pending_updates {
+namespace dingosdk::game::build::v20261013::pending_updates {
 using entity_pages::Kind;
 using entity_pages::Patch;
 using entity_pages::patch;
@@ -158,4 +158,4 @@ inline constexpr Patch patches[]{
     patch(0x00000000, Kind::pending_update_pages, "c1e80a", "c1e80b"),
     patch(0x00000000, Kind::pending_update_pages, "c1e10a", "c1e10b"),
 };
-} // namespace dingosdk::game::build::v20260929::pending_updates
+} // namespace dingosdk::game::build::v20261013::pending_updates

@@ -3,7 +3,7 @@
 #include <cstdint>
 #include "trick_rewrite_rvas.h"
 
-namespace dingosdk::game::build::v20260929::trick_rewrite {
+namespace dingosdk::game::build::v20261013::trick_rewrite {
 // Supported SHA-256 fbce74d5e28ef525dbba2cb4adbebc13405bdbd88f31bc940bca45e4ae88b8f9.
 // Found by TheRealEJR for the Rock to Fakie mod (TheRealEJR/ReSkate-Rock-to-Fakie-mod v1.4.15 to
 // v1.4.42, pull request 285), with a read-only recorder of the local skater's physics states, the

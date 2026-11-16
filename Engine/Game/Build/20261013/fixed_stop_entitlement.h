@@ -5,7 +5,7 @@
 #include "fixed_stop_entitlement_rvas.h"
 
 // Fixed-stop entitlement provider (CheckEntitlements replacement).
-namespace dingosdk::game::build::v20260929::fixed_stop_entitlement {
+namespace dingosdk::game::build::v20261013::fixed_stop_entitlement {
 // CheckEntitlements entry.
 inline constexpr std::uintptr_t check_entitlements = engine::check_entitlements;
 inline constexpr std::array<unsigned char, 40> check_entitlements_prefix{

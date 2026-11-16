@@ -3,7 +3,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs. Keep these separate from build-independent layouts/contracts.
-namespace dingosdk::game::build::v20260929::engine {
+namespace dingosdk::game::build::v20261013::engine {
 inline constexpr std::uintptr_t ui_control_destroy = 0x214930;
 inline constexpr std::uintptr_t audio_manager_update = 0x43c2f0;
 inline constexpr std::uintptr_t check_entitlements = 0x774340;

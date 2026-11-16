@@ -2,7 +2,7 @@
 #include <array>
 #include <string_view>
 
-namespace dingosdk::game::build::v20260929::ui_textures {
+namespace dingosdk::game::build::v20261013::ui_textures {
 // Supported SHA-256 fbce74d5e28ef525dbba2cb4adbebc13405bdbd88f31bc940bca45e4ae88b8f9.
 // Icons, logos and UI shapes skate. ships, read from the installed game's data for the overlay
 // (Engine/Vfs/game_textures.h): where each texture is, by superbundle TOC, bundle and name.

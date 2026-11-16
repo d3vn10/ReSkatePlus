@@ -8,7 +8,7 @@
 // (Behaviour, Subject, offsets, FOV), the free camera's among them, played as cubic Hermite segments
 // between neighbouring keys. (The camera's other track, whole transforms played by 0x6222e0, isn't
 // used by the free camera and is left alone.)
-namespace dingosdk::game::build::v20260929::replay_keyframes {
+namespace dingosdk::game::build::v20261013::replay_keyframes {
 // ---- Framing track: segments built when keys change ----
 // rebuild(manager, session): any key edit ends here. It builds a segment for every framing key of the
 // session with segment_build and sends the lot, with the transform keys, to the camera object. The

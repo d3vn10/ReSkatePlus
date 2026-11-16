@@ -4,7 +4,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::skater_render {
+namespace dingosdk::game::build::v20261013::skater_render {
 inline constexpr std::uintptr_t render_object_vtable = 0x65f2910;
 
 inline constexpr Fingerprint draw_packet_contract{0x48db8e0, {

@@ -3,7 +3,7 @@
 #include <cstdint>
 #include "throwdown_debug_text_rvas.h"
 
-namespace dingosdk::game::build::v20260929::throwdown_debug_text {
+namespace dingosdk::game::build::v20261013::throwdown_debug_text {
 // Fast thunks the loader puts in a graph's native slots (one pointer per operand).
 // DebugDrawText2D (0x00000000).
 // GetPlayerName (0x00000000), and the native it wraps.

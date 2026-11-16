@@ -3,7 +3,7 @@
 #include <cstdint>
 #include "global_offline_rvas.h"
 
-namespace dingosdk::game::build::v20260929::global_offline {
+namespace dingosdk::game::build::v20261013::global_offline {
 // Shared OnlineEnabled leaf hooked by the offline boot path (Extension/Boot/offline_boot.cpp).
 // MOV AL,1; RET followed by the inspected INT3 padding.
 inline constexpr std::array<unsigned char, 16> online_enabled_prefix{

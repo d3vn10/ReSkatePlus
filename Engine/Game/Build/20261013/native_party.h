@@ -5,7 +5,7 @@
 #include <cstdint>
 #include "native_party_rvas.h"
 
-namespace dingosdk::game::build::v20260929::native_party {
+namespace dingosdk::game::build::v20261013::native_party {
 // UI data model helpers (also used by the indicator and menu adapters).
 // Looks up a model handle's record in the model manager.
 // Returns the TypeInfo of a model record.
@@ -87,4 +87,4 @@ inline constexpr std::array<Request, 20> party_request_contracts{{
 // Skate.exe SHA256 fbce74d5e28ef525dbba2cb4adbebc13405bdbd88f31bc940bca45e4ae88b8f9.
 // Native party/UI adapters; shared interpreter entry is already validated by the profile runtime.
 
-} // namespace dingosdk::game::build::v20260929::native_party
+} // namespace dingosdk::game::build::v20261013::native_party

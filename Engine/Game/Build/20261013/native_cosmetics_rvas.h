@@ -3,7 +3,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::native_cosmetics {
+namespace dingosdk::game::build::v20261013::native_cosmetics {
 inline constexpr std::uintptr_t cosmetic_component_vtable = 0x6084c88;
 inline constexpr std::uintptr_t recipe_copy = 0x52bfc0;
 inline constexpr std::uintptr_t publish_materials = 0x13352f0;

@@ -2,7 +2,7 @@
 #include <cstdint>
 #include "local_player_card_rvas.h"
 
-namespace dingosdk::game::build::v20260929::local_player_card {
+namespace dingosdk::game::build::v20261013::local_player_card {
 // Appearance (RIP Card recipe) manager, read through engine::appearance_manager.
 // TypeInfo of the UIPlayerInfo presence connection-state value (field 7).
 // TypeInfo of the UIPlayerInfo player network (field 10, record +0x00): the platform

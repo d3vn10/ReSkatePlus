@@ -3,7 +3,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::physics_bodies {
+namespace dingosdk::game::build::v20261013::physics_bodies {
 inline constexpr std::uintptr_t body_bit_a70_set = 0x25d38a0;
 inline constexpr std::uintptr_t body_bit_a70_clear = 0x25d3250;
 inline constexpr std::uintptr_t body_bit_f88_set = 0x25d3930;

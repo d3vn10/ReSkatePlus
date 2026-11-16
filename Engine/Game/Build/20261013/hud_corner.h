@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <string_view>
 
-namespace dingosdk::game::build::v20260929::hud_corner {
+namespace dingosdk::game::build::v20261013::hud_corner {
 // Supported SHA-256 fbce74d5e28ef525dbba2cb4adbebc13405bdbd88f31bc940bca45e4ae88b8f9.
 // skate.'s HUD in the bottom left corner is HudViewModel's DpadScoringStack (UI/Features/HUD/
 // HudViewModel; PersistentHUDCore's DpadScoring_Stack shows it), a stack view model

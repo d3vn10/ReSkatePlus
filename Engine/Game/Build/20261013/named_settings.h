@@ -3,7 +3,7 @@
 #include "named_settings_rvas.h"
 #include "engine.h"
 #include "Engine/Game/Build/fingerprint.h"
-namespace dingosdk::game::build::v20260929::named_settings {
+namespace dingosdk::game::build::v20261013::named_settings {
 // Named getter/setter callers at 0x2d6dfe0..0x2d6e277 and the preset
 // parser at 0x5f77ef independently establish these ABIs. The typed setter
 // increments DdcDirtyVersion and calls registered setting listeners.
@@ -32,4 +32,4 @@ inline constexpr std::size_t name_buckets = 0x00, name_bucket_count = 0x00;
 // count, fields at +0x00 (class) or +0x00 (value type, FUN_143dd70a0); 0x00-byte
 // field data {u32 name hash, u16 offset @8, TypeInfo* @0x00} (FUN_143db7ac0).
 
-} // namespace dingosdk::game::build::v20260929::named_settings
+} // namespace dingosdk::game::build::v20261013::named_settings

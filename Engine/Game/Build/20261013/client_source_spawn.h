@@ -4,7 +4,7 @@
 #include "client_source_spawn_rvas.h"
 
 // Native camera, game UI and noclip functions used by the debug controls and party spectate.
-namespace dingosdk::game::build::v20260929::client_source_spawn {
+namespace dingosdk::game::build::v20261013::client_source_spawn {
 // ClientSkaterSource creator (source). Creates source+0x00 from data+0x00. Reference only
 // (ai_skaters mirrors it).
 // uint32 offset of the owning client in a game context.

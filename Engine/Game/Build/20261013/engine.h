@@ -3,7 +3,7 @@
 #include "engine_rvas.h"
 // Engine layout constants shared by several features. Executable addresses live in
 // engine_rvas.h; offsets and other non-RVA layout data stay here.
-namespace dingosdk::game::build::v20260929::engine {
+namespace dingosdk::game::build::v20261013::engine {
 
 // Functions
 // UI control destructor shared by the cosmetic and music list vtables.

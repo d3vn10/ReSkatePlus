@@ -5,7 +5,7 @@
 
 // Native per-frame work that remote multiplayer puppets can skip or defer
 // (Extension/Multiplayer/Remote/puppet_cost.cpp).
-namespace dingosdk::game::build::v20260929::puppet_cost {
+namespace dingosdk::game::build::v20261013::puppet_cost {
 // Component update passes. Updatable components answer vtable +0x000..+0x000 ("wants
 // PreSim, PostSim, PostFrame, PreInput, PreFrame, PreAnimation, PostAnimation") and are
 // called at +0x000..+0x000 with (component, const UpdateInfo*). UpdateInfo is 0x00 bytes:

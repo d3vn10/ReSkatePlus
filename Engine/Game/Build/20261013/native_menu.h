@@ -2,7 +2,7 @@
 #include "Engine/Game/Build/fingerprint.h"
 #include <cstdint>
 #include "native_menu_rvas.h"
-namespace dingosdk::game::build::v20260929::native_menu {
+namespace dingosdk::game::build::v20261013::native_menu {
 // Native void-action descriptor copied for menu actions, and the invoker it
 // holds at +0x00.
 

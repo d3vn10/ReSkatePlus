@@ -41,7 +41,7 @@
 // its slots + 0x00 and + 0x00 before answering, so the guard checks the holder, the texture and
 // those two slots before resolve reads through them, and answers no texture otherwise. Every caller
 // of resolve takes null (0x3f86270 and 0x469a000 as above; the others store it or check it).
-namespace dingosdk::game::build::v20260929::texture_handles {
+namespace dingosdk::game::build::v20261013::texture_handles {
 // The pool within the object `textures` points at.
 inline constexpr std::uint32_t pool_offset = 0x00;
 // resolve(handle) -> the texture a {u16 id, u8 weak} handle names, retained; the entry's own

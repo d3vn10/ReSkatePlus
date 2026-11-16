@@ -3,7 +3,7 @@
 #include "no_bail_rvas.h"
 #include "Engine/Game/Build/fingerprint.h"
 
-namespace dingosdk::game::build::v20260929::no_bail {
+namespace dingosdk::game::build::v20261013::no_bail {
 // Supported SHA-256 fbce74d5e28ef525dbba2cb4adbebc13405bdbd88f31bc940bca45e4ae88b8f9.
 // Skater-component arrival preference. Native 0xf9d170 copies on-board,
 // stance and lip-mount bytes to +0x00..+0x00; the local teleport consumer at

@@ -5,7 +5,7 @@
 // The game's errors of a load made of several (Extension/World/load_error_guard.cpp).
 #include "load_errors_rvas.h"
 
-namespace dingosdk::game::build::v20260929::load_errors {
+namespace dingosdk::game::build::v20261013::load_errors {
 // describe(errors, text): a virtual of the error that holds one error per part of a load. It
 // writes "[i]:" and each part's own description (its virtual at + 8), or "no error" for a null
 // one, a line each. The parts are an array of pointers (errors + 0x00) and their count

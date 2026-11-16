@@ -4,7 +4,7 @@
 #include "park_rotation_rvas.h"
 
 // Authored BAM park-pack event adapter.
-namespace dingosdk::game::build::v20260929::park_rotation {
+namespace dingosdk::game::build::v20261013::park_rotation {
 struct Site { std::uintptr_t rva; std::array<unsigned char, 16> bytes; };
 // Park manager tick, park context constructor, and zone/park load notification.
 inline constexpr std::array<Site, 3> sites{{

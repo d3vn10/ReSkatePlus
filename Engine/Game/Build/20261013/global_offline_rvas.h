@@ -3,7 +3,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::global_offline {
+namespace dingosdk::game::build::v20261013::global_offline {
 inline constexpr std::uintptr_t online_enabled = 0x3bbb10;
 inline constexpr std::uintptr_t backend_predicate_return = 0x2830c4;
 inline constexpr std::uintptr_t async_prepare_character_return = 0x7fe2f2;

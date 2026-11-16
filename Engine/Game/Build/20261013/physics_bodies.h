@@ -3,7 +3,7 @@
 #include <cstdint>
 #include "physics_bodies_rvas.h"
 
-namespace dingosdk::game::build::v20260929::physics_bodies {
+namespace dingosdk::game::build::v20261013::physics_bodies {
 // Supported SHA-256 fbce74d5e28ef525dbba2cb4adbebc13405bdbd88f31bc940bca45e4ae88b8f9.
 // The client physics world's bodies, as the park editor's surface probe and the game's ghosting
 // of placed objects use them (read 2026-10-21). A body is a handle {world, index | generation << 32}

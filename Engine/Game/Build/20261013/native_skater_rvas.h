@@ -3,7 +3,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs. Keep these separate from build-independent layouts/contracts.
-namespace dingosdk::game::build::v20260929::native_skater {
+namespace dingosdk::game::build::v20261013::native_skater {
 inline constexpr std::uintptr_t animation_update = 0xf9ace0;
 inline constexpr std::uintptr_t board_render_pose_interface_vtable = 0x63db790;
 inline constexpr std::uintptr_t submit_render_pose = 0x4c7e7a0;

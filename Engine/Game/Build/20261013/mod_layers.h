@@ -4,7 +4,7 @@
 #include <cstdint>
 #include "mod_layers_rvas.h"
 
-namespace dingosdk::game::build::v20260929::mod_layers {
+namespace dingosdk::game::build::v20261013::mod_layers {
 template<std::size_t N> consteval auto hex_bytes(const char (&hex)[N]) {
     static_assert(N % 2 == 1);
     std::array<std::uint8_t, (N - 1) / 2> result{};

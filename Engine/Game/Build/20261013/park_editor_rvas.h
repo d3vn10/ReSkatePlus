@@ -4,7 +4,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::park_editor {
+namespace dingosdk::game::build::v20261013::park_editor {
 inline constexpr std::uintptr_t transform_notification_source = 0x74d5868;
 
 inline constexpr std::array<Fingerprint, 3> movement_contracts{

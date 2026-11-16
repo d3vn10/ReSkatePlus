@@ -10,7 +10,7 @@
 #include "render_resource_pool_rvas.h"
 #include <span>
 
-namespace dingosdk::game::build::v20260929::render_resource_pool {
+namespace dingosdk::game::build::v20261013::render_resource_pool {
 template<std::size_t N> consteval auto hex_bytes(const char (&hex)[N]) {
     static_assert(N % 2 == 1);
     std::array<std::uint8_t, (N - 1) / 2> result{};
@@ -148,4 +148,4 @@ inline constexpr std::array<std::uint8_t, 11> visibility_stub_prefix{
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov rdx,[rdi+0x11ab400]
     0x00, 0x00, 0x00, 0x00                    // movzx edx,byte ptr [rdx+rcx]
 };
-} // namespace dingosdk::game::build::v20260929::render_resource_pool
+} // namespace dingosdk::game::build::v20261013::render_resource_pool

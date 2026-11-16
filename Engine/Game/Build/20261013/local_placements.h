@@ -3,7 +3,7 @@
 #include <cstdint>
 #include "local_placements_rvas.h"
 
-namespace dingosdk::game::build::v20260929::local_placements {
+namespace dingosdk::game::build::v20261013::local_placements {
 // Placed-object manager vtable; its id -> entity hash table starts at +0x00.
 // uint32 registration offset of the server player's component holding the native
 // simulation owner (+0x00). 0x7b3470/0x7befd0 activate rendering and collision

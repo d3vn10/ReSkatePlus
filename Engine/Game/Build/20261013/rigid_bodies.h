@@ -8,7 +8,7 @@
 // Native rigid-body operations and the body/shape layout of the supported game build, for
 // Extension/World/owned_bodies.cpp. Callers still qualify their own world and body and compare
 // these bytes before any call; a pin here does not qualify an owner, API or command by itself.
-namespace dingosdk::game::build::v20260929::rigid_bodies {
+namespace dingosdk::game::build::v20261013::rigid_bodies {
 
 
 // (body, const vec4*) stores the authored m/I principal-axis ratio in state+0x000.
@@ -60,4 +60,4 @@ inline constexpr std::uintptr_t entity_collection = 0x00, entity_component = 0x0
 inline constexpr std::uintptr_t component_collection = 0x00, component_core = 0x00;
 inline constexpr std::uintptr_t core_context = 0x000, core_rig = 0x000, rig_core = 0x0000;
 inline constexpr std::uint32_t safe_categories = 0, safe_world_collisions = 0x000;
-} // namespace dingosdk::game::build::v20260929::rigid_bodies
+} // namespace dingosdk::game::build::v20261013::rigid_bodies

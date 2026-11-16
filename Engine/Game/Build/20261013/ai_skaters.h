@@ -3,7 +3,7 @@
 #include <cstdint>
 #include "ai_skaters_rvas.h"
 // AI skaters spawned from the player blueprint.
-namespace dingosdk::game::build::v20260929::ai_skaters {
+namespace dingosdk::game::build::v20261013::ai_skaters {
 // Entity bus: create_bus(owner, parent, 0, 0, 0, 0) creates a child bus and acquire_bus adds
 // a reference (released with skater_entities::release_reference).
 inline constexpr std::array<unsigned char, 19> create_bus_prefix{

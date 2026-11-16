@@ -4,7 +4,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::remote_collision {
+namespace dingosdk::game::build::v20261013::remote_collision {
 inline constexpr std::uintptr_t game_context_global = 0x73c7cb0;
 
 inline constexpr Fingerprint physics_world{0x3d2e920, {

@@ -3,7 +3,7 @@
 #include <array>
 
 // September 29 2026 executable RVAs.
-namespace dingosdk::game::build::v20260929::gameplay_settings {
+namespace dingosdk::game::build::v20261013::gameplay_settings {
 inline constexpr std::uintptr_t fast_travel_getter = 0x87b640;
 inline constexpr std::uintptr_t activity_settings_handle = 0x725cc18;
 inline constexpr std::uintptr_t activity_settings_vtable = 0x6146340;
