@@ -4,8 +4,6 @@
 
 // September 29 2026 executable RVAs.
 namespace dingosdk::game::build::v20260929::physics_bodies {
-inline constexpr std::uintptr_t store_offset = 0x28;
-inline constexpr std::uintptr_t entity_physics_component = 0xb8;
 inline constexpr std::uintptr_t body_bit_a70_set = 0x25d38a0;
 inline constexpr std::uintptr_t body_bit_a70_clear = 0x25d3250;
 inline constexpr std::uintptr_t body_bit_f88_set = 0x25d3930;
