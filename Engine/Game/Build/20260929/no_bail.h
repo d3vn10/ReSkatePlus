@@ -1,4 +1,6 @@
 #pragma once
+#include <cstdint>
+#include "no_bail_rvas.h"
 #include "Engine/Game/Build/fingerprint.h"
 
 namespace dingosdk::game::build::v20260929::no_bail {
@@ -6,7 +8,6 @@ namespace dingosdk::game::build::v20260929::no_bail {
 // Skater-component arrival preference. Native 0xf9d170 copies on-board,
 // stance and lip-mount bytes to +0xc0..+0xc2; the local teleport consumer at
 // 0x566898 reads the on-board byte. We change only that byte, not stance/lip.
-inline constexpr std::uintptr_t teleport_on_board_option = 0xc0;
 // void(collector, int32 reason, float magnitude): writes cause byte +0x28,
 // XMM2 magnitude to +0x4c, and increments cause count +0xe0. Both the full
 // wipeout and recoverable runout predicates consume this collector.
@@ -65,7 +66,6 @@ inline constexpr Fingerprint bail_state_caller_contract{0x47da1cf, {
 // reset at consumption boundaries to cover those producers too. This complete
 // leaf clears 35 cause bytes, 35 magnitudes and the count, leaving owner/config
 // pointers and other collector fields untouched. It has no external calls.
-inline constexpr std::uintptr_t reset_bail_causes_rva = 0x474cca0;
 inline constexpr std::array<unsigned char, 0x88> reset_bail_causes_code{
     0x33,0xc0,0x89,0x81,0xe0,0x00,0x00,0x00,0x48,0x89,0x41,0x28,0x48,0x89,0x41,0x4c,
     0x48,0x89,0x41,0x54,0x48,0x89,0x41,0x5c,0x48,0x89,0x41,0x64,0x48,0x89,0x41,0x30,
@@ -125,10 +125,7 @@ inline constexpr std::array<Fingerprint, 3> body_contact_contracts{{
         0x49,0x8b,0x9f,0xb0,0x0c,0x00,0x00,0xff,0x90,0xb0,0x00,0x00,0x00,0x48,0x8b,0x48,
         0x30,0x0f,0xb6,0x81,0xb8,0x0f,0x00,0x00,0x49,0x8b,0xcf,0x88,0x83,0xd6,0x00,0x00}},
 }};
-inline constexpr std::uintptr_t body_contact_output_offset = 0xfb8;
-inline constexpr std::uintptr_t body_contact_context_offset = 0x13c4;
 inline constexpr LONG body_contact_context_mask = 0x400000;
-inline constexpr std::uintptr_t animation_request_offset = 0x13d4;
 inline constexpr LONG animation_request_mask = 0x08000000;
 // These collision producers set context+13c4 bit 15 immediately before
 // recording the cause. Animation reads that request independently of the cause
@@ -149,7 +146,6 @@ inline constexpr std::array<ImpactBail, 3> impact_bail_calls{{
         0xba,0x0e,0x00,0x00,0x00,0x49,0x8b,0x06,0xc5,0xe8,0x57,0xd2,0x81,0x88,0xc4,0x13,
         0x00,0x00,0x00,0x80,0x00,0x00,0x49,0x8b,0x4e,0x08,0xe8,0x81,0x94,0xf5,0xff,0x48}}, 14, 0x47fa79f},
 }};
-inline constexpr std::uintptr_t impact_request_offset = 0x13c4;
 inline constexpr LONG impact_request_mask = 0x8000;
 // uint32(selector, current): core+0x440 owns the selector, selector+8 is
 // core+0x3c0's context. The caller remaps WipeoutGround (300) to Offboard (504).
@@ -163,10 +159,6 @@ inline constexpr LONG mount_request_mask = 0x80;
 inline constexpr Fingerprint mount_request_test_contract{0x4746a94, {
     0x48,0x8b,0x53,0x08,0xf6,0x82,0xd4,0x13,0x00,0x00,0x80,0x0f,0x84,0x6f,0xf4,0xff,
     0xff,0x48,0x8b,0x82,0xb0,0x0d,0x00,0x00,0x48,0x85,0xc0,0x74,0x15,0x48,0x83,0xe0}};
-inline constexpr std::uintptr_t bail_core_vtable = 0x6176d30;
 // Native recovery/stumble predicate. Its result is also exported to animation
 // at +0x9e, so No Bail never forces it. Reference only.
-inline constexpr std::uintptr_t recovery_predicate = 0x47d1100;
-inline constexpr std::uintptr_t recovery_animation_output = 0x38; // core+3b8 -> trick state
-inline constexpr std::uintptr_t recovery_animation_flag = 0x9e;   // animation output, byte
 }
