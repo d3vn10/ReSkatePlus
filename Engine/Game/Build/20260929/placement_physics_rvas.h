@@ -8,4 +8,6 @@ inline constexpr std::uintptr_t body_pose = 0x25d6720;
 inline constexpr std::uintptr_t sleep = 0x25dc600;
 inline constexpr std::uintptr_t motion_type = 0x25d5bf0;
 
+inline constexpr std::uintptr_t marker_save = 0x544640;
+inline constexpr std::uintptr_t marker_return = 0x53e7a0;
 }
