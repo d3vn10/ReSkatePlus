@@ -12,4 +12,12 @@ inline constexpr std::uintptr_t object_ghost = 0x7ae620;
 inline constexpr std::uintptr_t realm_context = 0x18b6e40;
 inline constexpr std::uintptr_t objects_editable = 0x7a6a10;
 
+inline constexpr std::uintptr_t thread_context = 0x18b6ae0;
+inline constexpr std::uintptr_t object_ghost_decide = 0x7b33e0;
+inline constexpr std::uintptr_t settings_lookup = 0x18d6ef0;
+inline constexpr std::uintptr_t settings_manager = 0x7482ce0;
+inline constexpr std::uintptr_t build_kit_settings = 0x723a510;
+inline constexpr std::uintptr_t object_owned = 0x7ad210;
+inline constexpr std::uintptr_t object_root = 0x6fdb00;
+inline constexpr std::uintptr_t object_component = 0x46aa70;
 }
