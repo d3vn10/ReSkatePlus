@@ -141,34 +141,29 @@ namespace dingosdk::game::usage_trace
         }
     }
 
-    void record_hit(std::uintptr_t image_base,
+    void record_hit(HitCounter &counter,
+                    std::uintptr_t image_base,
                     std::uintptr_t rva,
                     std::string_view symbol,
                     std::span<const std::uint64_t> arguments) noexcept
     {
-        static volatile LONG64 first{};
-        static volatile LONG64 total_calls{};
-        static volatile LONG64 interval_calls{};
-        static volatile LONG64 next_report{};
         const auto now = GetTickCount64();
-        const auto total = InterlockedIncrement64(&total_calls);
-        const auto interval = InterlockedIncrement64(&interval_calls);
-        if (InterlockedCompareExchange64(&first, 1, 0) == 0)
+        const auto total = counter.total_calls.fetch_add(1, std::memory_order_relaxed) + 1;
+        counter.interval_calls.fetch_add(1, std::memory_order_relaxed);
+        if (counter.first.exchange(1, std::memory_order_acq_rel) == 0)
         {
-            InterlockedExchange64(&next_report, static_cast<LONG64>(now + 5000));
+            counter.next_report.store(now + 5000, std::memory_order_release);
             record_call("first", image_base, rva, symbol, arguments, nullptr, nullptr);
             return;
         }
-        const auto due = InterlockedCompareExchange64(&next_report, 0, 0);
-        if (now >= static_cast<ULONGLONG>(due) &&
-            InterlockedCompareExchange64(&next_report, static_cast<LONG64>(now + 5000), due) == due)
+        auto due = counter.next_report.load(std::memory_order_acquire);
+        if (due && now >= due && counter.next_report.compare_exchange_strong(
+                                    due, now + 5000, std::memory_order_acq_rel, std::memory_order_acquire))
         {
-            const auto count = InterlockedExchange64(&interval_calls, 0);
-            const std::array<std::uint64_t, 2> summary_arguments{
-                static_cast<std::uint64_t>(count), static_cast<std::uint64_t>(total)};
+            const auto count = counter.interval_calls.exchange(0, std::memory_order_acq_rel);
+            const std::array<std::uint64_t, 2> summary_arguments{count, total};
             record_call("summary", image_base, rva, symbol, summary_arguments, nullptr, nullptr, 5000);
         }
-        (void)interval;
     }
 
     void record_lifecycle(std::string_view subsystem,
