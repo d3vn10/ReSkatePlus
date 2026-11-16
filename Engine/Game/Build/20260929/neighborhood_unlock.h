@@ -2,21 +2,18 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include "neighborhood_unlock_rvas.h"
 
 // NeighborhoodBoundaryComponent_UpdateIsUnlocked expression override.
 namespace dingosdk::game::build::v20260929::neighborhood_unlock {
 // Expression argument binder (VA 0x142d39b60) and its expected leading bytes.
-inline constexpr std::uintptr_t binder = 0x2d39b60;
 inline constexpr std::array<unsigned char, 48> binder_prefix{
     0x40,0x53,0x56,0x57,0x48,0x83,0xec,0x50,0x4c,0x8b,0x51,0x58,0x48,0x8b,0xfa,0x48,
     0x8b,0xd9,0x41,0x8b,0x42,0xfc,0x0f,0xba,0xf0,0x1f,0x49,0x8d,0x14,0xc2,0x4c,0x3b,
     0xd2,0x74,0x24,0x0f,0x1f,0x40,0x00,0x66,0x0f,0x1f,0x84,0x00,0x00,0x00,0x00,0x00};
 // The binder's call sites and their expected call instructions.
-inline constexpr std::uintptr_t cached_bind_call_a = 0x2d37592;
 inline constexpr std::array<unsigned char, 5> cached_bind_call_a_prefix{0xe8,0xc9,0x25,0x00,0x00};
-inline constexpr std::uintptr_t cached_bind_call_b = 0x2d3994b;
 inline constexpr std::array<unsigned char, 5> cached_bind_call_b_prefix{0xe8,0x10,0x02,0x00,0x00};
-inline constexpr std::uintptr_t one_shot_bind_call = 0x2d39aa3;
 inline constexpr std::array<unsigned char, 5> one_shot_bind_call_prefix{0xe8,0xb8,0x00,0x00,0x00};
 // SHA-256 of the installed Data/layout.toc.
 inline constexpr std::array<unsigned char, 32> layout_toc_sha256{
