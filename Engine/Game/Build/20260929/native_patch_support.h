@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include "native_patch_support_rvas.h"
 
 namespace dingosdk::game::build::v20260929::native_patch_support {
 template<std::size_t N> consteval auto hex_bytes(const char (&hex)[N]) {
@@ -19,11 +20,8 @@ template<std::size_t N> consteval auto hex_bytes(const char (&hex)[N]) {
 }
 
 // Data-envelope verifier hooked to accept unsigned patch envelopes.
-inline constexpr std::uintptr_t verifier = 0x041fb4c0;
 // IAT slot of BCryptVerifySignature.
-inline constexpr std::uintptr_t signature_import = 0x05febbc8;
 // Return address of the verifier's BCryptVerifySignature call.
-inline constexpr std::uintptr_t signature_return = 0x041fb5f1;
 
 // September 29 2026, supported_build::game_sha256. Complete 392-byte verifier,
 // SHA256 34fc18454f75487e459a36fb175ee3ffabe8e83e50f78cc5afe6aae0d1f11ea9.
@@ -51,10 +49,6 @@ inline constexpr auto layout_call = hex_bytes("488b4c2468488d5588e832df0300");
 inline constexpr auto unwind_root = hex_bytes("191a04000bf204600350023010b94605");
 inline constexpr auto unwind_middle = hex_bytes("2108020008741600c0b41f0471b51f04e480e406");
 inline constexpr auto unwind_return = hex_bytes("21000000c0b41f0471b51f04e480e406");
-struct Contract { std::uintptr_t rva; std::span<const std::uint8_t> bytes; };
-inline constexpr Contract contracts[]{
-    {verifier, verifier_bytes}, {0x0546dc26, crypto_thunk},
-    {0x041ed5ea, reader_call}, {0x041bd580, layout_call},
-    {0x06e480e4, unwind_root}, {0x06e480f8, unwind_middle}, {0x06e4810c, unwind_return}
+
 };
 }
