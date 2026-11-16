@@ -1,4 +1,6 @@
 #pragma once
+#include <cstdint>
+#include "offboard_flight_rvas.h"
 #include "Engine/Game/Build/fingerprint.h"
 
 namespace dingosdk::game::build::v20260929::offboard_flight {
@@ -34,7 +36,6 @@ inline constexpr std::array<OffboardFlightState, 3> offboard_flight_states{{
         0xc5,0xf0,0x59,0xd0,0xc5,0xfa,0x10,0x0e,0xc4,0xe3,0x71,0x21,0x4f,0x14,0x10,0xc4,
         0xe3,0x71,0x21,0x4f,0x18,0x20,0xc5,0xe8,0x58,0xc1,0xc5,0xf8,0x11,0x06,0x4c,0x8b}}},
 }};
-inline constexpr std::uintptr_t offboard_flight_vtable = 0x65e8f40;
 // FollowRagdoll / FollowAnimatedRagdoll / FollowSimulatedRagdoll also keep
 // world velocity at +10. Their shared update derives it from displacement
 // (RVA 48380DE), including Y at +14. Boosts must update this cached velocity
