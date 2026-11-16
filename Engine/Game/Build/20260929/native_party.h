@@ -3,108 +3,57 @@
 #include "engine.h"
 #include <array>
 #include <cstdint>
+#include "native_party_rvas.h"
 
 namespace dingosdk::game::build::v20260929::native_party {
 // UI data model helpers (also used by the indicator and menu adapters).
 // Looks up a model handle's record in the model manager.
-inline constexpr std::uintptr_t model_record = 0x1915650;
 // Returns the TypeInfo of a model record.
-inline constexpr std::uintptr_t model_type = 0x1917d70;
 // Returns (creating if needed) the singleton model of a registered type.
-inline constexpr std::uintptr_t model_singleton = 0x19192b0;
 
 // Hooked native party/social functions.
 // UIPlayerManager: UIPlayerInfo by EA id.
-inline constexpr std::uintptr_t get_info = 0x6d9750;
-inline constexpr std::uintptr_t is_member = 0x778fb0;
-inline constexpr std::uintptr_t member_ids = 0x776b10;
 // Party members with their leader flag; members_with_leader_hook mirrors its
 // array allocator/header and POD copy.
-inline constexpr std::uintptr_t members_with_leader = 0x776d60;
 // Weak references resolved by the native Spectate/Teleport commands.
-inline constexpr std::uintptr_t weak_player = 0x848e90;
-inline constexpr std::uintptr_t weak_entity = 0x834c20;
-inline constexpr std::uintptr_t world_transform = 0x832930;
-inline constexpr std::uintptr_t player_id = 0x82ff60;
-inline constexpr std::uintptr_t can_spectate = 0x837380;
-inline constexpr std::uintptr_t can_teleport = 0x837440;
-inline constexpr std::uintptr_t spectate = 0x766fc0;
-inline constexpr std::uintptr_t spectate_active = 0x7572a0;
-inline constexpr std::uintptr_t spectate_clear = 0x55f090;
-inline constexpr std::uintptr_t spectate_name = 0x75ae30;
-inline constexpr std::uintptr_t teleport = 0x8615b0;
 
 // Engine array helpers.
 // Appends a slot to a native array.
-inline constexpr std::uintptr_t array_append = 0x6b8940;
 // Initializes an appended 64-bit id slot.
-inline constexpr std::uintptr_t id_construct = 0x58b0120;
 // Allocates an array block (also used by the throwdown adapters).
 inline constexpr std::uintptr_t array_allocate = engine::array_allocate;
 // Returns the shared empty-array sentinel (also used by the throwdown adapters).
-inline constexpr std::uintptr_t empty_array = 0x3dcbb00;
 // Frees an array block.
-inline constexpr std::uintptr_t array_free = 0x3dcc3a0;
 
 // Party map markers.
 // Map POI value constructor and destructor.
-inline constexpr std::uintptr_t poi_construct = 0x59b1e00;
-inline constexpr std::uintptr_t poi_destroy = 0x59b8f80;
 // Registers / removes a POI with the map manager.
-inline constexpr std::uintptr_t map_register = 0x6a1d60;
-inline constexpr std::uintptr_t map_unregister = 0x6b98c0;
 // Dispatches the game's own roster observers.
-inline constexpr std::uintptr_t roster_changed = 0x6ece40;
 
 // Type information
 // ModelRef array of the social player lists.
-inline constexpr std::uintptr_t player_list_type = 0x7493000;
-inline constexpr std::uintptr_t uint64_array_type = 0x765dac8;
-inline constexpr std::uintptr_t uint8_type = 0x765d928;
-inline constexpr std::uintptr_t vec2_type = 0x765d278;
-inline constexpr std::uintptr_t matrix_type = 0x765d590;
 // UIFriendsService sorted friends list.
-inline constexpr std::uintptr_t sorted_friends_type = 0x7250940;
 // Map POI, its data model and its kind enum.
-inline constexpr std::uintptr_t map_poi_type = 0x724d3d0;
-inline constexpr std::uintptr_t map_data_type = 0x724d4e8;
-inline constexpr std::uintptr_t map_poi_kind_type = 0x724cf98;
 
 // Globals
 // Pointer to UIFriendsService and its vtable.
-inline constexpr std::uintptr_t friends_service = 0x71f4270;
-inline constexpr std::uintptr_t friends_service_vtable = 0x60d2068;
 // Pointer to the map POI manager and its vtable.
-inline constexpr std::uintptr_t map_manager = 0x71f4258;
-inline constexpr std::uintptr_t map_manager_vtable = 0x60d21a8;
 // Pointer to the native EA party client.
 inline constexpr std::uintptr_t party_client = engine::client_game_manager;
 
 // Party requests (analysis/party-re/native-core.md 2.3): the natives behind the Social menu's and
 // player card's party buttons. Each fills an async handle and answers through a script delegate
 // (last argument); without a native (Blaze) group they fail, so ReSkate answers them itself.
-inline constexpr std::uintptr_t request_invite = 0x84be30;      // (Handle*, const u64* eaid, Delegate*)
-inline constexpr std::uintptr_t request_join_group = 0x7797a0;  // (Handle*, u64 group, i32 reason (1 direct, 2 invite), Delegate*)
-inline constexpr std::uintptr_t request_join_player = 0x77a0e0; // (Handle*, const u64* eaid, Delegate*)
-inline constexpr std::uintptr_t request_decline = 0x84afc0;     // (Handle*, const String* invite id, Delegate*)
-inline constexpr std::uintptr_t request_leave = 0x77a420;       // (Handle*, Delegate*)
-inline constexpr std::uintptr_t request_kick = 0x77a1f0;        // (Handle*, const u64* eaid, Delegate*)
-inline constexpr std::uintptr_t request_promote = 0x77a5c0;     // (Handle*, const u64* eaid, Delegate*)
-inline constexpr std::uintptr_t request_privacy = 0x839f10;     // (u32 setting (4 invite, 5 join), u32 value)
 // A request's answer: a 0x28-byte Result {String message @0, ..., u32 code @0x20} made by
 // result_make(Result*, code, text) (code 0 = success), handed to the delegate by
 // delegate_invoke(Delegate*, Result*); the handle is set empty by null_handle(Handle*, 0).
 inline constexpr std::uintptr_t result_make = 0x83de30, delegate_invoke = 0x58b1d60, null_handle = 0x3dc5bd0;
 // Party queries the Social menu, map and activities make besides the member lists.
-inline constexpr std::uintptr_t local_is_leader = 0x779710;    // (bool* out)
-inline constexpr std::uintptr_t in_group = 0x849d70;           // () -> bool
-inline constexpr std::uintptr_t player_group_status = 0x775ee0; // (const u64* eaid, GameGroupStatus* out, bool* found)
 // AcceptGameInvite (the invite toast's Accept; analysis/party-re/ui-actions.md 2.2):
 // (Handle*, const String* invite id, const String* game id, Delegate*), answered with
 // delegate_invoke_text(Delegate*, DingoError*, const String* game id).
 inline constexpr std::uintptr_t request_accept_invite = 0x842cd0, delegate_invoke_text = 0x58b1cf0;
 // IsPartyVoiceUnavailable () -> bool: hides the party voice options without a native group.
-inline constexpr std::uintptr_t voice_unavailable = 0x848e60;
 // Native UI events, raised as the natives do (ui-actions.md 1.6): context(&buffer16);
 // dispatcher = event_dispatcher(&buffer16); if dispatcher+0x28: event_post(dispatcher, type object,
 // payload*, options* {f32 0, u32 1, u32 0}, 0).
