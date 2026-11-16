@@ -5,7 +5,6 @@ namespace dingosdk::game::build::v20260929::effect_surface {
 // Same executable as decals.h. Paired position/quaternion readers are used
 // by 0x1a4ae60 and 0x3d04c80. Input: 16-byte physics world/index/generation
 // handle. Output: aligned float4, quaternion in XYZW order.
-inline constexpr std::uintptr_t body_position=0x25d6e60,body_rotation=0x25d5db0;
 inline constexpr std::uintptr_t scope_pop_slot = 0x8, result_fractions = 0x8;
 inline constexpr std::array<Fingerprint,4> contracts{{
     park_editor::picking_contracts[0], // ray hit -> generation-bearing body handle
