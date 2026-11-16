@@ -25,4 +25,13 @@ inline constexpr std::array<unsigned char, 18> configure_h264_prefix{
 // the rate control mode (eAVEncCommonRateControlMode: 0 CBR, 1 peak constrained VBR, 3 quality); the
 // quality, 0..100, of mode 3 (CODECAPI_AVEncCommonQuality); the peak of mode 1, passed as it is
 // (CODECAPI_AVEncCommonMaxBitRate). Then the frame's width and height (ints) and the frame rate (float).
+inline constexpr std::uintptr_t frame_permit = 0x90;
+inline constexpr std::uintptr_t h264_kilobits = 0x70;
+inline constexpr std::uintptr_t h264_rate_mode = 0x78;
+inline constexpr std::uintptr_t h264_quality = 0x7c;
+inline constexpr std::uintptr_t h264_peak = 0x80;
+inline constexpr std::uintptr_t h264_width = 0x88;
+inline constexpr std::uintptr_t h264_height = 0x8c;
+inline constexpr std::uintptr_t h264_fps = 0x90;
+
 }
