@@ -25,9 +25,10 @@ namespace dingosdk::launcher_mods
     namespace
     {
 
-        // Native mods, plugin mods and Animator Studio packs all count as installable content.
-        constexpr std::array<std::string_view, 4> content_markers{
-            "layout.toc", "reskate-levels.json", "reskate-plugin.json", "reskate-animations.json"};
+        // What the game loads from a mod (a plugin's reskate-plugin.json sits at its
+        // mod's top), and the files that only describe one.
+        constexpr std::array<std::string_view, 3> content_markers{
+            "layout.toc", "reskate-levels.json", "reskate-plugin.json"};
         constexpr std::array<std::string_view, 2> info_markers{"manifest.json", "reskate-mod.json"};
         // Thunderstore requires these at the top of a package (lower case here); they
         // follow the mod in when it is packed one folder deeper.
@@ -290,17 +291,32 @@ namespace dingosdk::launcher_mods
                 fail("This mod needs " + std::to_string(needed >> 20) + " MB, more than the drive has free.");
         }
 
-        void recycle(const fs::path &path)
+        // Moves the folders to the Recycle Bin in one shell operation. False when the shell stopped
+        // short: it stops at the first that will not go, and what went before it is gone.
+        bool recycle_all(const std::vector<fs::path> &paths)
         {
-            std::wstring from = path.wstring();
+            std::wstring from;
+            for (const auto &path : paths)
+            {
+                from += path.wstring();
+                from.push_back(L'\0');
+            }
             from.push_back(L'\0'); // SHFileOperation takes a double-terminated list.
             SHFILEOPSTRUCTW operation{};
             operation.wFunc = FO_DELETE;
             operation.pFrom = from.c_str();
             operation.fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_WANTNUKEWARNING | FOF_SILENT | FOF_NOERRORUI;
-            if (SHFileOperationW(&operation) != 0 || operation.fAnyOperationsAborted)
-                fail("Could not move " + utf8(path.filename().wstring()) +
-                     " to the Recycle Bin. Close anything using its files and try again.");
+            return SHFileOperationW(&operation) == 0 && !operation.fAnyOperationsAborted;
+        }
+        std::string recycle_failure(const fs::path &path)
+        {
+            return "Could not move " + utf8(path.filename().wstring()) +
+                   " to the Recycle Bin. Close anything using its files and try again.";
+        }
+        void recycle(const fs::path &path)
+        {
+            if (!recycle_all({path}))
+                fail(recycle_failure(path));
         }
 
         class Staging
@@ -858,6 +874,44 @@ namespace dingosdk::launcher_mods
         if (!fs::is_directory(target, error))
             fail("\"" + name + "\" is not installed.");
         recycle(target);
+    }
+
+    std::vector<std::string> remove_many(const fs::path &mods,
+                                         const std::vector<std::string> &names,
+                                         std::string &failure)
+    {
+        failure.clear();
+        // Up to the first that is no mod folder here: nothing after it is touched.
+        std::vector<fs::path> targets;
+        for (const auto &name : names)
+        {
+            std::error_code error;
+            if (!mods::valid_mod_name(name))
+                failure = "\"" + name + "\" is not a mod folder.";
+            else if (!fs::is_directory(mods / from_utf8(name), error))
+                failure = "\"" + name + "\" is not installed.";
+            if (!failure.empty())
+                break;
+            targets.push_back(mods / from_utf8(name));
+        }
+        std::vector<std::string> removed;
+        if (targets.empty())
+            return removed;
+        const bool all = recycle_all(targets);
+        // Whatever the shell said, a folder that is still there did not go.
+        for (std::size_t at = 0; at < targets.size(); ++at)
+        {
+            std::error_code error;
+            if (fs::exists(targets[at], error))
+            {
+                failure = recycle_failure(targets[at]);
+                return removed;
+            }
+            removed.push_back(names[at]);
+        }
+        if (!all && failure.empty())
+            failure = "The Recycle Bin did not take every folder. Try again.";
+        return removed;
     }
 
     namespace

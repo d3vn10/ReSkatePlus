@@ -92,13 +92,13 @@ namespace dingosdk::launcher_gui::detail
                 settings.updates = json.value("updates", settings.updates);
                 settings.crash_reports = json.value("crash_reports", settings.crash_reports);
                 settings.performance_timings = json.value("performance_timings", settings.performance_timings);
-                settings.prereleases = false;
+                settings.prereleases = true;
                 settings.steam_username = json.value("steam_username", std::string());
                 settings.steam_remember = json.value("steam_remember", settings.steam_remember);
                 settings.steam_prefer_code = json.value("steam_prefer_code", settings.steam_prefer_code);
                 settings.accepted_privacy = json.value("accepted_privacy_version", settings.accepted_privacy);
                 settings.accepted_terms = json.value("accepted_terms_version", settings.accepted_terms);
-                settings.announcement_hidden = json.value("announcement_hidden", settings.announcement_hidden);
+                settings.announcement_opened = json.value("announcement_opened", settings.announcement_opened);
                 // At most 64 categories each, every one a short name.
                 const auto categories = [&](const char *key)
                 {
@@ -154,7 +154,7 @@ namespace dingosdk::launcher_gui::detail
             json["steam_remember"] = settings.steam_remember;
             json["steam_prefer_code"] = settings.steam_prefer_code;
             json["accepted_privacy_version"] = settings.accepted_privacy;
-            json["announcement_hidden"] = settings.announcement_hidden;
+            json["announcement_opened"] = settings.announcement_opened;
             json["accepted_terms_version"] = settings.accepted_terms;
             json["mod_categories_only"] = settings.mod_categories_only;
             json["mod_categories_hidden"] = settings.mod_categories_hidden;
@@ -281,7 +281,7 @@ namespace dingosdk::launcher_gui::detail
         // so the release that applies (or keeping the files there are) is offered without a restart.
         // Not while a download, an update or a launch is under way, the game runs, or a merge waits
         // on an answer about mods: the next check or start picks it up then.
-        if (settings_.updates == checked_updates_.load())
+        if (settings_.updates == checked_updates_.load() && settings_.prereleases == checked_prereleases_.load())
             return;
         if (busy_ || launched_)
             return;
@@ -493,17 +493,21 @@ namespace dingosdk::launcher_gui::detail
         checked_prereleases_ = settings_.prereleases;
         set(Phase::checking, "Checking for updates");
         update::remove_previous_launcher(session_.self);
-        auto config = update::fetch_config();
+        auto config = update::fetch_config(settings_.prereleases);
         {
             std::lock_guard lock(mutex_);
             state_.config = config;
         }
+        // (Unreachable GitHub: what the last check found stands.)
+        if (config)
+            prerelease_available_ = config->prerelease_available;
         const bool newer = config && (launcher_outdated(*config) || runtime_outdated(*config));
         if (newer && update::binary_updates_enabled() && binaries_ && settings_.updates)
         {
             set(Phase::update_available,
                 "A ReSkate+ update is ready",
-                std::format("Version {} will be downloaded and installed.",
+                std::format("{} {} will be downloaded and installed.",
+                            config->prerelease ? "Pre-release" : "Version",
                             config->runtime.version.empty() ? config->launcher.version : config->runtime.version));
             return;
         }
@@ -689,7 +693,7 @@ namespace dingosdk::launcher_gui::detail
     // were found to break the picture once the mods had changed many times: a launch with other mods than
     // the last one's (what they give the game's data: launcher_mods::game_data_signature) starts the game
     // with its shader cache empty, and it builds the shaders again.
-    static void clear_shader_cache_if_mods_changed(Settings &settings, const std::string &signature)
+    void clear_shader_cache_if_mods_changed(Settings &settings, const std::string &signature)
     {
         if (signature == settings.shader_cache_mods)
             return;
@@ -828,6 +832,10 @@ namespace dingosdk::launcher_gui
     bool updates_enabled(const launcher_app::Session &session)
     {
         return detail::load_settings(detail::settings_path(session)).updates;
+    }
+    bool prereleases_enabled(const launcher_app::Session &session)
+    {
+        return detail::load_settings(detail::settings_path(session)).prereleases;
     }
     launcher::LaunchOptions saved_launch_options(const launcher_app::Session &session)
     {

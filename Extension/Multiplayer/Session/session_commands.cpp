@@ -955,6 +955,15 @@ namespace dingosdk::multiplayer
     {
         return session_detail::next_maps_serial_value.load(std::memory_order_relaxed);
     }
+    std::vector<std::string> required_plugins()
+    {
+        std::lock_guard lock(session_detail::required_plugins_mutex);
+        return session_detail::required_plugins_shared;
+    }
+    unsigned required_plugins_serial() noexcept
+    {
+        return session_detail::required_plugins_serial_value.load(std::memory_order_relaxed);
+    }
     std::string command(std::string_view action, std::string_view argument, std::string_view password)
     {
         if (launcher::offline_mode() && !own_mark_command(action))

@@ -282,7 +282,7 @@ namespace dingosdk
         {
             const auto it = std::find_if(
                 world_layers().begin(), world_layers().end(), [&](const auto &row) { return row.key == layer; });
-            if (it == world_layers().end() || !valid_world_layer_mode(mode) || world_layer_kept_off(it->key))
+            if (it == world_layers().end() || !valid_world_layer_mode(mode) || world_layer_withheld(it->key))
             {
                 r.model.feedback = "Choose a valid world layer and mode.";
                 return false;

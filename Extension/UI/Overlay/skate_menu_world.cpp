@@ -692,7 +692,7 @@ namespace dingosdk::overlay::menu
         for (unsigned i = 0; i < world_layers().size(); ++i)
         {
             const auto &layer = world_layers()[i];
-            if (layer.map != model.world.map || !model.world.supported[i] || world_layer_kept_off(layer.key))
+            if (layer.map != model.world.map || !model.world.supported[i] || world_layer_withheld(layer.key))
                 continue;
             if (menu.world_layer_category &&
                 layer.category != kinds[static_cast<std::size_t>(menu.world_layer_category)])

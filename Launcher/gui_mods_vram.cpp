@@ -205,7 +205,7 @@ namespace dingosdk::launcher_gui::detail
             scan.done.clear();
         }
         // Stopped for an install or an uninstall: read again once the folder is still.
-        if (scan.interrupted && !scan.running && !panel.installing)
+        if (scan.interrupted && !scan.running && !panel.installing && !panel.removal.busy)
             start_vram_scan(panel);
     }
 

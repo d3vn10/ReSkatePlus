@@ -25,7 +25,7 @@ namespace dingosdk::mods
         // A document the mod added: what an item's thumbnail is found through.
         struct Added
         {
-            std::string name, type, item;
+            std::string name, type, item, written; // item: its key, lower case; written: as the mod has it
             std::vector<fb::Guid> imports;
         };
 
@@ -209,6 +209,7 @@ namespace dingosdk::mods
                                 if (const auto item = item_content(document))
                                 {
                                     entry.item = ascii_lower(item->key);
+                                    entry.written = item->key;
                                     items.push_back(document.fileGuid);
                                 }
                                 added.emplace(document.fileGuid, std::move(entry));
@@ -229,6 +230,7 @@ namespace dingosdk::mods
                         continue;
                     ModItem item;
                     item.key = entry.item;
+                    item.name = entry.written;
                     item.asset = entry.name;
                     // "items/<category>/<name>"
                     if (const auto last = entry.name.rfind('/'); last != std::string::npos && last > 0)

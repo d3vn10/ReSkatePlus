@@ -16,6 +16,8 @@ namespace dingosdk::launcher_gui
 
     // The Settings page's "Install ReSkate updates" choice; scripted (--no-gui) launches honour it too.
     bool updates_enabled(const launcher_app::Session &session);
+    // Whether the saved settings ask for pre-releases (the "Test pre-releases" setting).
+    bool prereleases_enabled(const launcher_app::Session &session);
 
     // What pressing Play would start the game with: the Settings page's saved choices. A scripted
     // launch that names none of its own (a bare --no-gui, as Discord runs for a join) uses these.

@@ -213,8 +213,10 @@ namespace dingosdk::overlay::detail
         const bool bluetooth = playstation_bluetooth(size);
         if (!parse_playstation_report(read.kind, bluetooth, bytes, size))
             return;
-        const bool sense_full =
-            read.kind == PlayStationPad::dualsense && (bytes[0] == 0x31 || (bytes[0] == 1 && !bluetooth));
+        // (Which layout a DualSense's report 0x01 has is told as the parser tells it, by what is in the
+        // report: playstation_report.h dualsense_usb_layout.)
+        const bool sense_full = read.kind == PlayStationPad::dualsense &&
+                                (bytes[0] == 0x31 || (bytes[0] == 1 && dualsense_usb_layout(bytes, size, bluetooth)));
         const unsigned offset = bytes[0] == 0x31 ? 2 : bytes[0] == 0x11 ? 3 : 1;
         auto *data = bytes + offset;
         if (!capture)
@@ -244,12 +246,13 @@ namespace dingosdk::overlay::detail
             logging::printf(logging::Level::info,
                             logging::Channel::input,
                             "Native PlayStation HID report neutralized; overlay retains its independent input stream. "
-                            "(%s over %s, report 0x%02x of %lu bytes, "
-                            "the game's buffer %lu.)",
+                            "(%s over %s by its length, report 0x%02x "
+                            "of %lu bytes in the %s layout, the game's buffer %lu.)",
                             read.kind == PlayStationPad::dualsense ? "DualSense" : "DualShock 4",
                             bluetooth ? "Bluetooth" : "USB",
                             bytes[0],
                             size,
+                            sense_full ? "DualSense" : "DualShock 4",
                             read.capacity);
     }
     void dark_pop_hide_hat(std::uint8_t &byte) noexcept;
@@ -262,8 +265,8 @@ namespace dingosdk::overlay::detail
         const bool bluetooth = playstation_bluetooth(size);
         if (!parse_playstation_report(read.kind, bluetooth, bytes, size))
             return;
-        const bool sense_full =
-            read.kind == PlayStationPad::dualsense && (bytes[0] == 0x31 || (bytes[0] == 1 && !bluetooth));
+        const bool sense_full = read.kind == PlayStationPad::dualsense &&
+                                (bytes[0] == 0x31 || (bytes[0] == 1 && dualsense_usb_layout(bytes, size, bluetooth)));
         const unsigned offset = bytes[0] == 0x31 ? 2 : bytes[0] == 0x11 ? 3 : 1;
         auto *data = bytes + offset;
         auto &hat = data[sense_full ? 7 : 4];
@@ -306,13 +309,7 @@ namespace dingosdk::overlay::detail
         if (overlay_input_access)
             return;
         const auto saved_error = GetLastError();
-        const bool allowed = output_allowed();
-        const input::PadOutput real{
-            pad.buttons, pad.left_trigger, pad.right_trigger, pad.left_x, pad.left_y, pad.right_x, pad.right_y};
-        // A script by physics step goes over a replacement by the clock.
-        auto output = input::step_script().on_read(controller, real, allowed && !multiplayer_session_active());
-        if (const auto leased = input::pad_outputs().read(controller, GetTickCount64(), allowed); !output)
-            output = leased;
+        const auto output = input::pad_outputs().read(controller, GetTickCount64(), output_allowed());
         SetLastError(saved_error);
         if (output)
             pad = {output->buttons,
@@ -355,16 +352,12 @@ namespace dingosdk::overlay::detail
     {
         if (block_polled_input())
         {
-            input::step_script().interrupt();
             (void)input::pad_outputs().read(4, GetTickCount64(), false);
             neutral_hid(read, size);
         }
         else
         {
             filter_hid(read, size);
-            if (const auto hidden = modifier_hidden_buttons(); hidden && read.buffer && size <= read.capacity)
-                (void)hide_playstation_buttons(
-                    read.kind, playstation_bluetooth(size), static_cast<std::uint8_t *>(read.buffer), size, hidden);
             int stick{};
             SHORT value{};
             if (!overlay_input_access && read.buffer && size <= read.capacity && held_stick(stick, value))
@@ -1511,7 +1504,7 @@ namespace dingosdk::overlay::detail
         const auto result = original<HRESULT(STDMETHODCALLTYPE *)(void *, DWORD, LPVOID)>(
             input_hooks().device_state[I])(device, size, data);
         note_prompt_read(prompt_direct);
-        if (SUCCEEDED(result) && data && block_input_reads())
+        if (SUCCEEDED(result) && data && block_polled_input())
         {
             std::memset(data, 0, size);
             std::lock_guard lock(input_hooks().formats_mutex);

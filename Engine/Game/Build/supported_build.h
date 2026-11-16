@@ -11,7 +11,6 @@
 // intentionally retain their own historical build pins.
 namespace dingosdk::supported_build
 {
-
     inline constexpr std::uint64_t game_file_size = 144567168;
     inline constexpr std::uint32_t game_image_size = 0x09144000;
     inline constexpr std::string_view game_sha256 = "fbce74d5e28ef525dbba2cb4adbebc13405bdbd88f31bc940bca45e4ae88b8f9";
@@ -61,5 +60,4 @@ namespace dingosdk::supported_build
     }
 
     inline constexpr auto game_sha256_bytes = sha256_bytes(game_sha256);
-
 } // namespace dingosdk::supported_build

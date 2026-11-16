@@ -268,11 +268,13 @@ namespace dingosdk
 #if defined(DINGOSDK_DEV_TOOLS)
         void trace_hook(const char *action, const Hook &hook, LONG result) noexcept
         {
-            dingosdk::game::usage_trace::record_lifecycle(
-                "hook", action, "detours",
-                reinterpret_cast<std::uintptr_t>(hook.target),
-                reinterpret_cast<std::uintptr_t>(hook.replacement),
-                0, result);
+            dingosdk::game::usage_trace::record_lifecycle("hook",
+                                                          action,
+                                                          "detours",
+                                                          reinterpret_cast<std::uintptr_t>(hook.target),
+                                                          reinterpret_cast<std::uintptr_t>(hook.replacement),
+                                                          0,
+                                                          result);
         }
 #endif
     } // namespace

@@ -158,10 +158,13 @@ namespace dingosdk
                     replacement,
                     interlocked});
 #if defined(DINGOSDK_DEV_TOOLS)
-            game::usage_trace::record_lifecycle(
-                "patch", "slot_installed", name,
-                reinterpret_cast<std::uintptr_t>(slot),
-                reinterpret_cast<std::uintptr_t>(replacement), sizeof(void *), HookOk);
+            game::usage_trace::record_lifecycle("patch",
+                                                "slot_installed",
+                                                name,
+                                                reinterpret_cast<std::uintptr_t>(slot),
+                                                reinterpret_cast<std::uintptr_t>(replacement),
+                                                sizeof(void *),
+                                                HookOk);
 #endif
             return HookOk;
         }
@@ -202,10 +205,13 @@ namespace dingosdk
         VirtualProtect(slot, sizeof(void *), previous, &ignored);
         deactivate(entry.record.address);
 #if defined(DINGOSDK_DEV_TOOLS)
-        game::usage_trace::record_lifecycle(
-            "patch", "slot_restored", entry.record.name,
-            entry.record.address, reinterpret_cast<std::uintptr_t>(entry.original),
-            entry.record.size, HookOk);
+        game::usage_trace::record_lifecycle("patch",
+                                            "slot_restored",
+                                            entry.record.name,
+                                            entry.record.address,
+                                            reinterpret_cast<std::uintptr_t>(entry.original),
+                                            entry.record.size,
+                                            HookOk);
 #endif
         return HookOk;
     }
@@ -270,8 +276,7 @@ namespace dingosdk
         {
             deactivate(address);
 #if defined(DINGOSDK_DEV_TOOLS)
-            game::usage_trace::record_lifecycle(
-                "patch", "code_restored", "code", address, 0, original.size(), result);
+            game::usage_trace::record_lifecycle("patch", "code_restored", "code", address, 0, original.size(), result);
 #endif
         }
         return result;
@@ -287,8 +292,7 @@ namespace dingosdk
         {
             record({{"breakpoint", name, address, 1, true}});
 #if defined(DINGOSDK_DEV_TOOLS)
-            game::usage_trace::record_lifecycle(
-                "patch", "breakpoint_installed", name, address, 0, 1, result);
+            game::usage_trace::record_lifecycle("patch", "breakpoint_installed", name, address, 0, 1, result);
 #endif
         }
         return result;
@@ -306,8 +310,7 @@ namespace dingosdk
             record({{"breakpoint handler", name, reinterpret_cast<std::uintptr_t>(handle), 0, true}});
 #if defined(DINGOSDK_DEV_TOOLS)
             game::usage_trace::record_lifecycle(
-                "patch", "breakpoint_handler_installed", name,
-                reinterpret_cast<std::uintptr_t>(handle), 0, 0, HookOk);
+                "patch", "breakpoint_handler_installed", name, reinterpret_cast<std::uintptr_t>(handle), 0, 0, HookOk);
 #endif
         }
         return handle;
@@ -319,9 +322,13 @@ namespace dingosdk
         RemoveVectoredExceptionHandler(handle);
         deactivate(reinterpret_cast<std::uintptr_t>(handle));
 #if defined(DINGOSDK_DEV_TOOLS)
-        game::usage_trace::record_lifecycle(
-            "patch", "breakpoint_handler_removed", "vectored_handler",
-            reinterpret_cast<std::uintptr_t>(handle), 0, 0, HookOk);
+        game::usage_trace::record_lifecycle("patch",
+                                            "breakpoint_handler_removed",
+                                            "vectored_handler",
+                                            reinterpret_cast<std::uintptr_t>(handle),
+                                            0,
+                                            0,
+                                            HookOk);
 #endif
     }
 

@@ -975,7 +975,10 @@ namespace dingosdk::multiplayer
                     s.map_package = p.map_package;
                     // (Only a dedicated server needs plugins of its players.)
                     if (dedicated_host(s))
+                    {
                         s.required_plugins = p.required_plugins;
+                        session_detail::set_required_plugins(s.required_plugins);
+                    }
                     s.world = p.world;
                     s.join_map_authorized |= p.map_authorized;
                     link->last_packet = now;

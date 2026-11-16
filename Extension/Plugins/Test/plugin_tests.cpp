@@ -7,6 +7,7 @@
 #include "Extension/Plugins/plugin_listing.h"
 #include "Extension/Objects/placement_geometry.h"
 #include "Extension/Plugins/plugin_manifest.h"
+#include "Extension/Plugins/plugin_server_scope.h"
 #include "Extension/Plugins/plugin_session_feed.h"
 #include "Extension/Plugins/plugin_wire.h"
 #include "Extension/Throwdowns/challenge_registry.h"
@@ -14,9 +15,6 @@
 #include "Extension/Throwdowns/throwdown_kit.h"
 #include "Engine/Vfs/mod_list.h"
 #include "Engine/Game/Input/pad_output.h"
-#include "Engine/Game/Input/step_script.h"
-#include "Extension/Plugins/line_file.h"
-#include "Extension/Plugins/ghost_file.h"
 #include "Engine/Game/Input/playstation_report.h"
 #include "Engine/Game/Input/gameplay_options.h"
 #ifdef _WIN32 // reads memory as the game does (Engine/Core/Platform/memory.h)
@@ -307,6 +305,11 @@ struct FakeGame final : Game {
     std::map<std::uint64_t, Effect> effects;
     std::uint64_t effect_serial{}, effect_epoch{1};
     bool effects_ready{true};
+    std::vector<std::pair<std::string, std::string>> effect_bundles;   // bundle, asset: each one asked for
+    EffectBundleState effect_bundle(std::string_view, std::string_view bundle, std::string_view asset) override {
+        effect_bundles.emplace_back(std::string(bundle), std::string(asset));
+        return effect_bundles.size() == 1 ? EffectBundleState::loading : EffectBundleState::ready;
+    }
     std::uint64_t effect_create(std::string_view plugin, const EffectRequest& request) override {
         if (!effects_ready) return 0;
         const auto id = ++effect_serial;
@@ -460,7 +463,8 @@ struct FakeGame final : Game {
         return found;
     }
     bool declared_holds_deck(int part) const { return declared_rules && part == 0; }
-    std::optional<std::vector<BoardParameter>> board_parameters(int part) override {
+    std::optional<std::vector<BoardParameter>> board_parameters(int part, bool preview_scope = false) override {
+        if (preview_scope) calls.push_back("preview parameters");
         if (declared_holds_deck(part)) {
             std::vector<BoardParameter> out;
             for (const auto& p : board_material::detail::listed(declared_board(), board_material::Part::deck)) {
@@ -476,7 +480,8 @@ struct FakeGame final : Game {
                                            {0xb00abec403499469ULL, "integer", {}, 13},
                                            {0xa5f9a6b8098279adULL, "switch", {}, 1}};
     }
-    std::string board_set_parameter(std::string_view plugin, int part, std::uint64_t key, std::array<float, 3> value, bool colour) override {
+    std::string board_set_parameter(std::string_view plugin, int part, std::uint64_t key, std::array<float, 3> value, bool colour, bool preview_scope = false) override {
+        if (preview_scope) calls.push_back("preview set");
         if (declared_holds_deck(part)) {
             auto why = board_material::detail::take(declared_holds, declared_board(), plugin, board_material::Part::deck, key, value, colour);
             if (why.empty()) calls.push_back(std::format("board parameter {} {} {:016x} {} {:.1f}", plugin, part, key, colour ? "colour" : "number", value[0]));
@@ -485,7 +490,8 @@ struct FakeGame final : Game {
         calls.push_back(std::format("board parameter {} {} {:016x} {} {:.1f}", plugin, part, key, colour ? "colour" : "number", value[0]));
         return {};
     }
-    void board_clear_parameter(std::string_view plugin, int part, std::optional<std::uint64_t> key) override {
+    void board_clear_parameter(std::string_view plugin, int part, std::optional<std::uint64_t> key, bool preview_scope = false) override {
+        if (preview_scope) calls.push_back("preview clear");
         calls.push_back(std::format("board parameter clear {} {} {}", plugin, part, key ? std::format("{:016x}", *key) : "all"));
         board_material::detail::release(declared_holds, plugin, part < 0 ? std::nullopt : std::optional(static_cast<board_material::Part>(part)), key);
     }
@@ -616,6 +622,11 @@ struct FakeGame final : Game {
                                         c->front_from_grip[2], c->worn.has_value(), c->weight, c->crouch, c->hunch, c->turn, c->step,
                                         c->still ? " still" : "", c->push_straightens ? " push" : "", shown_name(c->shown))
                           : std::format("carry {} none", plugin));
+        if (c && (c->support[0] != 0 || c->support[1] != 0 || c->support[2] != 0))
+            calls.push_back(std::format("carry support {} {:.2f} {:.2f} {:.2f}", plugin, c->support[0], c->support[1], c->support[2]));
+        if (c && (c->exact || c->look_at))
+            calls.push_back(std::format("carry held {}{} look {}", plugin, c->exact ? " exact" : "",
+                                        c->look_at ? std::format("{:.1f} {:.1f} {:.1f}", (*c->look_at)[0], (*c->look_at)[1], (*c->look_at)[2]) : "none"));
         return {};
     }
     std::string skater_pose(std::string_view plugin, const std::vector<JointOffset>& offsets, float weight, Shown shown) override {
@@ -687,6 +698,11 @@ struct FakeGame final : Game {
                                         l->grade, l->soft, l->scanlines, l->grain, l->dropouts, l->head_switching, l->tracking, l->smear, l->iris, l->rolling,
                                         l->text[0], l->text[1], l->text[2], l->text[3], l->text[4])
                           : std::format("look {} none", plugin));
+        if (l && (l->bars_strength != 1 || l->hood_strength != 1 || l->grade_strength != 1 || l->soft_strength != 1 || l->scanlines_strength != 1 ||
+                  l->grain_strength != 1 || l->dropouts_strength != 1 || l->head_switching_strength != 1 || l->smear_strength != 1))
+            calls.push_back(std::format("look strengths {} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f}", plugin, l->bars_strength,
+                                        l->hood_strength, l->grade_strength, l->soft_strength, l->scanlines_strength, l->grain_strength,
+                                        l->dropouts_strength, l->head_switching_strength, l->smear_strength));
         return {};
     }
     // One plugin's viewmodel at a time, as the real one.
@@ -1019,29 +1035,6 @@ struct FakeGame final : Game {
     std::string set_animation_value(std::string_view name, double) override { return name == "Animation/Dingo/Float.Physics.Example" ? "" : "not a live numeric physics output"; }
     int read_controller = -1;
     std::optional<PadInput> written_pad; unsigned written_controller{};
-    std::string tas_calls;
-    std::string tas_record(std::string_view, unsigned controller, std::size_t length, std::size_t at) override { tas_calls += std::format("record {} {} {};", controller, length, at); return {}; }
-    std::string tas_play(std::string_view, unsigned controller, int lead, TasRestore restore, std::size_t at) override { tas_calls += std::format("play {} {} {} {};", controller, lead, static_cast<int>(restore), at); return {}; }
-    void tas_stop(std::string_view) override { tas_calls += "stop;"; }
-    std::string tas_line_start(std::string_view, unsigned controller, std::size_t at) override { tas_calls += std::format("line-start {} {};", controller, at); return {}; }
-    std::string tas_line_seek(std::size_t from, std::size_t to, std::size_t at, bool hand_over) override { tas_calls += std::format("line-seek {} {} {} {};", from, to, at, hand_over); return {}; }
-    std::string tas_line_go() override { tas_calls += "line-go;"; return {}; }
-    std::string tas_line_stop() override { tas_calls += "line-stop;"; return {}; }
-    std::string tas_line_paused(bool on) override { tas_calls += std::format("paused {};", on); return {}; }
-    std::string tas_line_hold() override { tas_calls += "hold;"; return {}; }
-    std::string tas_line_halt() override { tas_calls += "halt;"; return {}; }
-    std::string tas_no_bail(bool on) override { tas_calls += std::format("no-bail {};", on); return {}; }
-    std::string tas_clock(float scale) override { tas_calls += std::format("clock {};", scale); return {}; }
-    std::string tas_virtual_time(bool on) override { tas_calls += std::format("virtual {};", on); return {}; }
-    std::string tas_save(unsigned slot) override { tas_calls += std::format("save-slot {};", slot); return {}; }
-    std::string tas_load(unsigned slot, bool skeleton) override { tas_calls += std::format("load-slot {} {};", slot, skeleton); return {}; }
-    std::pair<std::size_t, std::size_t> tas_save_counts() override { return {5, 6}; }
-    std::string tas_history(bool on) override { tas_calls += std::format("history {};", on); return {}; }
-    std::string tas_rewind(std::size_t length) override { tas_calls += std::format("rewind {};", length); return {}; }
-    std::pair<std::size_t, std::size_t> tas_history_counts() override { return {600, 2}; }
-    std::string tas_dump(std::uint32_t every) override { tas_calls += std::format("dump {};", every); return {}; }
-    std::string tas_dump_save(std::string_view name) override { tas_calls += std::format("save {};", name); return {}; }
-    TasStatus tas_status() override { return {"playing", 7, 90, "recorded", true, 3, 2, {4, 9}, 500, true, 12}; }
     std::string write_pad(std::string_view, unsigned controller, std::optional<PadInput> value) override { written_controller = controller; written_pad = value; return {}; }
     std::optional<StickInput> joystick(int device) override {
         if (device > 1) return std::nullopt;
@@ -1637,23 +1630,75 @@ void expired_effects_return_their_quota() {
         local fx = reskate.effects
         local m = {1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1}
         reskate.console.command("fxfill", "", function()
-            for i=1,24 do assert(fx.particle("effects/reskate/test/ebp_spark", m)) end
+            for i=1,64 do assert(fx.particle("effects/reskate/test/ebp_spark", m)) end
             for i=1,2048 do assert(fx.decal("world/materials/decal/reskate_test/stain_dv", m)) end
             assert(fx.particle("effects/reskate/test/ebp_spark", m) == nil)
             assert(fx.decal("world/materials/decal/reskate_test/stain_dv", m) == nil)
         end)
     )"}})});
     auto& game = environment.fake;
-    check(host.run_console("fxfill") && game.effects.size() == 2072, "Both effect quotas can be filled");
+    check(host.run_console("fxfill") && game.effects.size() == 2112, "Both effect quotas can be filled");
     game.effects.clear(); // Ten-minute native expiry, with no change to the world epoch.
     ticks(host, environment, 1);
-    check(host.run_console("fxfill") && game.effects.size() == 2072, "Expiry returns both quotas without Lua release/clear");
+    check(host.run_console("fxfill") && game.effects.size() == 2112, "Expiry returns both quotas without Lua release/clear");
     ticks(host, environment, 1);
     game.effects.clear();
     ++game.effect_epoch;
     // A console call can arrive after the native reset but before Plugin::tick.
-    check(host.run_console("fxfill") && game.effects.size() == 2072, "A reset returns quota even before the next VM tick");
+    check(host.run_console("fxfill") && game.effects.size() == 2112, "A reset returns quota even before the next VM tick");
     running(host, "effects-expire", environment);
+}
+
+void game_effects_need_their_own_permission() {
+    // effects.game cannot stand alone, and is a known permission.
+    bool refused = false;
+    try { (void)parse_manifest(manifest(R"("effects.game")")); } catch (const std::exception&) { refused = true; }
+    check(refused, "effects.game without effects is refused");
+    check(parse_manifest(manifest(R"("effects", "effects.game")")).permissions.contains("effects.game"), "effects.game is a permission");
+    check(game_effect_asset("effects/environments/effectblueprints/ebp_env_thick_smoke_popup") &&
+          !game_effect_asset("effects/reskate/test/ebp_spark") && !game_effect_asset("world/materials/decal/reskate_test/stain_dv") &&
+          !game_effect_asset("/effects/a") && !game_effect_asset("effects//a") && !game_effect_asset("Effects/A") && !game_effect_asset(""),
+          "A game effect's name is a plain asset path that is not a mod's own");
+
+    TestEnvironment environment;
+    Host host(environment, Side::client);
+    // Without effects.game, a plugin with effects still cannot name one of the game's.
+    host.apply({package("fx-private-only", {{manifest_file, manifest(R"("effects", "console")")}, {"plugin/main.lua", R"(
+        local m = {1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1}
+        reskate.console.command("fxstock", "", function()
+            local ok, why = pcall(reskate.effects.particle, "effects/environments/effectblueprints/ebp_env_thick_smoke_popup", m)
+            assert(not ok and why:find("effects.game"), tostring(why))
+            ok, why = pcall(reskate.effects.load, "win32/effects/gestures/effectblueprints/ebp_x_bundle", "effects/gestures/effectblueprints/ebp_x")
+            assert(not ok and why:find("effects.game"), tostring(why))
+        end)
+    )"}})});
+    check(host.run_console("fxstock") && environment.fake.effects.empty() && environment.fake.effect_bundles.empty(),
+          "A plugin without effects.game cannot play the game's effects or ask for its bundles");
+
+    // With it, the game's particle effects play; decals and the plugin's own undeclared names do not.
+    host.apply({package("fx-game", {{manifest_file, manifest(R"("effects", "effects.game", "console")")}, {"plugin/main.lua", R"(
+        local m = {1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1}
+        reskate.console.command("fxgame", "", function()
+            assert(reskate.effects.particle("effects/environments/effectblueprints/ebp_env_thick_smoke_popup", m))
+            assert(not pcall(reskate.effects.decal, "world/materials/decal/some_game_decal", m))
+            assert(not pcall(reskate.effects.particle, "effects/reskate/test/undeclared", m))
+            assert(not pcall(reskate.effects.particle, "Effects/Upper", m))
+            -- One of the game's effect bundles can be asked for; only those under win32/effects/.
+            local bundle = "win32/effects/gestures/effectblueprints/ebp_gesture_metaldance_flameburst_bundle"
+            local effect = "effects/gestures/effectblueprints/ebp_gesture_metaldance_flameburst"
+            assert(reskate.effects.load(bundle, effect) == "loading")
+            assert(reskate.effects.load(bundle, effect) == "ready")
+            assert(not pcall(reskate.effects.load, "win32/levels/game/bam_levelroot/bam_levelroot", effect))
+            assert(not pcall(reskate.effects.load, bundle, "effects/reskate/test/ebp_spark"))
+        end)
+    )"}})});
+    check(host.run_console("fxgame") && environment.fake.effects.size() == 1 &&
+          environment.fake.effects.begin()->second.request.game &&
+          environment.fake.effects.begin()->second.request.asset == "effects/environments/effectblueprints/ebp_env_thick_smoke_popup",
+          "A plugin with effects.game plays one of the game's particle effects, marked as the game's");
+    check(environment.fake.effect_bundles.size() == 2 &&
+          environment.fake.effect_bundles.front().first == "win32/effects/gestures/effectblueprints/ebp_gesture_metaldance_flameburst_bundle",
+          "It can ask for one of the game's effect bundles, and nothing outside win32/effects/ reaches the game");
 }
 
 void plugins_render_private_effects() {
@@ -1712,7 +1757,7 @@ void plugins_render_private_effects() {
         broken=table.clone(m); broken[1]=0
         assert(not pcall(fx.particle,p,broken))
         assert(not pcall(fx.decal,d,m,{lift=2}))
-        for i=1,24 do assert(fx.particle(p,m)) end
+        for i=1,64 do assert(fx.particle(p,m)) end
         assert(fx.particle(p,m)==nil,"particle quota")
         for i=1,2048 do assert(fx.decal(d,m,{attach=true,lift=.04})) end
         assert(fx.decal(d,m)==nil,"decal quota")
@@ -2016,6 +2061,7 @@ void plugin_approval_follows_the_plugins_own_files() {
         auto requested = std::string("\"") + std::string(name) + "\"";
         if (name == "events.physics.geometry") requested = R"("events.physics", "events.physics.geometry")";
         if (name == "world.physics.reuse") requested = R"("world.physics", "world.physics.reuse")";
+        if (name == "effects.game") requested = R"("effects", "effects.game")";
         const auto requested_prompt = approval_prompt(permission_groups(parse_manifest(manifest(requested))));
         check(requested_prompt.find("\n- ") != std::string::npos && requested_prompt.find("No special permissions") == std::string::npos,
               "A request for " + std::string(name) + " has a capability summary");
@@ -3834,7 +3880,7 @@ void a_runaway_plugin_is_stopped_and_the_rest_go_on() {
             pcall(function() local t = {} while true do t[#t + 1] = string.rep("y", 8000000) end end)
             reskate.log("survived the memory bomb")
         )"),
-        script("huge", R"(local s = string.rep("x", 100000000))"),
+        script("huge", R"(local s = string.rep("x", 200000000))"),
         script("buffer", R"(local b = buffer.create(1e9))"),
         script("errors", R"(reskate.on("tick", function() error("boom") end))"),
         script("timers", R"(
@@ -3848,7 +3894,7 @@ void a_runaway_plugin_is_stopped_and_the_rest_go_on() {
     });
     for (const auto* id : {"loop", "catches"}) stopped(host, id, "ran longer than 50 ms");
     stopped(host, "coroutines", ""); // its time or its memory, whichever runs out first
-    for (const auto* id : {"memory", "memory_caught", "huge", "buffer"}) stopped(host, id, "more than 64 MB");
+    for (const auto* id : {"memory", "memory_caught", "huge", "buffer"}) stopped(host, id, "more than 128 MB");
     check(!environment.logged("survived the memory bomb"), "A memory bomb cannot be caught and carried on from");
     running(host, "tick_loop", environment);
     ticks(host, environment, 1);
@@ -4424,340 +4470,6 @@ void plugins_write_normalized_controllers() {
     check(!outputs.read(4, 1201, true), "stop releases native pads too");
 }
 
-void plugins_script_input_by_physics_step() {
-    TestEnvironment environment;
-    Host host(environment, Side::client);
-    host.apply({script("scripter", R"(
-        assert(reskate.tas.record("playstation", 100))
-        assert(reskate.tas.play(2, -1))
-        assert(reskate.tas.play(1, 0, "board"))
-        assert(reskate.tas.play(1, 0, "all", 420))
-        assert(reskate.tas.play(1, 0, "lock", 420))
-        assert(reskate.tas.record(0, 50, 420))
-        assert(not pcall(reskate.tas.play, 1, 0, "pelvis"))
-        assert(not pcall(reskate.tas.play, 1, 0, "all", -1))
-        assert(not pcall(reskate.tas.record, 0, 50, 1.5))
-        assert(reskate.tas.status().since_spawn == 500)
-        assert(not pcall(reskate.tas.record, 4))
-        assert(not pcall(reskate.tas.record, 0, 18001))
-        assert(not pcall(reskate.tas.record, 0, 1.5))
-        assert(not pcall(reskate.tas.play, "xbox"))
-        assert(not pcall(reskate.tas.play, 0, 9))
-        local s = reskate.tas.status()
-        assert(s.mode == "playing" and s.step == 7 and s.length == 90 and s.stopped == "recorded")
-        assert(s.captured == true and s.restores == 3)
-        assert(s.unread == 2 and #s.first_unread == 2 and s.first_unread[2] == 9)
-        reskate.tas.stop()
-        assert(reskate.tas.virtual_time(true))
-        assert(reskate.tas.virtual_time(false))
-        assert(reskate.tas.status().virtual_time == true and reskate.tas.status().clock_reads == 12)
-        assert(reskate.tas.save())
-        assert(reskate.tas.save(4))
-        assert(reskate.tas.load())
-        assert(reskate.tas.load(2, "board"))
-        assert(not pcall(reskate.tas.save, 5))
-        assert(not pcall(reskate.tas.save, 1.5))
-        assert(not pcall(reskate.tas.load, 0))
-        assert(not pcall(reskate.tas.load, 1, "pelvis"))
-        local saves, loads = reskate.tas.saves()
-        assert(saves == 5 and loads == 6)
-        assert(reskate.tas.history(true))
-        assert(reskate.tas.rewind())
-        assert(reskate.tas.rewind(600))
-        assert(not pcall(reskate.tas.rewind, 0))
-        assert(not pcall(reskate.tas.rewind, 601))
-        assert(not pcall(reskate.tas.rewind, 1.5))
-        local held, rewinds = reskate.tas.history_counts()
-        assert(held == 600 and rewinds == 2)
-        assert(reskate.tas.dump(30))
-        assert(reskate.tas.dump_save("run-1_take.a"))
-        assert(not pcall(reskate.tas.dump, 0))
-        assert(not pcall(reskate.tas.dump_save, "../outside"))
-        assert(not pcall(reskate.tas.dump_save, ".hidden"))
-        assert(not pcall(reskate.tas.dump_save, "a\\b"))
-    )", R"("tas")")});
-    running(host, "scripter", environment);
-    const std::string script_calls = "record 4 100 0;play 2 -1 0 0;play 1 0 1 0;play 1 0 2 420;play 1 0 3 420;record 0 50 420;stop;virtual true;virtual false;save-slot 0;save-slot 3;load-slot 0 true;load-slot 1 false;history true;rewind 60;rewind 600;dump 30;save run-1_take.a;";
-    check(environment.fake.tas_calls == script_calls, "calls reach the game: " + environment.fake.tas_calls);
-
-    host.apply({script("outsider", R"(
-        local ok, why = pcall(reskate.tas.record, 0, 10)
-        assert(not ok and why:find('tas'), "tas is asked for")
-        ok, why = pcall(reskate.tas.status)
-        assert(not ok and why:find('tas'), "reading it is too")
-    )", R"("input", "input.write")")});
-    running(host, "outsider", environment);
-    check(environment.fake.tas_calls == script_calls, "no call without the permission");
-
-    host.apply({script("liner", R"(
-        assert(reskate.tas.line_start(1, 180))
-        assert(reskate.tas.line_seek(0, 10, 180, true))
-        assert(reskate.tas.line_seek(0, 10, 180, false))
-        assert(reskate.tas.line_go())
-        assert(reskate.tas.line_paused(true))
-        assert(reskate.tas.line_paused(false))
-        assert(reskate.tas.line_hold())
-        assert(reskate.tas.line_halt())
-        assert(reskate.tas.no_bail(true))
-        assert(reskate.tas.no_bail(false))
-        assert(reskate.tas.clock(0.05))
-        assert(reskate.tas.clock(4))
-        assert(reskate.tas.clock(1))
-        assert(not pcall(reskate.tas.clock, 0.001), "a clock that slow hangs the game")
-        assert(not pcall(reskate.tas.clock, 100))
-        assert(reskate.tas.line_stop())
-        assert(reskate.tas.line().phase == "off")
-        assert(reskate.tas.line_position(0) == nil)
-        assert(reskate.tas.line_bodies(0) == nil)
-        assert(not pcall(reskate.tas.line_seek, -1, 0, 0, true))
-        assert(not pcall(reskate.tas.line_bodies, 36001))
-    )", R"("tas")")});
-    running(host, "liner", environment);
-    check(environment.fake.tas_calls == script_calls + "line-start 1 180;line-seek 0 10 180 true;line-seek 0 10 180 false;line-go;paused true;paused false;hold;halt;no-bail true;no-bail false;clock 0.05;clock 4;clock 1;line-stop;",
-        "line calls reach the game: " + environment.fake.tas_calls);
-
-    using namespace dingosdk::input;
-    const auto pad = [](std::int16_t x) { PadOutput value{}; value.left_x = x; return value; };
-    {
-        // A line: going back plays it from the start, and goes on from there without what came after.
-        StepScript line;
-        check(line.record_line("one", 0, 100).empty(), "a line starts");
-        check(line.hold() && line.status().holding, "held until its start");
-        check(line.on_read(0, pad(50), true)->left_x == 0, "held, the game reads a neutral controller");
-        line.step();
-        check(line.status().length == 0, "a held step counts for nothing");
-        line.run_up(0, 0, true);
-        check(line.status().mode == StepScript::Mode::recording && !line.status().holding && line.status().length == 0, "a run up of nothing hands over at once");
-        line.go();
-        for (std::int16_t i = 1; i <= 6; ++i) {
-            (void)line.on_read(0, pad(i), true);
-            line.step();
-        }
-        check(line.status().length == 6, "six steps recorded");
-        check(line.hold(), "it holds to go back");
-        check(line.status().length == 6, "nothing is gone yet");
-        line.run_up(0, 4, true);
-        check(line.status().mode == StepScript::Mode::playing && line.status().step == 0, "it plays from the start");
-        check(line.on_read(0, pad(50), true)->left_x == 0, "neutral before the first step, as when recording");
-        line.step();
-        check(line.on_read(0, pad(50), true)->left_x == 1, "the first frame");
-        line.step();
-        check(line.on_read(0, pad(50), true)->left_x == 2, "the next");
-        line.step();
-        line.step();
-        check(line.status().mode == StepScript::Mode::recording && line.status().step == 4 && line.status().length == 4, "at the moment it records, without what came after");
-        check(line.on_read(0, pad(70), true)->left_x == 4, "with the last value it played");
-        line.step();
-        check(line.status().length == 5 && line.on_read(0, pad(71), true)->left_x == 4, "still that one until go, so the countdown changes nothing");
-        line.go();
-        line.step();
-        check(line.status().length == 6 && line.on_read(0, pad(72), true)->left_x == 71, "then the controller takes over");
-        line.set_paused(true);
-        line.interrupt();
-        check(!line.on_read(0, pad(1), false), "the pad is not replaced without the input");
-        check(!line.status().holding && line.status().mode == StepScript::Mode::recording, "paused, the input going costs nothing");
-        line.step();
-        check(line.status().length == 7, "and the steps count, with what the game read");
-        line.hold_input();
-        check(line.on_read(0, pad(90), true)->left_x == 0, "held, the game reads what it last read");
-        line.step();
-        check(line.status().length == 8 && line.on_read(0, pad(91), true)->left_x == 0, "whatever the controller does, until go");
-        line.go();
-        line.set_paused(false);
-        line.interrupt();
-        check(line.status().mode == StepScript::Mode::off && line.status().length == 8 && !line.on_read(0, pad(5), true), "the game's menu ends the recording, the line stays, and the controller is yours");
-        line.run_up(0, 8, false);
-        for (int i = 0; i < 8; ++i) line.step();
-        check(line.status().mode == StepScript::Mode::off && line.status().stopped == "played" && line.status().length == 8, "a whole playing ends and keeps it all");
-        check(line.hold() && line.status().holding, "and it can go back again from there");
-        line.interrupt();
-        check(line.status().mode == StepScript::Mode::recording && line.status().holding, "a menu closing as it goes back costs nothing");
-        line.halt();
-        check(line.status().mode == StepScript::Mode::off && !line.status().holding && line.status().length == 8, "stopping everything keeps the line");
-        check(!line.on_read(0, pad(5), true), "and the controller is yours");
-        check(line.hold() && line.status().holding, "and it can go back from there");
-        line.stop("one");
-        check(line.status().mode == StepScript::Mode::off, "it stops");
-    }
-    {
-        // A press that opens a menu goes to the game when it is pressed, and never again.
-        StepScript line;
-        PadOutput press = pad(7);
-        press.buttons = 0x1002; // D-pad down and A
-        check(line.record_line("one", 0, 100).empty(), "a line starts");
-        check(line.on_read(0, press, true)->buttons == 0, "neutral before the first step");
-        line.step();
-        check(line.on_read(0, press, true)->buttons == 0x1002, "when pressed, the game has it all");
-        line.step();
-        (void)line.hold();
-        line.run_up(0, 2, true);
-        line.step();
-        check(line.on_read(0, pad(0), true)->buttons == 0x1000 && line.status().mode == StepScript::Mode::playing, "played back, it has no D-pad");
-        line.step();
-        check(line.status().mode == StepScript::Mode::recording && line.on_read(0, pad(0), true)->buttons == 0x1000, "nor while waiting for the controller to take over");
-        line.go();
-        line.stop("one");
-    }
-    StepScript s;
-    check(!s.play("one", 0, 0).empty(), "nothing to play yet");
-    check(!s.record("one", 5, 10).empty(), "no such controller");
-    check(!s.record("one", 0, 0).empty() && !s.record("one", 0, StepScript::max_steps + 1).empty(), "script lengths are bounded");
-    check(s.record("one", 0, 3).empty(), "recording starts");
-    check(!s.record("two", 0, 3).empty(), "another owner cannot take a running script");
-    check(s.replacing(0) && !s.replacing(1), "recording answers that controller's reads");
-    check(s.on_read(0, pad(1), true)->left_x == 0, "neutral until the first step latches");
-    s.step();
-    check(!s.on_read(1, pad(99), true), "another controller goes through");
-    check(s.on_read(0, pad(2), true)->left_x == 1, "the value the first step latched, not the newer one");
-    check(s.on_read(0, pad(3), true)->left_x == 1, "every read until the next step gets it");
-    s.step();
-    check(s.on_read(0, pad(4), true)->left_x == 3, "the newest value when that step ran");
-    s.step();
-    check(s.status().mode == StepScript::Mode::off && s.status().stopped == "recorded" && s.status().length == 3, "it stops when full");
-    check(s.status().unread == 0, "every step of it had a read before it");
-    s.step();
-    check(s.status().length == 3, "steps after the end add nothing");
-    check(!s.on_read(0, pad(50), true), "off, the real pad goes through");
-
-    // A replay gives the reads exactly what the recording's reads got, step for step.
-    check(s.play("one", 0, 0).empty(), "playing starts");
-    check(s.replacing(0) && !s.replacing(1), "only that controller");
-    check(!s.on_read(1, pad(9), true), "another controller goes through");
-    check(s.on_read(0, pad(50), true)->left_x == 0, "neutral until the first step, as when recording");
-    s.step();
-    check(s.on_read(0, pad(50), true)->left_x == 1, "the first frame, whatever the pad reads");
-    check(s.on_read(0, pad(50), true)->left_x == 1, "every read in a step gets the same value");
-    s.step();
-    check(s.on_read(0, pad(50), true)->left_x == 3, "the next frame comes with the step");
-    s.step();
-    check(s.on_read(0, pad(50), true)->left_x == 4, "the last frame");
-    s.step();
-    check(s.status().mode == StepScript::Mode::off && s.status().stopped == "played", "it ends with the script");
-    check(s.play("one", 0, 0).empty(), "it plays again");
-    (void)s.on_read(0, pad(50), true);
-    s.step();
-    s.step();
-    (void)s.on_read(0, pad(50), true);
-    s.step();
-    check(s.status().unread == 1 && s.status().first_unread == std::vector<std::size_t>{1}, "a step with no read before it is counted, by its number");
-    s.stop("one");
-    check(!s.on_read(0, pad(50), true), "and the pad comes back");
-
-    check(s.play("one", 0, 1).empty(), "a lead reads ahead");
-    check(s.on_read(0, pad(0), true)->left_x == 1, "one step ahead");
-    s.stop("two");
-    check(s.status().mode == StepScript::Mode::playing, "only its owner stops it");
-    check(!s.on_read(0, pad(50), false) && s.status().mode == StepScript::Mode::off, "losing the input ends it");
-    check(s.status().stopped == "the game lost the input" && s.status().length == 3, "and says so, keeping the script");
-    check(s.play("one", 0, 0).empty(), "it can play again");
-    s.interrupt();
-    check(s.status().mode == StepScript::Mode::off, "a held read ends it too");
-    check(!StepScript::frame_at(0, 0, 5) && !StepScript::frame_at(1, -2, 5) && StepScript::frame_at(4, -2, 5) == 1 && StepScript::frame_at(4, 8, 5) == 4, "lead stays in the script");
-
-    // A saved line, loaded back: stopped where it ended, and going back in it plays it up to the moment.
-    StepScript loaded;
-    check(!loaded.load_line("one", 0, {}).empty(), "an empty line is refused");
-    check(loaded.load_line("one", 0, {pad(1), pad(2), pad(3), pad(4)}).empty(), "a saved line loads");
-    check(loaded.status().mode == StepScript::Mode::off && loaded.status().length == 4 && loaded.status().stopped == "loaded", "stopped, as long as it was");
-    check(loaded.recorded().size() == 4 && loaded.recorded()[2].left_x == 3, "its steps as saved");
-    check(loaded.hold(), "a loaded line holds like any line");
-    loaded.run_up(0, 2, true);
-    check(loaded.on_read(0, pad(50), true)->left_x == 0, "neutral until its first step");
-    loaded.step();
-    check(loaded.on_read(0, pad(50), true)->left_x == 1, "then plays it");
-    loaded.step();
-    check(loaded.status().mode == StepScript::Mode::recording && loaded.status().length == 2, "and hands over at the moment, the rest forgotten");
-    check(!loaded.load_line("two", 0, {pad(1)}).empty(), "nothing loads while a script runs");
-
-    // A line's file: the header says what follows, and what does not fit it is refused.
-    struct Motion {
-        float place[4];
-        bool valid;
-    };
-    const std::vector<PadOutput> steps{pad(5), pad(6), pad(7)};
-    const std::vector<Motion> motion{{{1, 2, 3, 4}, true}, {{5, 6, 7, 8}, false}};
-    const auto raw = dingosdk::line_file::pack(steps, motion);
-    // Version 2: the header, the note's size and the note (20 bytes here), then the 100 bytes of payload.
-    auto header = dingosdk::line_file::header_for<Motion>(steps.size(), motion.size(), raw.size(), 100);
-    const std::size_t with_note = sizeof(header) + 4 + 20 + 100;
-    check(header.version == 2 && dingosdk::line_file::payload_at(header, 20) == sizeof(header) + 24, "a line's file has its note before the payload");
-    check(dingosdk::line_file::check<Motion>(header, with_note, 36000, 20).empty(), "a line's header passes");
-    std::vector<PadOutput> steps_back;
-    std::vector<Motion> motion_back;
-    check(dingosdk::line_file::unpack(raw, header, steps_back, motion_back) && steps_back.size() == 3 && steps_back[2].left_x == 7 &&
-              motion_back.size() == 2 && motion_back[1].place[3] == 8 && !motion_back[1].valid,
-          "and its steps and motion come back as they were");
-    check(!dingosdk::line_file::check<Motion>(header, with_note - 1, 36000, 20).empty(), "a file cut short is refused");
-    check(!dingosdk::line_file::check<Motion>(header, with_note, 36000, dingosdk::line_file::most_note + 1).empty(), "a note too long is refused");
-    auto old = header;
-    old.version = 1;
-    check(dingosdk::line_file::check<Motion>(old, sizeof(old) + 100, 36000).empty() && dingosdk::line_file::payload_at(old, 0) == sizeof(old),
-          "a line saved before notes still loads");
-    auto other = header;
-    other.snapshot_size += 4;
-    check(!dingosdk::line_file::check<Motion>(other, with_note, 36000, 20).empty(), "one from another build is refused");
-    other = header;
-    other.version = 3;
-    check(!dingosdk::line_file::check<Motion>(other, with_note, 36000, 20).empty(), "one from a later ReTake is refused");
-    other = header;
-    other.magic[0] = 'X';
-    check(!dingosdk::line_file::check<Motion>(other, with_note, 36000, 20).empty(), "and anything else");
-
-    // A ghost line: a pose a step, each the difference from the one before (every 60th whole), with the camera.
-    namespace gf = dingosdk::ghost_file;
-    namespace mp = dingosdk::multiplayer;
-    const auto pose_at = [](float x) {
-        mp::Pose pose;
-        pose.root.position = {x, 1, 2};
-        for (int bone = 0; bone < 30; ++bone) {
-            mp::Transform t;
-            t.position = {x + bone * 0.01f, 0.5f, 0};
-            const float angle = x * 0.1f + bone * 0.02f;
-            t.rotation = {0, std::sin(angle / 2), 0, std::cos(angle / 2)};
-            pose.skater.push_back(t);
-        }
-        pose.board.push_back(pose.root);
-        return pose;
-    };
-    gf::Recorder recorder;
-    for (std::uint32_t step = 10; step < 140; ++step) {
-        gf::Camera camera{{static_cast<float>(step), 3, 0}, {0, 0, 1}, {0, 1, 0}, 60};
-        check(recorder.add(step, pose_at(static_cast<float>(step) * 0.1f), camera), "a ghost keeps each step");
-    }
-    check(recorder.add(139, pose_at(13.95f), {{139, 3, 0}, {0, 0, 1}, {0, 1, 0}, 60}) && recorder.track.samples.size() == 130,
-          "a step seen again replaces the one there");
-    check(!recorder.add(100, pose_at(1), {}), "and one before the last is refused");
-    std::size_t wholes = 0;
-    for (const auto& sample : recorder.track.samples) wholes += mp::pose_codec::whole(sample.pose) ? 1 : 0;
-    check(wholes == 3 && mp::pose_codec::whole(recorder.track.samples.front().pose), "every 60th pose is whole, the first among them");
-    recorder.track.appearance = {1, 2, 3};
-    const auto ghost_raw = gf::pack(recorder.track);
-    gf::Track back;
-    check(gf::unpack(ghost_raw, back) && back == recorder.track, "a ghost's payload comes back as it was");
-    check(!gf::unpack(std::string_view(ghost_raw).substr(0, ghost_raw.size() - 1), back), "a payload cut short is refused");
-    gf::Player ghost(recorder.track);
-    check(ghost.first_step() == 10 && ghost.last_step() == 139, "a ghost knows its steps");
-    const auto close_to = [](float a, float b) { return std::fabs(a - b) < 0.003f; };
-    auto at = ghost.at(75);
-    check(at && close_to(at->pose.root.position[0], 7.5f) && close_to(at->pose.skater[29].position[0], 7.79f) && !at->ended && at->camera.position[0] == 75,
-          "a ghost at a step shows that step's pose and camera");
-    at = ghost.at(75.5);
-    check(at && close_to(at->pose.root.position[0], 7.55f) && close_to(at->camera.position[0], 75.5f), "and between two steps, between them");
-    at = ghost.at(12); // decoded again from the first whole pose
-    check(at && close_to(at->pose.root.position[0], 1.2f), "from anywhere, back to the start");
-    at = ghost.at(131); // from the whole pose at the 120th sample
-    check(at && close_to(at->pose.skater[3].position[0], 13.13f), "and on past a whole pose");
-    at = ghost.at(500);
-    check(at && at->ended && close_to(at->pose.root.position[0], 13.95f), "after its end it holds its last pose");
-    at = ghost.at(0);
-    check(at && !at->ended && close_to(at->pose.root.position[0], 1.0f), "and before its start, its first");
-    auto ghost_header = gf::header_for(20, ghost_raw.size(), 100);
-    check(gf::check(ghost_header, sizeof(ghost_header) + 120).empty(), "a ghost's header passes");
-    check(!gf::check(ghost_header, sizeof(ghost_header) + 119).empty(), "a ghost file cut short is refused");
-    ghost_header.magic[3] = 'L';
-    check(!gf::check(ghost_header, sizeof(ghost_header) + 120).empty(), "and a line is not a ghost");
-}
-
 void controller_reports_preserve_non_controls() {
     using namespace dingosdk;
     for (int variant = 0; variant < 5; ++variant) {
@@ -4972,6 +4684,9 @@ void plugins_reach_cruise_and_read_the_mouse() {
         assert(not pcall(reskate.screen.look, {text = {"far too long a line"}}), "12 characters")
         assert(not pcall(reskate.screen.look, {text = {"{}"}}), "the camcorder's characters")
         assert(not pcall(reskate.screen.look, {text = {"a", "b", "c", "d", "e", "f"}}), "5 lines")
+        assert(reskate.screen.look({grade = true, grain = true, strengths = {grade = 0.6, grain = 0.25, smear = 0}}))
+        assert(not pcall(reskate.screen.look, {grade = true, strengths = {grade = 1.5}}), "a strength is 0 to 1")
+        assert(not pcall(reskate.screen.look, {strengths = {hood = "half"}}), "a strength is a number")
         reskate.log("filmed")
     )";
     host.apply({package("filmer", {{manifest_file, manifest(R"("skater.animation", "skater.read", "skater.control", "input", "overlay")")}, {"plugin/main.lua", main}})});
@@ -4987,6 +4702,8 @@ void plugins_reach_cruise_and_read_the_mouse() {
     check(game.called("look filmer 0.80 110 0.35 truetruetruefalsefalsetruefalsefalsefalsefalsetrue 2.0 [#REC|0:00:02||4:05 PM|OCT.20 2026]") &&
               game.called("slap filmer") && game.called("look filmer none"),
           "A camcorder look on the screen, its text in capitals, a slap, and off\n" + environment.all());
+    check(game.called("look strengths filmer 1.00 1.00 0.60 1.00 1.00 0.25 1.00 1.00 0.00"),
+          "A look's effects at part strength reach the game, 1 for those not given\n" + environment.all());
     // Each needs its permission.
     host.apply({package("sneaky", {{manifest_file, manifest()}, {"plugin/main.lua", R"(
         reskate.log(tostring(pcall(reskate.skater.reach, {at = vector.create(0, 0, 0)})) .. " " .. tostring(pcall(reskate.skater.hand)) .. " " ..
@@ -5011,6 +4728,12 @@ void plugins_carry_and_take_a_step_in_the_camera_cycle() {
             grip = {rotation = {0.5, -0.5, 0.5, 0.5}, offset = vector.create(0.12, 0.04, -0.03)}, crouch = 0.22, hunch = 1.0, turn = 0.5,
             step = 0.5, step_phase = 1.25, still = true, push_straightens = true, weight = 0.75, shown = "others"}))
         assert(reskate.skater.carry({hand = "left", at = vector.create(0, 1, 0), rotation = {0, 0, 0, 1}}))
+        assert(reskate.skater.carry({at = vector.create(0, 1, 0), rotation = {0, 0, 0, 1}, both = true, support = vector.create(0.02, -0.05, 0.1)}))
+        assert(not pcall(reskate.skater.carry, {at = vector.create(0, 1, 0), rotation = {0, 0, 0, 1}, support = vector.create(0, 0.5, 0)}),
+            "a support is at most 0.3 m each way")
+        assert(reskate.skater.carry({at = vector.create(0, 1, 0), rotation = {0, 0, 0, 1}, exact = true, look_at = vector.create(0, 1.2, -0.1)}))
+        assert(not pcall(reskate.skater.carry, {at = vector.create(0, 1, 0), rotation = {0, 0, 0, 1}, look_at = vector.create(0, 9, 0)}),
+            "a look_at is within 3 m")
         assert(reskate.skater.carry(nil))
         assert(not pcall(reskate.skater.carry, {at = vector.create(0, 1, 0)}), "a carry needs a rotation")
         assert(not pcall(reskate.skater.carry, {at = vector.create(0, 1, 0), rotation = {0, 0, 0, 1}, crouch = 1}), "a crouch is 0 to 0.6 m")
@@ -5040,6 +4763,8 @@ void plugins_carry_and_take_a_step_in_the_camera_cycle() {
               game.called("carry filmer left 0.0 1.0 0.0 front 0.00 grip false w 1.00 crouch 0.00 hunch 0.00 turn 0.00 step 0.00 everyone") &&
               game.called("carry filmer none"),
           "Carried in both hands for the others, in one, and let go\n" + environment.all());
+    check(game.called("carry support filmer 0.02 -0.05 0.10"), "The other hand moved where it takes the item\n" + environment.all());
+    check(game.called("carry held filmer exact look 0.0 1.2 -0.1"), "Held where asked, the face on it\n" + environment.all());
     check(game.called("pose filmer 1.00 me 48:0.00,0.00,0.00,1.00x0.00") && game.called("reach filmer right 1.0 2.0 3.0 false 1.00 others"),
           "A pose only you see, a reach only the others see\n" + environment.all());
     check(game.called("cycle filmer ready") && game.called("cycle filmer active") && game.called("cycle filmer out"), "In the cycle, on, and out");
@@ -5402,14 +5127,7 @@ void plugins_edit_clips() {
         assert(reskate.animation.edit(rec, {}, {name = "work"}) == "edit:work", "the same name again")
         assert(reskate.animation.sample("edit:work", 7, 0.5).rotation[4] == 1, "replaces it")
         local list = reskate.animation.joints()
-        assert(#list == 55 and list[1].joint == "board" and list[2].joint == 7 and list[2].label == "Hips" and list[2].moves, "the editable joints")
-        local joints = {}
-        for _, joint in list do
-            assert(not joints[joint.joint], "each editable joint is listed once")
-            joints[joint.joint] = joint
-        end
-        assert(joints[51].label == "Right thumb 1" and joints[296].label == "Left thumb 1", "both hands expose finger joints")
-        assert(not joints[51].moves and not joints[296].moves, "finger keys rotate rather than translate")
+        assert(#list == 25 and list[1].joint == "board" and list[2].joint == 7 and list[2].label == "Hips" and list[2].moves, "the editable joints")
         assert(reskate.animation.save(work, "anims/work.fas"))
         local keyed = reskate.animation.edit(rec, {{joint = 7, keys = {{time = 0.5, offset = vector.create(0, 0.5, 0)}}}})
         assert(reskate.animation.save(keyed, "anims/keyed.fas"))
@@ -5466,14 +5184,6 @@ void plugins_draw_on_the_overlay() {
             assert(d:world_to_screen(vector.create(1000, 0, -0.06)) == nil, "far off the screen")
             assert(d:world_to_screen(vector.create(0, 1000, -0.06)) == nil, "far above the screen")
             assert(d:world_to_screen(vector.create(1, 0, -0.06)), "off the screen but drawable")
-            -- A tag kept to a point in the world: where it is now, then what is drawn about it.
-            local tag = d:follow(vector.create(1, 0, -10))
-            assert(tag and math.abs(tag.x - 1060) < 0.01, "follow gives the point on screen")
-            d:rect(tag, tag + vector.create(10, 10, 0))
-            d:follow()
-            assert(d:follow(vector.create(0, 0, 5)) == nil, "nothing follows a point behind the camera")
-            assert(d:follow(vector.create(1, 0, -10), {ghost_head = 0.3}), "over a ghost's head")
-            d:follow()
             assert(d:size().x == 1920 and d:size().y == 1080)
             assert(not pcall(d.text, d, vector.create(0, 0, 0), "x", {colour = "red"}), "a colour by name")
             assert(not pcall(d.text, d, vector.create(0 / 0, 0, 0), "x"), "NaN")
@@ -5501,17 +5211,8 @@ void plugins_draw_on_the_overlay() {
     check(environment.logged("unseen refused"), "Drawing needs overlay\n" + environment.all());
     ticks(host, environment, 1);
     running(host, "painter", environment);
-    check(environment.layers.size() == 1 && environment.layers[0].plugin == "painter" && environment.layers[0].shapes.size() == 13,
+    check(environment.layers.size() == 1 && environment.layers[0].plugin == "painter" && environment.layers[0].shapes.size() == 8,
           "Its shapes are handed to the overlay each tick\n" + environment.all());
-    {
-        const auto& shapes = environment.layers[0].shapes;
-        check(shapes[8].kind == plugin_ui::Shape::Kind::follow && shapes[8].points.size() == 2 && shapes[8].points[0][2] == -10.0f &&
-                  std::fabs(shapes[8].points[1][0] - 1060.0f) < 0.01f && shapes[10].kind == plugin_ui::Shape::Kind::unfollow,
-              "A followed point goes to the overlay with where the plugin saw it, and d:follow() ends it");
-        check(shapes[8].fit == 0 && shapes[11].kind == plugin_ui::Shape::Kind::follow && shapes[11].fit == 1 &&
-                  std::fabs(shapes[11].radius - 0.3f) < 1e-6f && shapes[12].kind == plugin_ui::Shape::Kind::unfollow,
-              "{ghost_head = metres} keeps it over a ghost's head, that far up");
-    }
     check(environment.logged("drawn"), "and the draw handler ran to its end\n" + environment.all());
     const auto& first = environment.layers[0].shapes[0];
     check(first.kind == plugin_ui::Shape::Kind::text && first.text == "hello" && first.style.colour == 0xff0080ff &&
@@ -5673,8 +5374,8 @@ std::string adpcm_file(unsigned channels, unsigned bits, unsigned block_align, c
     put(20, 4);
     put(0x11, 2);
     put(channels, 2);
-    put(16000, 4);
-    put(16000 * block_align / 9, 4);
+    put(wave_rate, 4);
+    put(wave_rate * block_align / 9, 4);
     put(block_align, 2);
     put(bits, 2);
     put(2, 2);
@@ -5715,7 +5416,7 @@ void plugins_play_ima_adpcm_sounds() {
     same = wave && wave->samples.size() == 9;
     for (std::size_t i = 0; same && i < 9; ++i) same = wave->samples[i] == 0;
     check(same, "and its channels are mixed to mono, each from its own bytes: " + error);
-    check(!decode(adpcm_file(1, 4, 8, mono, 13), 0.0005f, error) && error.find("longer than") != std::string::npos,
+    check(!decode(adpcm_file(1, 4, 8, mono, 13), 0.0002f, error) && error.find("longer than") != std::string::npos,
           "A long IMA ADPCM sound is refused");
     check(!decode(adpcm_file(1, 3, 8, mono), 30, error) && !decode(adpcm_file(1, 4, 6, mono), 30, error) &&
               error == "its format is not 8 to 32-bit PCM, 32-bit float or IMA ADPCM",
@@ -5726,7 +5427,7 @@ void plugins_play_their_own_sounds() {
     std::string error;
     const auto bytes = wave_file(8000, 4000);
     const auto wave = decode_wave(std::span<const std::uint8_t>(reinterpret_cast<const std::uint8_t*>(bytes.data()), bytes.size()), 30, error);
-    check(wave && wave->samples.size() == 8000, "Half a second at 8 kHz is half a second at 16 kHz: " + error);
+    check(wave && wave->samples.size() == 24000, "Half a second at 8 kHz is half a second at 48 kHz: " + error);
     check(!decode_wave(std::span<const std::uint8_t>(reinterpret_cast<const std::uint8_t*>(bytes.data()), bytes.size()), 0.25f, error),
           "and a sound longer than allowed is refused");
     TestEnvironment environment;
@@ -5748,7 +5449,7 @@ void plugins_play_their_own_sounds() {
     running(host, "noisy", environment);
     host.run_console("noise");
     check(environment.logged("[noisy] sounded"), "A plugin plays its own sounds\n" + environment.all());
-    for (const auto* call : {"sound noisy 8000 0.50 2.00 true at 1 2 3", "sound noisy motor 1.00 1.00 false", "change noisy 2 0.9 skater", "stop sound noisy 1"})
+    for (const auto* call : {"sound noisy 24000 0.50 2.00 true at 1 2 3", "sound noisy motor 1.00 1.00 false", "change noisy 2 0.9 skater", "stop sound noisy 1"})
         check(environment.fake.called(call), std::string("The game was asked: ") + call + "\n" + environment.all());
 }
 
@@ -5762,8 +5463,8 @@ void plugins_play_any_number_of_different_sounds() {
             end
         end)
     )";
-    const std::map<std::string, std::string> files{{manifest_file, manifest(R"("console", "audio")")}, {"sounds/a.wav", wave_file(16000, 1000)},
-                                                   {"sounds/b.wav", wave_file(16000, 2000)}, {"sounds/c.wav", wave_file(16000, 3000)},
+    const std::map<std::string, std::string> files{{manifest_file, manifest(R"("console", "audio")")}, {"sounds/a.wav", wave_file(wave_rate, 1000)},
+                                                   {"sounds/b.wav", wave_file(wave_rate, 2000)}, {"sounds/c.wav", wave_file(wave_rate, 3000)},
                                                    {"plugin/main.lua", play}};
     {
         TestEnvironment environment;
@@ -6373,7 +6074,7 @@ void plugins_preload_clips_and_sounds() {
         end)
     )";
     host.apply({package("preloader", {{manifest_file, manifest(R"("console", "skater.animation", "audio")")}, {"plugin/main.lua", main},
-                                      {"clips/spin.fas", std::string(bytes.begin(), bytes.end())}, {"sounds/beep.wav", wave_file(16000, 1000)},
+                                      {"clips/spin.fas", std::string(bytes.begin(), bytes.end())}, {"sounds/beep.wav", wave_file(wave_rate, 1000)},
                                       {"notes.txt", "x"}})});
     running(host, "preloader", environment);
     host.run_console("warm");
@@ -6491,6 +6192,40 @@ void web_requests_go_only_to_listed_domains() {
     check(environment.logged("many more than 4 web requests waiting"), "4 waiting at most\n" + environment.all());
 }
 
+
+void preview_board_material_scope() {
+    TestEnvironment environment;
+    Host host(environment, Side::client);
+    host.apply({script("preview_material", R"(
+        assert(reskate.board.parameter_scopes()[2] == "preview")
+        assert(#reskate.board.parameters("grip", "preview") == 4)
+        assert(reskate.board.set_parameter("grip", "graphic", {r=.3, g=.4, b=.5}, "preview"))
+        reskate.board.clear_parameter(nil, nil, "preview")
+        assert(not pcall(reskate.board.parameters, "deck", "other"))
+        assert(not pcall(reskate.board.set_parameter, "deck", "base", 1, "other"))
+        assert(not pcall(reskate.board.clear_parameter, nil, nil, "other"))
+        reskate.log("preview material routed")
+    )", R"("board", "room")"), script("preview_denied", R"(
+        local ok, why = pcall(reskate.board.parameters, "deck", "preview")
+        assert(not ok and why:find('needs the "room" permission'), tostring(why))
+        ok, why = pcall(reskate.board.set_parameter, "deck", "base", {r=0,g=0,b=0}, "preview")
+        assert(not ok and why:find('needs the "room" permission'), tostring(why))
+        ok, why = pcall(reskate.board.clear_parameter, nil, nil, "preview")
+        assert(not ok and why:find('needs the "room" permission'), tostring(why))
+        reskate.log("preview room permission enforced")
+    )", R"("board")"), script("preview_no_board", R"(
+        assert(not pcall(reskate.board.parameter_scopes))
+        assert(not pcall(reskate.board.parameters, "deck", "preview"))
+        assert(not pcall(reskate.board.set_parameter, "deck", "base", 0, "preview"))
+        assert(not pcall(reskate.board.clear_parameter, nil, nil, "preview"))
+        reskate.log("preview board permission enforced")
+    )", R"("room")")});
+    check(environment.logged("preview material routed") && environment.logged("preview room permission enforced") &&
+          environment.logged("preview board permission enforced"), "Preview scope permissions\n" + environment.all());
+    const auto& calls = environment.fake.calls;
+    for (const auto* expected : {"preview parameters", "preview set", "preview clear"})
+        check(std::count(calls.begin(), calls.end(), expected) == 1, "Preview scope dispatch once");
+}
 
 void declared_board_colours_through_the_api() {
     TestEnvironment environment;
@@ -6967,6 +6702,51 @@ void discovery_finds_the_plugins_among_the_mods_left_on() {
     auto again = discover(root, checks);
     std::sort(again.begin(), again.end(), [](const auto& a, const auto& b) { return a.id < b.id; });
     check(again[0].fingerprint != before, "A changed file changes the fingerprint, which reloads it");
+}
+
+// A plugin a dedicated server brought here is the server's: it runs only on servers that require it.
+void a_servers_plugin_runs_only_on_servers_that_require_it() {
+    namespace scope = server_scope;
+    const auto mods = scratch / "server-scope-game" / "Mods";
+    std::filesystem::create_directories(mods);
+    check(scope::read(mods).empty(), "No plugin is a server's before one brings any");
+    check(scope::set(mods, "Team-Drone", true) && scope::set(mods, "neekgate-FPV_Drone", true) && scope::set(mods, "Team-Drone", true),
+          "A plugin a server brought is marked as the server's");
+    const auto marked = scope::read(mods);
+    check(marked == scope::Folders{"team-drone", "neekgate-fpv_drone"}, "The mark is kept by mod folder, whatever its case, once each");
+
+    // The player's own plugins run everywhere, in a session or not.
+    check(scope::runs(marked, {}, "Team-Filmer", "Filmer", "Team") && scope::runs(marked, {"Team-Drone"}, "Team-Filmer", "Filmer", "Team"),
+          "A plugin of the player's own was held back");
+    // A server's own: nowhere but on a server that requires it.
+    check(!scope::runs(marked, {}, "Team-Drone", "Drone", "Team"), "A server's plugin ran outside any server");
+    check(!scope::runs(marked, {"Team-Filmer", "Other-Drone"}, "Team-Drone", "Drone", "Team"),
+          "A server's plugin ran on a server that does not require it");
+    check(scope::runs(marked, {"Team-Filmer", "team-drone"}, "Team-Drone", "Drone", "Team") &&
+              scope::runs(marked, {"Team-Drone-1.2.0"}, "TEAM-DRONE", "", ""),
+          "A server's plugin did not run on a server that requires it");
+    // A package is the mod in its folder, or the one with its name and author (map_download.h).
+    check(scope::names("neekgate-FPV_Drone-2.0.1", "neekgate-FPV_Drone", "", "") && scope::names("neekgate-FPV_Drone", "drone-dev", "FPV_Drone", "Neekgate"),
+          "A required package did not name its plugin");
+    check(!scope::names("neekgate-FPV_Drone", "drone-dev", "FPV_Drone", "") && !scope::names("neekgate-FPV_Drone", "neekgate-FPV", "FPV", "other") &&
+              !scope::names("", "", "", ""),
+          "A required package named a plugin that is not its own");
+    check(scope::runs(marked, {"neekgate-FPV_Drone"}, "neekgate-FPV_Drone", "FPV Drone", "neekgate"), "A marked plugin is known by its folder");
+
+    // The player makes one their own; a mod that is taken out is forgotten.
+    check(scope::set(mods, "TEAM-DRONE", false) && scope::read(mods) == scope::Folders{"neekgate-fpv_drone"}, "A plugin made the player's own stayed the server's");
+    check(scope::runs(scope::read(mods), {}, "Team-Drone", "Drone", "Team"), "and runs everywhere again");
+    scope::keep_only(mods, {"Neekgate-FPV_Drone", "Team-Drone"});
+    check(scope::read(mods).size() == 1, "A plugin still in Mods was forgotten");
+    scope::keep_only(mods, {"Team-Drone"});
+    check(scope::read(mods).empty() && !std::filesystem::exists(mods / scope::file_name), "A plugin taken out of Mods is forgotten, and the file with the last");
+
+    // A file that is not the list marks nothing, so every plugin runs as before.
+    write(mods / scope::file_name, R"({"Team-Drone": true})");
+    check(scope::read(mods).empty(), "A file that is no list marked a plugin");
+    write(mods / scope::file_name, "not json");
+    check(scope::read(mods).empty() && scope::set(mods, "Team-Drone", true) && scope::read(mods) == scope::Folders{"team-drone"},
+          "A broken file is replaced by the next mark");
 }
 
 void discovery_can_recheck_sources_when_mod_metadata_is_unchanged() {
@@ -7484,6 +7264,7 @@ int main() {
         run(owned_body_batches_share_actual_and_logical_query_limits);
         run(effects_require_resident_roots);
         run(expired_effects_return_their_quota);
+        run(game_effects_need_their_own_permission);
         run(plugins_render_private_effects);
         run(failed_plugin_startup_releases_effects);
         run(plugins_track_effect_lifetimes);
@@ -7522,7 +7303,6 @@ int main() {
         run(plugins_place_world_entities);
         run(plugins_have_what_a_prop_hunt_needs);
         run(plugins_write_normalized_controllers);
-        run(plugins_script_input_by_physics_step);
         run(controller_reports_preserve_non_controls);
         run(plugins_read_flip_state);
         run(plugins_read_frames_and_hold_gameplay_options);
@@ -7560,6 +7340,7 @@ int main() {
         run(web_requests_go_only_to_listed_domains);
         run(game_menu_distinguishes_unknown_from_closed);
         run(the_wider_set_reaches_the_game);
+        run(preview_board_material_scope);
         run(declared_board_colours_through_the_api);
         run(key_names_become_binds);
         run(level_events_reach_plugins);
@@ -7568,6 +7349,7 @@ int main() {
         run(a_package_with_a_program_or_on_the_wrong_side_is_not_loaded);
         run(discovery_finds_the_plugins_among_the_mods_left_on);
         run(discovery_can_recheck_sources_when_mod_metadata_is_unchanged);
+        run(a_servers_plugin_runs_only_on_servers_that_require_it);
         run(plugins_change_the_games_text);
         run(a_plugin_reads_the_content_folder_it_names);
         run(content_is_read_from_the_mod_folders);

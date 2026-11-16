@@ -521,8 +521,9 @@ namespace dingosdk::launcher_update
         struct Chosen
         {
             Json release;
+            bool prerelease_available{};
         };
-        Chosen release_to_use()
+        Chosen release_to_use(bool prereleases)
         {
             const auto repo = std::wstring(L"https://api.github.com/repos/") + launcher_release_repo;
             std::string text;
@@ -544,26 +545,41 @@ namespace dingosdk::launcher_update
             };
             const Json *newest{};
             const Json *full{};
+            bool prerelease_first{};
             for (const auto &release : releases)
             {
                 if (!usable(release))
                     continue;
                 if (!newest)
+                {
                     newest = &release;
+                    prerelease_first = release.value("prerelease", false);
+                }
+                if (!release.value("prerelease", false))
+                {
+                    full = &release;
+                    break;
+                }
+            }
+            if (prereleases)
+            {
+                if (!newest)
+                    fail("None of the newest releases has a launcher.json asset");
+                return {*newest, prerelease_first};
             }
             if (full)
-                return {*full};
+                return {*full, prerelease_first};
             // No full release among the newest ten: GitHub's latest, as before.
             text.clear();
             http_get(repo + L"/releases/latest",
                      4 * 1024 * 1024,
                      8000,
                      [&](const char *data, DWORD count) { text.append(data, count); });
-            return {Json::parse(text)};
+            return {Json::parse(text), prerelease_first};
         }
     } // namespace
 
-    std::optional<Config> fetch_config(bool)
+    std::optional<Config> fetch_config(bool prereleases)
     {
         std::array<wchar_t, 32768> local{};
         const auto local_length =
@@ -600,7 +616,7 @@ namespace dingosdk::launcher_update
             logging::write(logging::Level::info,
                            logging::Channel::launcher,
                            L"Checking GitHub releases: " + std::wstring(launcher_release_repo));
-            const auto chosen = release_to_use();
+            const auto chosen = release_to_use(prereleases);
             const auto &release = chosen.release;
             std::map<std::string, std::wstring, std::less<>> assets;
             if (release.contains("assets"))
@@ -625,10 +641,12 @@ namespace dingosdk::launcher_update
                 file->url = found->second;
             }
             config.tag = release.value("tag_name", "");
+            config.prerelease = release.value("prerelease", false);
+            config.prerelease_available = chosen.prerelease_available;
             logging::log(logging::Level::info,
                          logging::Channel::launcher,
                          "{} {}: launcher {}, runtime {}, game depot {} manifest {}.",
-                         "Release",
+                         config.prerelease ? "Pre-release" : "Release",
                          config.tag.empty() ? "?" : config.tag,
                          config.launcher.version.empty() ? "-" : config.launcher.version,
                          config.runtime.version.empty() ? "-" : config.runtime.version,
@@ -795,13 +813,56 @@ namespace dingosdk::launcher_update
 
     ReleaseNote fetch_release_note(bool)
     {
-        const auto url = std::wstring(L"https://github.com/") + L"/Dingo-Shenanigans/ReSkate/releases.atom";
+        const auto url = std::wstring(L"https://github.com/Dingo-Shenanigans/ReSkate/releases.atom");
         std::string text;
         http_get(url, 4 * 1024 * 1024, 8000, [&](const char *data, DWORD count) { text.append(data, count); });
         auto notes = parse_release_feed(text);
         if (notes.empty())
             fail("The repository has no releases");
         return std::move(notes.front());
+    }
+
+    std::vector<ReleaseNote> fetch_release_notes(bool prereleases, std::size_t most)
+    {
+        std::vector<ReleaseNote> feed;
+        try
+        {
+            const auto url = std::wstring(L"https://github.com/Dingo-Shenanigans/ReSkate/releases.atom");
+            std::string text;
+            http_get(url, 4 * 1024 * 1024, 8000, [&](const char *data, DWORD count) { text.append(data, count); });
+            feed = parse_release_feed(text);
+        }
+        catch (const std::exception &exception)
+        {
+            logging::log(logging::Level::info,
+                         logging::Channel::launcher,
+                         "The releases feed could not be read ({}).",
+                         exception.what());
+        }
+        // The newest as GitHub's API has it (its notes as they were written), which also says which
+        // release that is when pre-releases are not wanted: the feed lists them among the rest.
+        std::vector<ReleaseNote> notes;
+        try
+        {
+            notes.push_back(fetch_release_note(prereleases));
+        }
+        catch (const std::exception &)
+        {
+            if (feed.empty())
+                throw;
+        }
+        for (auto &note : feed)
+        {
+            if (notes.size() >= most)
+                break;
+            // (Nothing newer than the release in use: a pre-release that is not wanted.)
+            if (!notes.empty() && (note.tag == notes.front().tag || note.date > notes.front().date))
+                continue;
+            notes.push_back(std::move(note));
+        }
+        if (notes.empty())
+            fail("The repository has no releases");
+        return notes;
     }
 
     std::string releases_page()

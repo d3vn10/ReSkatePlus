@@ -144,10 +144,8 @@ namespace dingosdk::mods
 
             // What the store sells comes from the content cache, which the launcher installs.
             const bool storeKnown = content_cache::installed();
-            // Disabled mods count too: their archives and map registration are placed at launch.
-            auto fingerprint = merge_fingerprint(catalog, mods, modFiles, storeKnown);
-            for (const auto &mod : catalog.inactive)
-                fingerprint += " inactive " + mod.name + " " + mod_fingerprint(mod.directory);
+            // A disabled mod is no part of it: nothing of one is in the patch.
+            const auto fingerprint = merge_fingerprint(catalog, mods, modFiles, storeKnown);
             if (options.live)
             {
                 fs::remove(output / stamp_file, error);
@@ -283,9 +281,7 @@ namespace dingosdk::mods
             // would carry the old build's layout, and the game then waits on the
             // splash for bundles that layout places wrongly.
             auto parsedLayout = vfs::read_layout(catalog.data_root / L"Data" / L"layout.toc");
-            std::vector<const Mod *> layoutSources = mods;
-            if (layoutSources.empty() && !catalog.inactive.empty())
-                layoutSources.push_back(&catalog.inactive.front());
+            const std::vector<const Mod *> &layoutSources = mods;
             auto &layout = parsedLayout.root;
             const auto baseRoot = catalog.data_root / L"Data";
             const auto gameRoot = catalog.data_root;
@@ -329,17 +325,26 @@ namespace dingosdk::mods
             };
 
             // Where every mod's archives go. The launch's merge places the archives
-            // of every installed mod, disabled ones too, and records it: a merge
-            // while the game runs must not move an archive the game may hold open,
-            // so it reuses that record, and a mod disabled at launch can then be
-            // enabled without a restart.
+            // of the enabled mods and records it: a merge while the game runs must
+            // not move an archive the game may hold open, so it reuses that record.
+            //
+            // A disabled mod is not there at all for the launch's merge: none of its
+            // archives are linked or declared, and a disabled map is in neither the
+            // level registry nor the root level (it was, to be ready to enable, and a
+            // map that was off still had its shader rows and surfaces in the game;
+            // 2026-11-14). Enabled while the game runs, it is placed as a mod
+            // installed since launch is. Only a merge while the game runs still
+            // places a disabled mod, and only one the game has loaded (it is in the
+            // record): its archives and its registration stay as the game holds them
+            // until the next launch.
             const auto placementsPath = output / placements_file;
             PlacementRecord record;
             if (options.live)
                 record = read_placements(placementsPath);
             std::vector<const Mod *> placedMods = mods;
-            for (const auto &mod : catalog.inactive)
-                placedMods.push_back(&mod);
+            if (options.live)
+                for (const auto &mod : catalog.inactive)
+                    placedMods.push_back(&mod);
             // A mod whose files changed since its archives were placed (updated, or removed and
             // installed again at another version, while the game runs) is forgotten here and so
             // placed again below, as one installed since launch is; the old archives stay where
@@ -360,8 +365,8 @@ namespace dingosdk::mods
             for (const auto *mod : placedMods)
             {
                 const bool active = std::find(mods.begin(), mods.end(), mod) != mods.end();
-                if (options.live && !active && !record.mods.contains(mod->name))
-                    continue; // installed since launch, still off
+                if (!active && !record.mods.contains(mod->name))
+                    continue; // never loaded by the running game
                 const auto files = active ? modFiles[mod] : scan(mod->directory);
                 if (!active)
                     modFiles[mod] = files; // the material grid plan reads a disabled map's root edits too
@@ -371,9 +376,8 @@ namespace dingosdk::mods
                 {
                     // A map registers itself in globals (its level description and
                     // the root's on-demand entry), which the game reads only at
-                    // launch. A disabled map's globals go in too, so enabling it
-                    // later only needs what is read at each load; while its level
-                    // and root TOCs are left out it cannot load.
+                    // launch. One the game loaded and that was disabled since keeps
+                    // that registration; with its level TOCs left out it cannot load.
                     if (!active && !(mod->provides_levels && (ascii_lower(relative) == launch_level_registry ||
                                                               ascii_lower(relative) == root_level)))
                         continue;
@@ -481,18 +485,11 @@ namespace dingosdk::mods
                         spot.offset = append_file(mod->directory / path, inside(output, path));
                     }
                     placements[mod].at.emplace(std::pair{directory, number}, spot);
-                    // A disabled mod's archives are read by no TOC yet, so nothing
-                    // else declares them; the engine only accepts archives
-                    // declared at launch.
-                    if (!active)
-                        for (const auto chunk : store.chunks_in(directory))
-                            used.emplace(chunk, spot.archive);
                     if (spot.archive != number || spot.offset)
                         report.notes.push_back(
                             mod->name + ": " + directory + "/cas_" + std::to_string(number) + " placed as cas_" +
                             std::to_string(spot.archive) +
-                            (spot.offset ? " at byte " + std::to_string(spot.offset) : std::string{}) +
-                            (active ? "" : " (disabled, ready to enable)"));
+                            (spot.offset ? " at byte " + std::to_string(spot.offset) : std::string{}));
                     ++report.archives;
                 }
                 placements[mod].fingerprint = mod_fingerprint(mod->directory);
