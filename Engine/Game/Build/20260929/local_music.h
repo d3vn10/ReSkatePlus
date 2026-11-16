@@ -4,37 +4,22 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-
+#include "local_music_rvas.h"
 namespace dingosdk::game::build::v20260929::local_music {
 // Registered music assets
 // Pointer to the music asset manager. Its CRITICAL_SECTION at +0x20 is taken
 // through the game's IAT thunks (0x158fd80/0x1590860) by registration (0x43e260,
 // keyed by "artist - title") and unregistration (0x449e70).
-inline constexpr std::uintptr_t asset_manager = 0x71e39a0;
 // MusicGraphAsset vtable.
-inline constexpr std::uintptr_t graph_asset_vtable = 0x6204638;
 // Music metadata (artist/title) vtable.
-inline constexpr std::uintptr_t metadata_vtable = 0x60f72a8;
 // Music TagRef vtable (enumeration + selection).
-inline constexpr std::uintptr_t tag_vtable = 0x60f56a8;
 // Tag selection (enum value) vtable.
-inline constexpr std::uintptr_t tag_selection_vtable = 0x61ec7f0;
 
 // Music UI
 // Pointer to the music UI manager.
-inline constexpr std::uintptr_t ui_manager = 0x71f5ed0;
-inline constexpr std::uintptr_t ui_manager_vtable = 0x60d2588;
 // Shared control block vtables of the playlist and song DTOs, and their expected slots.
-inline constexpr std::uintptr_t playlist_control_vtable = 0x6070f48;
-inline constexpr std::uintptr_t song_control_vtable = 0x6070f68;
-inline constexpr std::array<std::uintptr_t, 4> playlist_control_slots{0x2106d0, engine::ui_control_destroy, 0x2143c0, 0x1fe380};
-inline constexpr std::array<std::uintptr_t, 4> song_control_slots{0x25f1f0, engine::ui_control_destroy, 0x274ea0, 0x1fe380};
 // Playlist and song DTO constructors.
-inline constexpr std::uintptr_t construct_playlist = 0x1d47820;
-inline constexpr std::uintptr_t construct_song = 0x1d47a40;
 // Publish the playlist and song DTO lists into the UI manager.
-inline constexpr std::uintptr_t publish_playlists = 0x6e88d0;
-inline constexpr std::uintptr_t publish_songs = 0x6e8e30;
 // The music asset manager's own routines. Registers a song's asset under its "artist - title"
 // (manager, asset); the asset of a song by that name (manager, char**), or 0; adds a song, by
 // the 16 bytes before its asset, to the playlist of a number (manager, u32*, bytes).
@@ -58,15 +43,12 @@ inline constexpr Fingerprint song_context_contract{0x6db870, {0x48,0x89,0x5c,0x2
 // The music screen's own binding of the player's channel to a playlist: a return address in every
 // binding traced that came from a playlist picked there, and in none the world made (2026-10-12).
 // Compared against stack frames only.
-inline constexpr std::uintptr_t music_screen_return = 0x3df0b6e;
 // Builds a music shelf's data model entry (Extension/Music/local_music_shelf.cpp; hook target).
 inline constexpr Fingerprint music_model_construct_contract{0x1912670,
     {0x4c,0x89,0x44,0x24,0x18,0x55,0x56,0x41,0x55,0x41,0x56,0x48,0x8d,0x6c,0x24,0xd1,
      0x48,0x81,0xec,0xf8,0x00,0x00,0x00,0x4d,0x8b,0xf1,0x44,0x0f,0xb6,0xea,0x48,0x8b}};
 // Inserts a context into the UI manager's context map.
-inline constexpr std::uintptr_t context_insert = 0x6c6120;
 // Invokes the initialization completion delegate.
-inline constexpr std::uintptr_t complete_delegate = 0x58b1f00;
 // Music UI initializer (hook target).
 inline constexpr Fingerprint music_ui_initialize_contract{0x868760, {0x48,0x89,0x6c,0x24,0x18,0x48,0x89,0x74,0x24,0x20,0x41,0x54,0x41,0x56,0x41,0x57,0x48,0x81,0xec,0x80,0x00,0x00,0x00,0x49,0x8b,0xe9,0x4d,0x8b,0xf0,0x4c,0x8b,0xfa}};
 // CONFIRMED: queued selection setter (0x1406F51A0) calls the change queue,
@@ -103,7 +85,6 @@ inline constexpr std::array<Fingerprint, 7> music_ui_contracts{{
 // dereference fault and crashes the game. The 13-byte patch replaces the leading 5-byte
 // `mov eax, 0` with a 2-byte `xor eax, eax`, a 2-byte `jrcxz` that jumps past the whole
 // dereference when rcx is zero, and a padding `nop`, so the untouched tail stays aligned.
-inline constexpr std::uintptr_t playlist_lookup_safety_rva = 0x14f80c7;
 inline constexpr std::array<unsigned char, 13> playlist_lookup_safety_contract{
     0xb8, 0x00, 0x00, 0x00, 0x00, 0x48, 0x83, 0xe1, 0xfb, 0x66, 0x85, 0x71, 0x14};
 inline constexpr std::array<unsigned char, 13> playlist_lookup_patch_bytes{
