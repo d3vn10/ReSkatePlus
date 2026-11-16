@@ -9,6 +9,9 @@
 #include "Engine/Game/Build/20260929/ai_skaters.h"
 #include "Engine/Game/Build/20260929/engine.h"
 #include "Engine/Game/Build/20260929/skater_entities.h"
+#if defined(DINGOSDK_DEV_TOOLS)
+#include "Engine/Game/Build/usage_trace.h"
+#endif
 #include <Windows.h>
 #include <algorithm>
 #include <array>
@@ -22,6 +25,7 @@
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace dingosdk::ai_skaters
@@ -30,6 +34,18 @@ namespace dingosdk::ai_skaters
     {
         namespace ai = addr::ai_skaters;
         namespace entities = addr::skater_entities;
+#if defined(DINGOSDK_DEV_TOOLS)
+        template <std::size_t N>
+        void trace_native_call(std::uintptr_t base,
+                              std::uintptr_t rva,
+                              std::string_view symbol,
+                              const std::array<std::uint64_t, N> &arguments) noexcept
+        {
+            const auto last_error = GetLastError();
+            game::usage_trace::record_call("call", base, rva, symbol, arguments, nullptr, nullptr);
+            SetLastError(last_error);
+        }
+#endif
         constexpr std::uintptr_t highest = memory::highest_user_address;
         constexpr std::string_view player_blueprint = "Gameplay/Characters/CharacterBlueprint_Physics_Skater_RSP_CAS";
         constexpr std::string_view ai_blueprint = "Gameplay/Characters/CharacterBlueprint_Physics_Skater_AI";
@@ -312,15 +328,28 @@ namespace dingosdk::ai_skaters
             // the shared parent bus leaves them null (a crash once physics runs).
             using CreateBus = std::uintptr_t (*)(
                 std::uintptr_t, std::uintptr_t, std::uintptr_t, std::uintptr_t, std::uint8_t, std::uintptr_t);
+            const auto owner = ptr(ptr(parent, 8), 0x48);
+#if defined(DINGOSDK_DEV_TOOLS)
+            const std::array<std::uint64_t, 6> create_bus_arguments{owner, parent, 0, 0, 0, 0};
+            trace_native_call(base, ai::create_bus, "ai_skaters::create_bus", create_bus_arguments);
+#endif
             const auto bus =
-                reinterpret_cast<CreateBus>(base + ai::create_bus)(ptr(ptr(parent, 8), 0x48), parent, 0, 0, 0, 0);
+                reinterpret_cast<CreateBus>(base + ai::create_bus)(owner, parent, 0, 0, 0, 0);
             require(bus != 0, "Engine did not create an AI skater entity bus.");
+#if defined(DINGOSDK_DEV_TOOLS)
+            const std::array<std::uint64_t, 1> acquire_bus_arguments{bus};
+            trace_native_call(base, ai::acquire_bus, "ai_skaters::acquire_bus", acquire_bus_arguments);
+#endif
             reinterpret_cast<int (*)(std::uintptr_t)>(base + ai::acquire_bus)(bus);
             struct BusScope
             {
                 std::uintptr_t base, bus;
                 ~BusScope()
                 {
+#if defined(DINGOSDK_DEV_TOOLS)
+                    const std::array<std::uint64_t, 1> arguments{bus};
+                    trace_native_call(base, entities::release_reference, "skater_entities::release_reference", arguments);
+#endif
                     reinterpret_cast<void (*)(std::uintptr_t)>(base + entities::release_reference)(bus);
                 }
             } bus_scope{base, bus};
@@ -330,6 +359,11 @@ namespace dingosdk::ai_skaters
             alignas(16) std::array<std::uint8_t, 0x190> descriptor{};
             alignas(16) constexpr Matrix identity{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
             using Init = void *(*)(void *, std::uintptr_t, std::uintptr_t, const void *);
+#if defined(DINGOSDK_DEV_TOOLS)
+            const std::array<std::uint64_t, 4> descriptor_init_arguments{
+                reinterpret_cast<std::uintptr_t>(descriptor.data()), 0, bus, reinterpret_cast<std::uintptr_t>(identity.data())};
+            trace_native_call(base, entities::descriptor_init, "skater_entities::descriptor_init", descriptor_init_arguments);
+#endif
             reinterpret_cast<Init>(base + entities::descriptor_init)(descriptor.data(), 0, bus, identity.data());
             struct DescriptorScope
             {
@@ -337,6 +371,11 @@ namespace dingosdk::ai_skaters
                 void *data;
                 ~DescriptorScope()
                 {
+#if defined(DINGOSDK_DEV_TOOLS)
+                    const std::array<std::uint64_t, 1> arguments{
+                        reinterpret_cast<std::uintptr_t>(static_cast<std::uint8_t *>(data) + 0x10)};
+                    trace_native_call(base, entities::descriptor_destroy, "skater_entities::descriptor_destroy", arguments);
+#endif
                     reinterpret_cast<void (*)(void *)>(base + entities::descriptor_destroy)(
                         static_cast<std::uint8_t *>(data) + 0x10);
                 }
@@ -348,9 +387,24 @@ namespace dingosdk::ai_skaters
             std::memcpy(descriptor.data() + 0x158, &no_list, sizeof(no_list));
             std::array<std::uintptr_t, 3> result{};
             using Create = void *(*)(void *, void *, std::uintptr_t, std::uintptr_t, std::uintptr_t);
+#if defined(DINGOSDK_DEV_TOOLS)
+            const std::array<std::uint64_t, 5> create_entity_arguments{
+                reinterpret_cast<std::uintptr_t>(result.data()),
+                reinterpret_cast<std::uintptr_t>(descriptor.data()),
+                blueprint,
+                0,
+                0};
+            trace_native_call(base, entities::create_entity, "skater_entities::create_entity", create_entity_arguments);
+#endif
             reinterpret_cast<Create>(base + entities::create_entity)(result.data(), descriptor.data(), blueprint, 0, 0);
             if (result[1])
+            {
+#if defined(DINGOSDK_DEV_TOOLS)
+                const std::array<std::uint64_t, 1> arguments{result[1]};
+                trace_native_call(base, entities::release_reference, "skater_entities::release_reference", arguments);
+#endif
                 reinterpret_cast<void (*)(std::uintptr_t)>(base + entities::release_reference)(result[1]);
+            }
             return result[0];
         }
         // Mode 1 is the default appearance, as requested by entities::source_apply_appearance when the source
@@ -359,6 +413,16 @@ namespace dingosdk::ai_skaters
         {
             const auto getter =
                 reinterpret_cast<std::uintptr_t (*)(std::uintptr_t)>(base + entities::customization_component);
+#if defined(DINGOSDK_DEV_TOOLS)
+            const std::array<std::uint64_t, 1> customization_arguments{entity};
+            trace_native_call(
+                base, entities::customization_component, "skater_entities::customization_component", customization_arguments);
+            const std::array<std::uint64_t, 1> local_customization_arguments{local_entity};
+            trace_native_call(base,
+                              entities::customization_component,
+                              "skater_entities::customization_component",
+                              local_customization_arguments);
+#endif
             const auto customization = getter(entity), local_customization = getter(local_entity);
             require(customization && local_customization && customization != local_customization &&
                         ptr(customization) == ptr(local_customization) && code(base, ptr(customization)) &&
@@ -368,8 +432,16 @@ namespace dingosdk::ai_skaters
             const std::uint32_t mode = 1;
             require(write(customization + 0x110, &enabled, 1), "Cannot enable AI customization.");
             if (ptr(customization, 0x120))
+            {
+#if defined(DINGOSDK_DEV_TOOLS)
+                const std::array<std::uint64_t, 3> arguments{
+                    customization + 0x120, reinterpret_cast<std::uintptr_t>(&enabled), 1};
+                trace_native_call(
+                    base, addr::engine::set_customization_flag, "engine::set_customization_flag", arguments);
+#endif
                 reinterpret_cast<void (*)(std::uintptr_t, const void *, std::uint32_t)>(
                     base + addr::engine::set_customization_flag)(customization + 0x120, &enabled, 1);
+            }
             require(write(customization + 0x134, &mode, 4) && write(customization + 0x10a, &enabled, 1) &&
                         write(customization + 0x10d, &enabled, 1),
                     "Cannot request AI appearance.");
@@ -384,8 +456,14 @@ namespace dingosdk::ai_skaters
         {
             // The shared destruction hook reports this entity to entity_destroyed().
             if (owned(base, skater))
+            {
+#if defined(DINGOSDK_DEV_TOOLS)
+                const std::array<std::uint64_t, 2> arguments{skater.entity, skater.parent};
+                trace_native_call(base, entities::destroy_entity, "skater_entities::destroy_entity", arguments);
+#endif
                 reinterpret_cast<void (*)(std::uintptr_t, std::uintptr_t)>(base + entities::destroy_entity)(
                     skater.entity, skater.parent);
+            }
         }
         void forget(std::uintptr_t entity)
         {
@@ -511,13 +589,24 @@ namespace dingosdk::ai_skaters
                 // the player blueprint routes to its CAS loader entities. Entity +0x458
                 // reads it unchecked once physics exists, so never start without it.
                 require(ptr(entity, 0x578) != 0, "Skater property binding (+0x578) is missing.");
+                const auto property_binding = read<std::uint8_t>(source.data, 0xe1);
+#if defined(DINGOSDK_DEV_TOOLS)
+                const std::array<std::uint64_t, 2> binding_arguments{entity, property_binding};
+                trace_native_call(base, ai::set_property_binding, "ai_skaters::set_property_binding", binding_arguments);
+#endif
                 reinterpret_cast<void (*)(std::uintptr_t, std::uint8_t)>(base + ai::set_property_binding)(
-                    entity, read<std::uint8_t>(source.data, 0xe1));
+                    entity, property_binding);
                 skater.component = multiplayer::read_native_skater_component(readable, base, entity);
                 // Runs the entity's lifecycle callbacks and initializes its owned
                 // components, including the client-only brain tree and navigator.
                 using InitializePlacement = void (*)(std::uintptr_t, const void *, std::uintptr_t, std::uint8_t);
                 alignas(16) const auto matrix = at;
+#if defined(DINGOSDK_DEV_TOOLS)
+                const std::array<std::uint64_t, 4> placement_arguments{
+                    entity, reinterpret_cast<std::uintptr_t>(matrix.data()), 0, 1};
+                trace_native_call(
+                    base, entities::initialize_placement, "skater_entities::initialize_placement", placement_arguments);
+#endif
                 reinterpret_cast<InitializePlacement>(base +
                                                       entities::initialize_placement)(entity, matrix.data(), 0, 1);
                 require((read<std::uint32_t>(entity, 0x28) & 8) != 0 && ptr(entity, 0x628) == skater.component,
@@ -536,13 +625,31 @@ namespace dingosdk::ai_skaters
                 }
                 // Source creation order: animation physics flags after placement.
                 using Setter = void (*)(std::uintptr_t, std::uint8_t);
+#if defined(DINGOSDK_DEV_TOOLS)
+                const std::array<std::uint64_t, 2> physics_c7_arguments{skater.component, 1};
+                trace_native_call(
+                    base, entities::physics_c7_setter, "skater_entities::physics_c7_setter", physics_c7_arguments);
+#endif
                 reinterpret_cast<Setter>(base + entities::physics_c7_setter)(skater.component, 1);
-                reinterpret_cast<Setter>(base + ai::physics_source_setter)(skater.component,
-                                                                           read<std::uint8_t>(source.data, 0xe0));
+                const auto physics_source = read<std::uint8_t>(source.data, 0xe0);
+#if defined(DINGOSDK_DEV_TOOLS)
+                const std::array<std::uint64_t, 2> physics_source_arguments{skater.component, physics_source};
+                trace_native_call(
+                    base, ai::physics_source_setter, "ai_skaters::physics_source_setter", physics_source_arguments);
+#endif
+                reinterpret_cast<Setter>(base + ai::physics_source_setter)(skater.component, physics_source);
                 if (physics)
                 {
                     // The same pair of setters enables the local player's physics after
                     // its source creates and places it (client_source_spawn.cpp).
+#if defined(DINGOSDK_DEV_TOOLS)
+                    const std::array<std::uint64_t, 2> physics_c7_disable_arguments{skater.component, 0};
+                    trace_native_call(
+                        base, entities::physics_c7_setter, "skater_entities::physics_c7_setter", physics_c7_disable_arguments);
+                    const std::array<std::uint64_t, 2> physics_cb_disable_arguments{skater.component, 0};
+                    trace_native_call(
+                        base, entities::physics_cb_setter, "skater_entities::physics_cb_setter", physics_cb_disable_arguments);
+#endif
                     reinterpret_cast<Setter>(base + entities::physics_c7_setter)(skater.component, 0);
                     reinterpret_cast<Setter>(base + entities::physics_cb_setter)(skater.component, 0);
                 }

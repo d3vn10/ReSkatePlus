@@ -2,7 +2,11 @@
 #include "Engine/Game/World/location_travel.h"
 #include "Extension/Multiplayer/Net/protocol.h"
 #include "Extension/World/loading_screen.h"
+#if defined(DINGOSDK_DEV_TOOLS)
+#include "Engine/Game/Build/usage_trace.h"
+#endif
 #include <algorithm>
+#include <array>
 #include <cstdio>
 
 namespace dingosdk::runtime::detail
@@ -46,31 +50,80 @@ namespace dingosdk::runtime::detail
         struct Description
         {
             alignas(8) std::array<unsigned char, 0x30> bytes{};
+            std::uintptr_t image{};
             DescriptionDestroy destroy;
-            Description(std::uintptr_t image)
-                : destroy(reinterpret_cast<DescriptionDestroy>(image + rt::level_description_destroy))
+            Description(std::uintptr_t image_base)
+                : image(image_base), destroy(reinterpret_cast<DescriptionDestroy>(image_base + rt::level_description_destroy))
             {
+#if defined(DINGOSDK_DEV_TOOLS)
+                const std::array<std::uint64_t, 1> arguments{reinterpret_cast<std::uintptr_t>(bytes.data())};
+                game::usage_trace::record_call("call",
+                                              image,
+                                              rt::level_description_init,
+                                              "level_description_init",
+                                              arguments,
+                                              nullptr,
+                                              nullptr);
+#endif
                 reinterpret_cast<DescriptionInit>(image + rt::level_description_init)(bytes.data());
             }
             ~Description()
             {
+#if defined(DINGOSDK_DEV_TOOLS)
+                const std::array<std::uint64_t, 1> arguments{reinterpret_cast<std::uintptr_t>(bytes.data())};
+                game::usage_trace::record_call("call",
+                                              image,
+                                              rt::level_description_destroy,
+                                              "level_description_destroy",
+                                              arguments,
+                                              nullptr,
+                                              nullptr);
+#endif
                 destroy(bytes.data());
             }
         } description(base);
         const auto assign = reinterpret_cast<StringAssign>(base + engine::string_assign);
-        assign(
+#if defined(DINGOSDK_DEV_TOOLS)
+        const auto assign_traced = [&](void *destination, const char *source, std::uint32_t length)
+        {
+            const std::array<std::uint64_t, 3> arguments{
+                reinterpret_cast<std::uintptr_t>(destination), reinterpret_cast<std::uintptr_t>(source), length};
+            game::usage_trace::record_call("call",
+                                          base,
+                                          engine::string_assign,
+                                          "engine::string_assign",
+                                          arguments,
+                                          nullptr,
+                                          nullptr);
+            assign(destination, source, length);
+        };
+#else
+        const auto assign_traced = assign;
+#endif
+        assign_traced(
             description.bytes.data() + 0x10, request.asset.c_str(), static_cast<std::uint32_t>(request.asset.size()));
-        assign(description.bytes.data() + 8, request.start.c_str(), static_cast<std::uint32_t>(request.start.size()));
-        assign(description.bytes.data() + 0x20,
-               request.lm_level.c_str(),
-               static_cast<std::uint32_t>(request.lm_level.size()));
-        assign(description.bytes.data() + 0x18,
-               request.lm_start.c_str(),
-               static_cast<std::uint32_t>(request.lm_start.size()));
+        assign_traced(description.bytes.data() + 8, request.start.c_str(), static_cast<std::uint32_t>(request.start.size()));
+        assign_traced(description.bytes.data() + 0x20,
+                      request.lm_level.c_str(),
+                      static_cast<std::uint32_t>(request.lm_level.size()));
+        assign_traced(description.bytes.data() + 0x18,
+                      request.lm_start.c_str(),
+                      static_cast<std::uint32_t>(request.lm_start.size()));
         description.bytes[0x2c] = flag;
         // The game's client-vtable +0x70 implementation selects SinglePlayer or a
         // local Hosted server, deep-copies the description and posts an owned message.
         dingosdk::loading_screen::prepare(client, request.asset, request.lm_level);
+#if defined(DINGOSDK_DEV_TOOLS)
+        const std::array<std::uint64_t, 4> request_arguments{
+            client, reinterpret_cast<std::uintptr_t>(description.bytes.data()), 0, 0};
+        game::usage_trace::record_call("call",
+                                      base,
+                                      rt::local_level_request,
+                                      "local_level_request",
+                                      request_arguments,
+                                      nullptr,
+                                      nullptr);
+#endif
         reinterpret_cast<LocalRequest>(base + rt::local_level_request)(client, description.bytes.data(), nullptr, 0);
     }
     dingosdk::multiplayer::MapLoadResult load_multiplayer_map(std::string_view destination,
