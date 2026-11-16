@@ -56,9 +56,8 @@ namespace dingosdk::runtime::detail
                 : image(image_base), destroy(reinterpret_cast<DescriptionDestroy>(image_base + rt::level_description_destroy))
             {
 #if defined(DINGOSDK_DEV_TOOLS)
-                static game::usage_trace::HitCounter description_init_usage_counter;
                 const std::array<std::uint64_t, 1> arguments{reinterpret_cast<std::uintptr_t>(bytes.data())};
-                game::usage_trace::record_hit(description_init_usage_counter,
+                game::usage_trace::record_call("call",
                                               image,
                                               rt::level_description_init,
                                               "level_description_init",
@@ -69,9 +68,8 @@ namespace dingosdk::runtime::detail
             ~Description()
             {
 #if defined(DINGOSDK_DEV_TOOLS)
-                static game::usage_trace::HitCounter description_destroy_usage_counter;
                 const std::array<std::uint64_t, 1> arguments{reinterpret_cast<std::uintptr_t>(bytes.data())};
-                game::usage_trace::record_hit(description_destroy_usage_counter,
+                game::usage_trace::record_call("call",
                                               image,
                                               rt::level_description_destroy,
                                               "level_description_destroy",
@@ -82,12 +80,11 @@ namespace dingosdk::runtime::detail
         } description(base);
         const auto assign = reinterpret_cast<StringAssign>(base + engine::string_assign);
 #if defined(DINGOSDK_DEV_TOOLS)
-        static game::usage_trace::HitCounter string_assign_usage_counter;
         const auto assign_traced = [&](void *destination, const char *source, std::uint32_t length)
         {
             const std::array<std::uint64_t, 3> arguments{
                 reinterpret_cast<std::uintptr_t>(destination), reinterpret_cast<std::uintptr_t>(source), length};
-            game::usage_trace::record_hit(string_assign_usage_counter,
+            game::usage_trace::record_call("call",
                                           base,
                                           engine::string_assign,
                                           "engine::string_assign",
@@ -111,10 +108,9 @@ namespace dingosdk::runtime::detail
         // local Hosted server, deep-copies the description and posts an owned message.
         dingosdk::loading_screen::prepare(client, request.asset, request.lm_level);
 #if defined(DINGOSDK_DEV_TOOLS)
-        static game::usage_trace::HitCounter local_level_request_usage_counter;
         const std::array<std::uint64_t, 4> request_arguments{
             client, reinterpret_cast<std::uintptr_t>(description.bytes.data()), 0, 0};
-        game::usage_trace::record_hit(local_level_request_usage_counter,
+        game::usage_trace::record_call("call",
                                       base,
                                       rt::local_level_request,
                                       "local_level_request",
