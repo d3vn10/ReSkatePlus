@@ -47,24 +47,19 @@ inline constexpr std::uintptr_t party_client = engine::client_game_manager;
 // A request's answer: a 0x28-byte Result {String message @0, ..., u32 code @0x20} made by
 // result_make(Result*, code, text) (code 0 = success), handed to the delegate by
 // delegate_invoke(Delegate*, Result*); the handle is set empty by null_handle(Handle*, 0).
-inline constexpr std::uintptr_t result_make = 0x83de30, delegate_invoke = 0x58b1d60, null_handle = 0x3dc5bd0;
 // Party queries the Social menu, map and activities make besides the member lists.
 // AcceptGameInvite (the invite toast's Accept; analysis/party-re/ui-actions.md 2.2):
 // (Handle*, const String* invite id, const String* game id, Delegate*), answered with
 // delegate_invoke_text(Delegate*, DingoError*, const String* game id).
-inline constexpr std::uintptr_t request_accept_invite = 0x842cd0, delegate_invoke_text = 0x58b1cf0;
 // IsPartyVoiceUnavailable () -> bool: hides the party voice options without a native group.
 // Native UI events, raised as the natives do (ui-actions.md 1.6): context(&buffer16);
 // dispatcher = event_dispatcher(&buffer16); if dispatcher+0x28: event_post(dispatcher, type object,
 // payload*, options* {f32 0, u32 1, u32 0}, 0).
-inline constexpr std::uintptr_t current_context = 0x18b6ae0, event_dispatcher = 0x4b257a0, event_post = 0x4b30ab0;
 // The dispatcher's byte that says it accepts events.
 inline constexpr std::uintptr_t dispatcher_live = 0x28;
 // Their type objects: GroupJoinNotification {u64 EAId}, GroupLeaveNotification {u64 EAId, i32 reason
 // (0 left, 1 kicked, 2 location access)}, GroupLeaderChangedNotification {u64 new leader},
 // GameInviteUpdated {String GameId, String GameInviteId, u64 inviter, i32 1, bool matchmaking}.
-inline constexpr std::uintptr_t group_join_event = 0x720ef80, group_leave_event = 0x720efe8,
-                                leader_changed_event = 0x720f048, game_invite_event = 0x720f210;
 struct Request { std::uintptr_t rva; std::array<unsigned char, 32> bytes; };
 inline constexpr std::array<Request, 20> party_request_contracts{{
     {request_accept_invite, {0x40,0x55,0x53,0x56,0x57,0x41,0x55,0x41,0x56,0x48,0x8d,0x6c,0x24,0xd1,0x48,0x81,0xec,0xd8,0x00,0x00,0x00,0x48,0x8b,0x05,0xd4,0x16,0x98,0x06,0x48,0x33,0xc4,0x48}},
