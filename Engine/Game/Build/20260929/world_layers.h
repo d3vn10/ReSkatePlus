@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <cstdint>
+#include "world_layers_rvas.h"
 
 // SubWorldReference adapter for the seasonal world layers.
 namespace dingosdk::game::build::v20260929::world_layers {
@@ -15,7 +16,5 @@ inline constexpr std::array<Site, 4> sites{{
     {0x2b88b40, {0x40,0x53,0x48,0x83,0xec,0x20,0x44,0x0f,0xb6,0x4c,0x24,0x30,0x48,0x8b,0xc2,0x48}},
 }};
 // SubWorldReference entity vtable.
-inline constexpr std::uintptr_t subworld_reference_vtable = 0x63e08c8;
 // Subworld load/unload event vtable; slot +0x18 is the clone function (sites[3]).
-inline constexpr std::uintptr_t subworld_event_vtable = 0x60863d8;
 }
