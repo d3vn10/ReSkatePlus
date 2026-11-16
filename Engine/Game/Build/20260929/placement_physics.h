@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <cstdint>
+#include "placement_physics_rvas.h"
 
 // Physics on a plugin's own local placements (Extension/Objects/placement_physics.cpp,
 // reskate.objects.physics) and the marker save/return events (reskate.marker.events). Bodies are
@@ -13,13 +14,10 @@ inline constexpr int motion_fixed = 1, motion_keyframed = 2, motion_dynamic = 3;
 
 // (const Handle* body, float out[8]) -> out: the body's rigid pose, rotation quaternion (x, y, z, w)
 // then position (x, y, z, pad).
-inline constexpr std::uintptr_t body_pose = 0x25d6720;
 // (const Handle* body, bool asleep): puts the body to sleep or wakes it from sleep.
-inline constexpr std::uintptr_t sleep = 0x25dc600;
 // (const Handle* body) -> int: the body's motion type. Hooked (placement_adapters.cpp motion_hook) so
 // the callers in placement_adapters.h moving_calls and material_calls see a claimed dynamic surface
 // as keyframed or fixed.
-inline constexpr std::uintptr_t motion_type = 0x25d5bf0;
 inline constexpr std::array<unsigned char, 16> motion_type_prefix{0x48,0x8b,0x01,0x44,0x8b,0x41,0x08,0x41,0x0f,0xb6,0xc8,0x49,0xc1,0xe8,0x03,0x80};
 inline constexpr std::array<unsigned char, 16> body_pose_prefix{0x48,0x89,0x5c,0x24,0x08,0x57,0x48,0x83,0xec,0x50,0x48,0x8b,0x01,0x48,0x8b,0xfa};
 inline constexpr std::array<unsigned char, 16> sleep_prefix{0x48,0x89,0x5c,0x24,0x10,0x56,0x48,0x83,0xec,0x20,0x48,0x8b,0xf1,0x8b,0x49,0x08};
