@@ -29,7 +29,6 @@ inline constexpr std::uint32_t pop_state = 200;
 // complies launch through as well (from the crouch, 103); flat-ground ollies (riding or out of a
 // manual) launch from ollie_call, a boneless from boneless_call while the foot is planted (602).
 // The trainer verifies their bytes before it hooks anything.
-inline constexpr std::uintptr_t grind_pop_call = 0x482f646, ollie_call = 0x4824f7f, boneless_call = 0x47691f8;
 inline constexpr std::array<unsigned char, 5> grind_pop_call_prefix{0xe8, 0x55, 0x34, 0xf2, 0xff};
 inline constexpr std::array<unsigned char, 5> ollie_call_prefix{0xe8, 0x1c, 0xdb, 0xf2, 0xff};
 inline constexpr std::array<unsigned char, 5> boneless_call_prefix{0xe8, 0xa3, 0x98, 0xfe, 0xff};
@@ -70,6 +69,6 @@ inline constexpr std::array<unsigned char, 6> foot_gravity_prefix{0xc7, 0x83, 0x
 // +0x1807 bit 7 follow it. Whether it means "switch" or "left foot leads" is the same thing for a
 // goofy skater; a regular skater's scan would tell them apart. Plugins get it as "switch".
 inline constexpr std::uint8_t stance_switch_mask = 0x20;
-inline constexpr std::uintptr_t stance_flags_offset = 0x13c4; // context
+inline constexpr std::uintptr_t stance_flags_offset = 0x13c4;
 
 }
