@@ -5,10 +5,11 @@
 #pragma once
 #include <array>
 #include <cstdint>
-#include "game_fatal_dump_rvas.h"
 
 namespace dingosdk::game::build::v20261013::game_fatal_dump {
 // MiniDumpWriteDump's import slot (api-ms-win-core-debug-minidump-l1-1-0.dll).
+inline constexpr std::uintptr_t import_slot = 0x05feb2e0;
 // The thunk every caller goes through: jmp qword ptr [import_slot].
-inline constexpr std::array<std::uint8_t, 6> thunk_bytes{0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+inline constexpr std::uintptr_t thunk = 0x0546dbc6;
+inline constexpr std::array<std::uint8_t, 6> thunk_bytes{0xff, 0x25, 0x14, 0xd7, 0xb7, 0x00};
 } // namespace dingosdk::game::build::v20261013::game_fatal_dump

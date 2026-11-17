@@ -5,15 +5,17 @@
 
 #include <array>
 #include <cstdint>
-#include "eadp_errors_arena_rvas.h"
 
 namespace dingosdk::game::build::v20261013::eadp_errors_arena {
-// In the arena's factory (0x00000000): the load of its size from the settings
+// In the arena's factory (0x02318660): the load of its size from the settings
 // object (EadpErrorsData.EadpErrorsDataPlatformSpecificMemPoolSize) and the
 // vtable load after it, the two complete instructions moved into the stub.
-//   mov eax, dword ptr [rax + 0x00]
-//   lea rcx, [rip + 0x00000000]        ; 0x00000000
+//   mov eax, dword ptr [rax + 0x7c]
+//   lea rcx, [rip + 0x03fffd17]        ; 0x063183d8
 // No branch in the factory lands inside them; the factory goes on at resume_rva.
+inline constexpr std::uintptr_t size_load_rva = 0x023186b7;
 inline constexpr std::array<std::uint8_t, 10> size_load{
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    0x8b, 0x40, 0x7c, 0x48, 0x8d, 0x0d, 0x17, 0xfd, 0xff, 0x03};
+inline constexpr std::uintptr_t vtable_rva = 0x063183d8;
+inline constexpr std::uintptr_t resume_rva = 0x023186c1;
 } // namespace dingosdk::game::build::v20261013::eadp_errors_arena

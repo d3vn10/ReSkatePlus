@@ -112,18 +112,6 @@ namespace dingosdk::trainer
             double value{};
             bool frozen{};
         };
-#if defined(DINGOSDK_DEV_TOOLS)
-        // `trainer selftest` (development builds only, DINGOSDK_DEV_TOOLS).
-        struct SelfTest
-        {
-            int step{}; // 0: idle
-            std::uint64_t until{};
-            std::size_t entry{};
-            double before{}, target{};
-            Vec3 origin{};
-            int failures{};
-        };
-#endif
         struct Motion
         {
             bool valid{};
@@ -405,10 +393,6 @@ namespace dingosdk::trainer
             Telemetry telemetry;
             std::ofstream log;
             std::int64_t log_start{};
-#if defined(DINGOSDK_DEV_TOOLS)
-            std::map<std::uint32_t, std::uint64_t> states; // physics state -> ticks seen (`trainer states`)
-            SelfTest test;
-#endif
         };
         State &state()
         {
@@ -2775,10 +2759,6 @@ namespace dingosdk::trainer
             if (t.heading < 0)
                 t.heading += 360.0f;
             t.physics_state = watch.valid ? watch.state : 0;
-#if defined(DINGOSDK_DEV_TOOLS)
-            if (watch.valid)
-                ++s.states[watch.state];
-#endif
             // A hippy jump leaves the board (504) straight from riding (100): measured. A plain
             // dismount does the same but is not rising, so it is left alone.
             if (watch.valid && watch.state != s.last_state)
@@ -2951,22 +2931,6 @@ namespace dingosdk::trainer
             }
             if (!m.airborne)
                 s.board_spin = {};
-#if defined(DINGOSDK_DEV_TOOLS)
-            if (s.logging && s.log)
-            {
-                s.log << std::format("{:.4f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.1f},{},{},{:.0f}\n",
-                                     clock_seconds(stamp - s.log_start),
-                                     position[0],
-                                     position[1],
-                                     position[2],
-                                     t.speed,
-                                     t.vertical,
-                                     t.heading,
-                                     t.airborne ? 1 : 0,
-                                     t.physics_state,
-                                     board_turn);
-            }
-#endif
             // A bail: back to the selected marker once the skater has had time to fall.
             if (watch.valid && (!s.wipeouts_known || watch.wipeouts != s.seen_wipeouts))
             {
@@ -2984,42 +2948,7 @@ namespace dingosdk::trainer
                 s.seen_wipeouts = watch.wipeouts;
             }
         }
-#if defined(DINGOSDK_DEV_TOOLS)
-        // `trainer option log`: telemetry to a CSV file (development builds only).
-        void set_logging(bool on)
-        {
-            auto &s = state();
-            if (s.log.is_open())
-                s.log.close();
-            s.logging = false;
-            if (!on)
-                return;
-            const auto directory = data_directory() / L"telemetry";
-            std::error_code error;
-            std::filesystem::create_directories(directory, error);
-            std::string name = s.map.empty() ? "unknown" : s.map.substr(s.map.find_last_of('/') + 1);
-            for (auto &c : name)
-                if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_' && c != '-')
-                    c = '_';
-            SYSTEMTIME time;
-            GetLocalTime(&time);
-            const auto file = directory / std::format("{}-{:04}{:02}{:02}-{:02}{:02}{:02}.csv",
-                                                      name,
-                                                      time.wYear,
-                                                      time.wMonth,
-                                                      time.wDay,
-                                                      time.wHour,
-                                                      time.wMinute,
-                                                      time.wSecond);
-            s.log.open(file, std::ios::binary | std::ios::trunc);
-            if (!s.log)
-                return;
-            s.log << "seconds,x,y,z,speed_mps,vertical_mps,heading_deg,airborne,physics_state,board_turn_dps\n";
-            s.log_start = clock_now();
-            s.logging = true;
-        }
-#endif
-        void shortcuts()
+		void shortcuts()
         {
             auto &s = state();
             ControllerInput input;
@@ -3044,121 +2973,6 @@ namespace dingosdk::trainer
             if (!result.empty())
                 overlay::notify(overlay::NoticeLevel::info, "TRAINER", result);
         }
-
-// ---- self test -------------------------------------------------------------------------
-#if defined(DINGOSDK_DEV_TOOLS)
-        void test_line(bool ok, const std::string &text)
-        {
-            auto &s = state();
-            if (!ok)
-                ++s.test.failures;
-            say(ok ? logging::Level::info : logging::Level::error,
-                std::format("trainer selftest: {} {}", ok ? "OK" : "FAIL", text));
-        }
-        void run_selftest(std::uint64_t now)
-        {
-            auto &s = state();
-            auto &t = s.test;
-            if (!t.step || now < t.until)
-                return;
-            tuning::Values live;
-            switch (t.step)
-            {
-            case 1:
-            {
-                test_line(s.model != nullptr,
-                          std::format("game tuning read ({} values, {} curves)",
-                                      s.model ? s.model->fields.size() : 0,
-                                      s.model ? s.model->curve_slots.size() : 0));
-                std::size_t named{};
-                if (s.model)
-                    named = static_cast<std::size_t>(
-                        std::ranges::count_if(s.model->field_names, [](const std::string &n) { return !n.empty(); }));
-                test_line(s.model && named == s.model->fields.size(),
-                          std::format("field names ({} of {})", named, s.model ? s.model->fields.size() : 0));
-                test_line(s.ready && s.asset, "running tuning asset found");
-                test_line(s.telemetry.skater, "local skater found");
-                // The first plain real that is not zero and that the player has not touched.
-                t.entry = s.entries.size();
-                for (std::size_t i = 0; i < s.entries.size(); ++i)
-                    if (s.entries[i].kind == Kind::real && !s.entries[i].detail && !s.entries[i].touched &&
-                        std::abs(s.entries[i].stock) > 0.01)
-                    {
-                        t.entry = i;
-                        break;
-                    }
-                if (!s.ready || t.entry == s.entries.size() || !editable())
-                {
-                    test_line(false, "no value to write (tuning not ready or locked by a session)");
-                    t.step = 4;
-                    break;
-                }
-                auto &e = s.entries[t.entry];
-                t.before = e.stock;
-                t.target = e.stock * 1.01;
-                set_entry(e, t.target);
-                t.step = 2;
-                t.until = now + 1200;
-                break;
-            }
-            case 2:
-            {
-                auto &e = s.entries[t.entry];
-                const bool read = tuning::read_live(s.base, live);
-                test_line(read && std::abs(read_field(live.image, e) - static_cast<float>(t.target)) <
-                                      1e-4 * std::max(1.0, std::abs(t.target)),
-                          std::format("write and hold {} = {:.5g}", e.id, t.target));
-                set_entry(e, t.before);
-                t.step = 3;
-                t.until = now + 1200;
-                break;
-            }
-            case 3:
-            {
-                auto &e = s.entries[t.entry];
-                const bool read = tuning::read_live(s.base, live);
-                test_line(read && read_field(live.image, e) == static_cast<float>(t.before) && !e.touched,
-                          std::format("restore {} = {:.5g}", e.id, t.before));
-                t.step = 4;
-                break;
-            }
-            case 4:
-            {
-                if (!s.telemetry.skater)
-                {
-                    test_line(false, "teleport (no skater)");
-                    t.step = 6;
-                    break;
-                }
-                t.origin = s.telemetry.position;
-                const Vec3 target{t.origin[0] + 3.0f, t.origin[1] + 1.0f, t.origin[2]};
-                const auto result = go_to(target, "a test point");
-                test_line(!result.starts_with("error"), "teleport request: " + result);
-                t.origin = target;
-                t.step = result.starts_with("error") ? 6 : 5;
-                t.until = now + 700;
-                break;
-            }
-            case 5:
-            {
-                const auto &p = s.telemetry.position;
-                // The skater may already be rolling away from where it was put.
-                const float away = horizontal({p[0] - t.origin[0], 0, p[2] - t.origin[2]});
-                test_line(s.telemetry.skater && away < 25.0f,
-                          std::format("teleport put the skater {:.2f} m from the target", away));
-                t.step = 6;
-                t.until = now + 1500;
-                break;
-            }
-            default:
-                say(t.failures ? logging::Level::error : logging::Level::info,
-                    std::format("trainer selftest: DONE {} failures", t.failures));
-                t = {};
-                changed(false);
-                break;
-            }
-        }
-#endif
 
         // ---- transition skating ------------------------------------------------------------------------
         // Bowls, quarter pipes, vert and spines: the trainer's own help back into the ramp, and Skate 3's numbers for
@@ -4250,9 +4064,6 @@ namespace dingosdk::trainer
             hold(now);
             if (s.extras_due)
                 publish_extras();
-#if defined(DINGOSDK_DEV_TOOLS)
-            run_selftest(now);
-#endif
             publish(s.telemetry);
             if (s.view_due)
                 build_view();
@@ -5169,9 +4980,6 @@ namespace dingosdk::trainer
                     return "error: usage: trainer option "
                            "hud|hud_jump|auto_return|pad|flip_advanced|flip_pop|flip_flick|flip_limit|underflip_split|"
                            "gravity_landing_own"
-#if defined(DINGOSDK_DEV_TOOLS)
-                           "|log"
-#endif
                            " 0|1";
                 }
                 else if (name == "hud")
@@ -5224,14 +5032,6 @@ namespace dingosdk::trainer
                         return "error: " + why;
                     s.gravity_landing_own = on;
                 }
-#if defined(DINGOSDK_DEV_TOOLS)
-                else if (name == "log")
-                {
-                    set_logging(on);
-                    if (on && !s.logging)
-                        return "error: the telemetry file could not be created.";
-                }
-#endif
                 else
                     return "error: no option is called \"" + name + "\".";
                 changed();
@@ -5361,15 +5161,6 @@ namespace dingosdk::trainer
             if (v == "refresh")
                 return tuning::refresh_skater(s.base, s.entity) ? "Skater copy refreshed."
                                                                 : "error: the skater has no cached copy right now.";
-#if defined(DINGOSDK_DEV_TOOLS)
-            if (v == "states")
-            {
-                std::string result;
-                for (const auto &[id, ticks] : s.states)
-                    result += std::format("{}{}: {}", result.empty() ? "" : ", ", id, ticks);
-                return result.empty() ? "No physics state seen yet." : "Physics states seen (id: ticks): " + result;
-            }
-#endif
             if (v == "livedump")
             {
                 // Diagnostic: what the game itself holds right now (its live tuning, and the first copy of each class
@@ -5423,46 +5214,9 @@ namespace dingosdk::trainer
                                    count,
                                    path_utf8(directory / std::filesystem::path("tuning-live-" + name + ".txt")));
             }
-#if defined(DINGOSDK_DEV_TOOLS)
-            if (v == "dump")
-            {
-                const auto directory = data_directory();
-                std::error_code error;
-                std::filesystem::create_directories(directory, error);
-                std::ofstream file(directory / L"tuning-values.txt", std::ios::binary | std::ios::trunc);
-                if (!file)
-                    return "error: could not write the list.";
-                for (const auto &e : s.entries)
-                    file << std::format("{}\t0x{:x}\t{}\t{:.6g}\t{:.6g}\n",
-                                        e.id,
-                                        e.offset,
-                                        e.kind == Kind::real    ? "real"
-                                        : e.kind == Kind::flag  ? "flag"
-                                        : e.kind == Kind::curve ? "curve"
-                                        : e.kind == Kind::graph ? "graph"
-                                                                : "int",
-                                        e.stock,
-                                        e.value);
-                return std::format(
-                    "Wrote {} values to {}.", s.entries.size(), path_utf8(directory / L"tuning-values.txt"));
-            }
-            if (v == "selftest")
-            {
-                if (s.test.step)
-                    return "The self test is already running.";
-                s.test = {};
-                s.test.step = 1;
-                s.test.until = GetTickCount64() + 500;
-                return "Self test started; see the log for \"trainer selftest:\" lines.";
-            }
-            return "error: trainer "
-                   "status|open|set|freeze|reset|find|preset|slot|marker|tp|ground|waypoint|spot|option|profile|jumps|"
-                   "where|states|dump|selftest";
-#else
             return "error: trainer "
                    "status|open|set|freeze|reset|find|preset|slot|marker|tp|ground|waypoint|spot|option|profile|jumps|"
                    "where";
-#endif
         }
     } // namespace
 

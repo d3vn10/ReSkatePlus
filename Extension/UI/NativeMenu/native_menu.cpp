@@ -1,8 +1,5 @@
 #include "native_menu.h"
 #include "native_menu_internal.h"
-#if defined(DINGOSDK_DEV_TOOLS)
-#include "native_menu_dump.h"
-#endif
 #include "throwdown_menu.h"
 #include "Extension/UI/own_ui_writes.h"
 #include "Extension/UI/score_line_hud.h"
@@ -1208,9 +1205,6 @@ namespace dingosdk::multiplayer
     void tick_native_menu(std::uintptr_t base, bool loading) noexcept
     {
         const ui::OwnUiWrites own_writes; // Custom labels are not the native trick list.
-#if defined(DINGOSDK_DEV_TOOLS)
-        run_pending_ui_dump(base); // `ui dump` (development builds)
-#endif
         // The menu sounds the overlay's pages asked for (ui_sound.h).
         tick_ui_sounds(base, loading);
         // (Read here: it takes the UI model's lock, which a page's tick then holds.)

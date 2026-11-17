@@ -2953,16 +2953,6 @@ namespace dingosdk::overlay::menu
                                "After each landing: takeoff speed and angle, height, distance, landing speed.",
                                jump))
                     trainer_command(menu, callbacks, std::format("option hud_jump {}", jump ? 1 : 0));
-#if defined(DINGOSDK_DEV_TOOLS)
-                // (`trainer option log`, a research aid: development builds only.)
-                bool logging = view.logging;
-                if (toggle_row(
-                        menu,
-                        "Record telemetry",
-                        "Write position and speed every frame to a CSV in %LOCALAPPDATA%\\ReSkate\\trainer\\telemetry.",
-                        logging))
-                    trainer_command(menu, callbacks, std::format("option log {}", logging ? 1 : 0));
-#endif
             }
             card_end(p);
 

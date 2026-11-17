@@ -266,19 +266,6 @@ namespace dingosdk::multiplayer
                     say("MSGlobalDataModel has no Environment or MyWorldVisible it can read; nothing done.");
                 return;
             }
-#if defined(DINGOSDK_DEV_TOOLS)
-            // What the game writes as tabs change, in dev builds, so a run shows which tab sets what.
-            if (in_menu && (!b.seen_any || now != b.seen))
-            {
-                std::string line = mod_manager_shown ? "on Mod Manager:" : "on another page:";
-                for (std::size_t i = 0; i < watched.size(); ++i)
-                    if (known[i])
-                        line += std::string(" ") + watched[i].name + "=" + std::to_string(now[i]);
-                say(line);
-                b.seen = now;
-                b.seen_any = true;
-            }
-#endif
             const bool show = want > 0 && in_menu && mod_manager_shown;
             if (show)
             {

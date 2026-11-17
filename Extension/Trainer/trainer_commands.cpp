@@ -48,9 +48,6 @@ namespace dingosdk::console
             {"option",
              "Trainer options",
              "hud|hud_jump|auto_return|pad|flip_advanced|flip_pop|flip_flick|flip_limit"
-#if defined(DINGOSDK_DEV_TOOLS)
-             "|log"
-#endif
              " 0|1, return_delay <seconds>, "
              "hippy_height|nocomply_height|boneless_height|manual_height|offboard_height|flip_speed|flip.<trick>|pump_"
              "power|revert_boost <x>",
@@ -72,22 +69,13 @@ namespace dingosdk::console
             {"profile", "The preset this map applies on load", "set <preset>|clear", false},
             {"jumps", "The last measured jump", nullptr, false},
             {"where", "The skater's position, heading and speed", nullptr, false},
-#if defined(DINGOSDK_DEV_TOOLS)
-            {"states", "Physics states the skater has been in (diagnostic)", nullptr, false},
-#endif
             {"classes", "The game's tuning classes the trainer found in memory (diagnostic)", "[find]", false},
             {"refresh", "Refresh the skater's cached copy of the tuning (diagnostic)", nullptr, false},
-#if defined(DINGOSDK_DEV_TOOLS)
-            {"dump", "Write every tuning value to a text file", nullptr, false},
-#endif
             {"livedump",
              "Write what the game holds now (live tuning, class values, assist settings) to tuning-live-<name>.txt "
              "(diagnostic)",
              "[name]",
              false},
-#if defined(DINGOSDK_DEV_TOOLS)
-            {"selftest", "Check the trainer against the running game", nullptr, false},
-#endif
         };
         for (const auto &verb : verbs)
         {

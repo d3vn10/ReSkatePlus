@@ -129,9 +129,6 @@ namespace dingosdk::overlay
                 {
                 }
             }
-#if defined(DINGOSDK_DEV_TOOLS)
-            detail::depth_probe_barrier(list, count, barriers, original);
-#endif
             original(list, count, barriers);
         }
     } // namespace

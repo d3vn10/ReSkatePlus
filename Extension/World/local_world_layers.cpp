@@ -434,7 +434,9 @@ namespace dingosdk::profile_runtime
             if (choice == "default")
                 if (auto declared = world_layer_map_default(key); !declared.empty())
                     choice = std::move(declared);
-        	return choice;
+            if (!world_layer_kept_off(key))
+                return choice;
+            return !world_layer_withheld(key) && choice == "on" ? "on" : "off";
         };
         for (unsigned i = 0; i < world_layers().size(); ++i)
             if (world_layers()[i].map == map && choice_of(i) == "off")

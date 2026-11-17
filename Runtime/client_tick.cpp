@@ -58,9 +58,6 @@
 #include "Extension/Trainer/trainer.h"
 #include "Extension/World/level_loading.h"
 #include "Extension/World/loading_screen.h"
-#if defined(DINGOSDK_DEV_TOOLS)
-#include "Engine/Game/Build/usage_trace.h"
-#endif
 #include <Windows.h>
 #include <dxgi1_4.h>
 #include <Psapi.h>
@@ -2051,19 +2048,8 @@ namespace dingosdk::runtime::detail
             selected.lm_level = request->lm_level;
             selected.lm_start_point = request->lm_start;
             selected.flags[0] = selected_level->level_flag68;
-            const auto hosted_selector = reinterpret_cast<HostedSelector>(r.base + rt::hosted_level_selector);
-#if defined(DINGOSDK_DEV_TOOLS)
-            const std::array<std::uint64_t, 1> hosted_arguments{
-                reinterpret_cast<std::uintptr_t>(request->asset.c_str())};
-            dingosdk::game::usage_trace::record_call("call",
-                                                     r.base,
-                                                     rt::hosted_level_selector,
-                                                     "hosted_level_selector",
-                                                     hosted_arguments,
-                                                     nullptr,
-                                                     nullptr);
-#endif
-            const bool hosted = hosted_selector(request->asset.c_str());
+            const bool hosted =
+                reinterpret_cast<HostedSelector>(r.base + rt::hosted_level_selector)(request->asset.c_str());
             activity_line(dingosdk::ConsoleSource::level,
                           "Loading " + request->asset + (request->lm_level.empty() ? "" : " + " + request->lm_level) +
                               " (" + (hosted ? "local hosted server" : "single player") + ").");
@@ -2088,12 +2074,6 @@ namespace dingosdk::runtime::detail
         // The profiler's client update timing: the native update, and ReSkate's own work around it.
         const auto tick_start = dingosdk::profiler::now_ns();
         auto &r = runtime();
-#if defined(DINGOSDK_DEV_TOOLS)
-        static dingosdk::game::usage_trace::HitCounter tick_usage_counter;
-        const std::array<std::uint64_t, 2> tick_arguments{client, update};
-        dingosdk::game::usage_trace::record_hit(
-            tick_usage_counter, r.base, rt::client_tick, "client_tick", tick_arguments);
-#endif
         dingosdk::poll_level_loading(client);
         dingosdk::camera_tick_enter(client);
         struct CameraTickScope

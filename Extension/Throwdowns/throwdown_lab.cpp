@@ -242,9 +242,6 @@ namespace dingosdk::multiplayer
             // Coop challenge lab (`challenge`): virtual participants for the next challenge start, the
             // ids that answer GetPlayerName with a virtual EID (virtual_player_names.h), the last start
             // seen, and the local client's last finished attempt (replayed as a virtual player).
-#if defined(DINGOSDK_DEV_TOOLS)
-            std::atomic<unsigned> challenge_armed{};
-#endif
             std::array<std::atomic<std::uint32_t>, 4> challenge_named{};
             std::string challenge_start; // under `mutex`
             struct CriteriaAttempt
@@ -307,18 +304,6 @@ namespace dingosdk::multiplayer
             std::atomic<Address> local_entered_activity{}; // candidate until QueueFilled confirms it
             std::atomic<std::uint32_t> server_active{};    // turn-based: whose turn the local server started last
             std::array<std::atomic<std::uint32_t>, 16> players{};
-#if defined(DINGOSDK_DEV_TOOLS)
-            // `throwdown trace`: every authored graph run in the window, per realm.
-            struct Seen
-            {
-                std::uint32_t count{};
-                std::uint64_t first_ms{}, last_ms{};
-            };
-            std::atomic<bool> tracing{};
-            std::mutex trace_mutex;
-            std::unordered_map<std::uint64_t, Seen> trace; // (realm << 32 | graph hash)
-            std::uint64_t trace_start_ms{}, trace_end_ms{};
-#endif
             std::atomic<unsigned> participant_logs{};
         };
         Lab &lab()
@@ -1011,9 +996,6 @@ namespace dingosdk::multiplayer
                 values.push_back(read<std::uint32_t>(data + 4 * i));
             return values;
         }
-#if defined(DINGOSDK_DEV_TOOLS)
-        void remember_player(std::uint32_t id);
-#endif
         // Every challenge start, solo or coop (StartChallenge): logged, and with `challenge virtual <n>`
         // armed, given n virtual participants and made coop, the way a linked copy would start.
         void start_challenge_hook(Address coordinator,
@@ -1043,9 +1025,6 @@ namespace dingosdk::multiplayer
                     // Armed before a multiplayer session: a linked challenge has only real players.
                     // (`challenge virtual` is in development builds only.)
                     unsigned armed = 0;
-#if defined(DINGOSDK_DEV_TOOLS)
-                    armed = multiplayer_session_active() ? 0U : l.challenge_armed.exchange(0);
-#endif
                     for (auto &slot : l.challenge_named)
                         slot.store(0, std::memory_order_relaxed);
                     const auto before = native_u32s(reinterpret_cast<Address>(participants));
@@ -1053,18 +1032,6 @@ namespace dingosdk::multiplayer
                     const auto id_text = id ? read_string(id) : std::string{};
                     // The other players of a linked coop challenge (throwdown_relay.cpp), or the lab's.
                     std::vector<std::uint32_t> others;
-#if defined(DINGOSDK_DEV_TOOLS)
-                    if (armed)
-                    {
-                        for (unsigned k = 0; k < armed && k < l.challenge_named.size(); ++k)
-                        {
-                            others.push_back(challenge_virtual_base + 1 + k);
-                            remember_player(challenge_virtual_base + 1 +
-                                            k); // UI lookups answer it with the local record
-                        }
-                    }
-                    else
-#endif
                         if (const auto plan = throwdown_relay_challenge_players(series_text, id_text))
                     {
                         others = *plan;
@@ -1344,68 +1311,7 @@ namespace dingosdk::multiplayer
             }
             lab().leaderboard_score(leaderboard, flag, player, score);
         }
-#if defined(DINGOSDK_DEV_TOOLS)
-        // Condition probe: the operands and result of every AND / OR / NOT evaluated while a
-        // throwdown registration graph runs (in order), so a false term in the chain that
-        // decides whether a drop is shown and joinable can be read off the log.
-        constexpr std::array<std::uint32_t, 7> probed_graphs{
-            0xb0c0ef5c,  // ThrowdownRegistration.InitWrapper
-            0x170bc8dd,  // OnIsLocalPlayerInActivityChanged / OnMPActivityIdleStateChanged
-            0xe7a43930,  // OnNetworkedEntityComponentDataUnmarshaled
-            0x9c20247e,  // OnEntitlementsChanged
-            0x95080714,  // ClientVars.OnGameGroupIdUpdated
-            0x2713b85c,  // ThrowdownEventInteractable.GetIsEnabled
-            0xcafb98b6}; // ThrowdownEventInteractable.OnHostAutoInteract
-        void probe(const char *op, int a, int b, bool result)
-        {
-            try
-            {
-                const auto graph = executing_graph();
-                if (std::ranges::find(probed_graphs, graph) == probed_graphs.end())
-                    return;
-                static std::atomic<unsigned> logged{};
-                if (logged.fetch_add(1) >= 1500)
-                    return;
-                profile_runtime::PreserveError preserve;
-                if (b < 0)
-                    logging::log(logging::Level::info,
-                                 logging::Channel::progression,
-                                 "Throwdown lab probe {:08x}: {}({})={}",
-                                 graph,
-                                 op,
-                                 a,
-                                 static_cast<int>(result));
-                else
-                    logging::log(logging::Level::info,
-                                 logging::Channel::progression,
-                                 "Throwdown lab probe {:08x}: {}({},{})={}",
-                                 graph,
-                                 op,
-                                 a,
-                                 b,
-                                 static_cast<int>(result));
-            }
-            catch (...)
-            {
-            }
-        }
-        void and_probe(const bool *a, const bool *b, bool *out)
-        {
-            *out = *a && *b;
-            probe("AND", *a, *b, *out);
-        }
-        void or_probe(const bool *a, const bool *b, bool *out)
-        {
-            *out = *a || *b;
-            probe("OR", *a, *b, *out);
-        }
-        void not_probe(const bool *a, bool *out)
-        {
-            *out = !*a;
-            probe("NOT", *a, -1, *out);
-        }
-#endif
-        std::uint32_t player_id_hook(const Address *player)
+		std::uint32_t player_id_hook(const Address *player)
         {
             {
                 profile_runtime::PreserveError preserve;
@@ -1805,19 +1711,6 @@ namespace dingosdk::multiplayer
                 e.send();
                 return std::format("ForceStartThrowdown sent for {} MMID {:#x}", series, mmid);
             }
-#if defined(DINGOSDK_DEV_TOOLS)
-            case Job::Kind::join:
-            {
-                // What the details page's Join button sends; the server takes the local
-                // player (the sender) as the joiner.
-                Instance e(type_of(event_add_participant));
-                e.set_string(field_series, series);
-                e.set_u32(field_mmid, mmid);
-                e.send();
-                return std::format(
-                    "AddParticipantToCommunityEvent sent: local player joins {} queue MMID {:#x}", series, mmid);
-            }
-#endif
             case Job::Kind::end_turn:
             {
                 const auto handle = job.mmid ? job.mmid : live_event_handle(); // mmid: an explicit handle
@@ -1829,21 +1722,6 @@ namespace dingosdk::multiplayer
                 e.send(5, job.uid);
                 return std::format("RequestTurnEnd sent as player {:#x} for event {:#x} ({})", job.uid, handle, note);
             }
-#if defined(DINGOSDK_DEV_TOOLS)
-            case Job::Kind::score:
-            {
-                Address leaderboard{};
-                {
-                    std::lock_guard lock(l.mutex);
-                    leaderboard = l.leaderboards[job.max_players];
-                }
-                if (!leaderboard)
-                    throw std::runtime_error("Throwdown lab: no leaderboard seen yet");
-                l.leaderboard_score(leaderboard, job.flag, job.uid, job.score);
-                return std::format(
-                    "leaderboard {:#x}: player {:#x} score {} (flag {})", leaderboard, job.uid, job.score, job.flag);
-            }
-#endif
             case Job::Kind::criteria_attempt:
             {
                 // The local client's last AttemptFinishedForCriteria, replayed as `uid`: its server merges
@@ -1968,34 +1846,6 @@ namespace dingosdk::multiplayer
             return {};
         }
 
-#if defined(DINGOSDK_DEV_TOOLS)
-        std::optional<std::uint32_t> parse_u32(std::string_view text)
-        {
-            int radix = 10;
-            if (text.starts_with("0x") || text.starts_with("0X"))
-            {
-                text.remove_prefix(2);
-                radix = 16;
-            }
-            std::uint32_t value{};
-            const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), value, radix);
-            if (error != std::errc{} || end != text.data() + text.size())
-                return {};
-            return value;
-        }
-        // Ids the lab's verbs put into a throwdown (throwdown_lab_player).
-        void remember_player(std::uint32_t id)
-        {
-            for (auto &slot : lab().players)
-            {
-                auto current = slot.load();
-                if (current == id)
-                    return;
-                if (!current && slot.compare_exchange_strong(current, id))
-                    return;
-            }
-        }
-#endif
         // Type objects of the injected events; found on the heap and kept until the level is left.
         // `worker`: called on a thread of its own, which scans as the party focus's does (background
         // priority, only memory the game has in RAM). The full scan read every committed page and paged
@@ -2019,20 +1869,6 @@ namespace dingosdk::multiplayer
             return missing ? std::format("{} event type(s) not found on the heap; is the game in the world?", missing)
                            : std::string{};
         }
-#if defined(DINGOSDK_DEV_TOOLS)
-        // A console verb's job, on the lab's current queue.
-        std::string queue(Job job, std::initializer_list<std::uint32_t> hashes)
-        {
-            if (auto error = ensure_types(hashes); !error.empty())
-                return error;
-            {
-                std::lock_guard lock(lab().mutex);
-                lab().jobs.push_back(job);
-            }
-            lab().pending.store(true, std::memory_order_release);
-            return {};
-        }
-#endif
     } // namespace
 
     void initialize_throwdown_lab(Address base) noexcept
@@ -2135,38 +1971,6 @@ namespace dingosdk::multiplayer
         {
             logging::write(logging::Level::warning, logging::Channel::progression, e.what());
         }
-#if defined(DINGOSDK_DEV_TOOLS)
-        // The condition probe replaces the game's AND / OR / NOT, which every authored
-        // condition runs through; opt in with RESKATE_THROWDOWN_PROBE=1 (development builds).
-        if (!GetEnvironmentVariableW(L"RESKATE_THROWDOWN_PROBE", nullptr, 0))
-            return;
-        try
-        {
-            struct Op
-            {
-                Address rva;
-                std::array<unsigned char, 9> prefix;
-                void *replacement;
-            };
-            const std::array ops{
-                Op{throwdowns::bool_and, throwdowns::bool_and_prefix, reinterpret_cast<void *>(&and_probe)},
-                Op{throwdowns::bool_or, throwdowns::bool_or_prefix, reinterpret_cast<void *>(&or_probe)},
-                Op{throwdowns::bool_not, throwdowns::bool_not_prefix, reinterpret_cast<void *>(&not_probe)}};
-            unsigned count{};
-            for (const auto &op : ops)
-                if (read<std::array<unsigned char, 9>>(base + op.rva) == op.prefix &&
-                    hook_prepare(reinterpret_cast<void *>(base + op.rva), op.replacement, nullptr) == HookOk &&
-                    hook_enable(reinterpret_cast<void *>(base + op.rva)) == HookOk)
-                    ++count;
-            logging::log(logging::Level::info,
-                         logging::Channel::progression,
-                         "Throwdown lab: condition probe on {} of 3 boolean ops.",
-                         count);
-        }
-        catch (...)
-        {
-        }
-#endif
     }
 
     void observe_throwdown_send(std::uint32_t hash, Address type, Address payload) noexcept
@@ -2733,58 +2537,6 @@ namespace dingosdk::multiplayer
 
     namespace
     {
-#if defined(DINGOSDK_DEV_TOOLS)
-        void trace_expression(Address vm)
-        {
-            auto &l = lab();
-            const auto now = steady_ms();
-            if (now >= l.trace_end_ms)
-            {
-                if (!l.tracing.exchange(false))
-                    return;
-                std::vector<std::pair<std::uint64_t, Lab::Seen>> rows;
-                {
-                    std::lock_guard lock(l.trace_mutex);
-                    rows.assign(l.trace.begin(), l.trace.end());
-                    l.trace.clear();
-                }
-                std::ranges::sort(rows,
-                                  [](const auto &a, const auto &b) { return a.second.first_ms < b.second.first_ms; });
-                logging::log(logging::Level::info,
-                             logging::Channel::progression,
-                             "Throwdown lab trace: {} graphs ran (realm, hash, count, first s, last s):",
-                             rows.size());
-                for (const auto &[key, seen] : rows)
-                    logging::log(logging::Level::info,
-                                 logging::Channel::progression,
-                                 "Throwdown lab trace: {} {:08x} {} {:.2f} {:.2f}",
-                                 realm_name(static_cast<std::uint32_t>(key >> 32)),
-                                 static_cast<std::uint32_t>(key),
-                                 seen.count,
-                                 (seen.first_ms - l.trace_start_ms) / 1000.0,
-                                 (seen.last_ms - l.trace_start_ms) / 1000.0);
-                return;
-            }
-            // The expression that just returned is still alive: its resource and hash are plain reads.
-            const auto resource = *reinterpret_cast<const Address *>(vm + 0x38);
-            if (!resource)
-                return;
-            const auto hash = *reinterpret_cast<const std::uint32_t *>(resource + 0x10);
-            // realm() without ReadProcessMemory: this runs after every expression while tracing.
-            static const auto offset = read<std::uint32_t>(l.base + engine::context_type_offset);
-            Address context{};
-            reinterpret_cast<Address (*)(Address *)>(l.base + engine::current_context)(&context);
-            const std::uint32_t current =
-                context && offset < 0x1000000 ? *reinterpret_cast<const std::uint32_t *>(context + offset) : 0U;
-            const auto key = (std::uint64_t{current} << 32) | hash;
-            std::lock_guard lock(l.trace_mutex);
-            auto &seen = l.trace[key];
-            if (!seen.count++)
-                seen.first_ms = now;
-            seen.last_ms = now;
-        }
-#endif
-
         // The pump runs after every expression the game executes, thousands a frame, and almost all
         // are none of the graphs it watches: one sorted lookup of the running graph decides
         // (~0.5% of a busy multiplayer client frame before, profiled 2026-10-03). Keep this list in
@@ -3188,19 +2940,6 @@ namespace dingosdk::multiplayer
                     throwdown_relay_spawned(expired->token, 0, 0);
             }
         }
-#if defined(DINGOSDK_DEV_TOOLS)
-        if (l.tracing.load(std::memory_order_acquire) && vm)
-        {
-            profile_runtime::PreserveError preserve;
-            try
-            {
-                trace_expression(vm);
-            }
-            catch (...)
-            {
-            }
-        }
-#endif
         if (l.spawn_outstanding.load(std::memory_order_acquire) && vm)
         {
             profile_runtime::PreserveError preserve;
@@ -3688,281 +3427,4 @@ namespace dingosdk::multiplayer
         job.score = static_cast<float>(score);
         return queue_relay_job(std::move(job), event_player_score);
     }
-
-#if defined(DINGOSDK_DEV_TOOLS)
-    std::string throwdown_lab_command(std::string_view arguments, std::optional<std::array<float, 3>> skater)
-    {
-        auto &l = lab();
-        if (!l.installed.load(std::memory_order_acquire))
-            return "Throwdown lab is not installed (see ReSkate.log).";
-        std::vector<std::string_view> words;
-        for (std::size_t at = 0; at < arguments.size();)
-        {
-            const auto start = arguments.find_first_not_of(' ', at);
-            if (start == std::string_view::npos)
-                break;
-            const auto end = arguments.find(' ', start);
-            words.push_back(
-                arguments.substr(start, end == std::string_view::npos ? std::string_view::npos : end - start));
-            at = end == std::string_view::npos ? arguments.size() : end;
-        }
-        const auto verb = words.empty() ? std::string_view("status") : words[0];
-        if (verb == "relay")
-            return throwdown_relay_status();
-        const auto number = [&](std::size_t i) { return i < words.size() ? parse_u32(words[i]) : std::nullopt; };
-        const auto current = [&]
-        {
-            std::lock_guard lock(l.mutex);
-            return std::format("series {}, MMID {:#x}, parameters {}",
-                               l.series.empty() ? "(none)" : l.series,
-                               l.mmid,
-                               l.params.empty() ? "(none recorded)" : l.params_note);
-        };
-        if (verb == "status" || verb == "help")
-            return "Throwdown lab: " + current() +
-                   ".\n"
-                   "  throwdown ai <player id>            add a player id with no native player to the current queue\n"
-                   "  throwdown spawn <host id> [max] [mode]  queue hosted by <host id>, at the recorded placement "
-                   "or,\n"
-                   "                                      with [mode] or nothing recorded, where you stand\n"
-                   "  throwdown mirror <host id>          replace your placed drop by the same drop hosted by <host "
-                   "id>\n"
-                   "  throwdown join                      join the current queue as the local player (the Join "
-                   "button)\n"
-                   "  throwdown start | destroy           force start / destroy the current queue (MMID above)\n"
-                   "  throwdown mmid <value>              use another queue\n"
-                   "  throwdown trace [seconds]           log every authored graph run\n"
-                   "  throwdown relay                     multiplayer: linked drops, mirrors and players\n"
-                   "Place a throwdown (or join one) first: its series, MMID and settings are recorded.";
-        if (verb == "trace")
-        {
-            const auto seconds = number(1).value_or(60);
-            {
-                std::lock_guard lock(l.trace_mutex);
-                l.trace.clear();
-                l.trace_start_ms = steady_ms();
-                l.trace_end_ms = l.trace_start_ms + std::uint64_t{std::min(seconds, 900U)} * 1000;
-            }
-            l.tracing.store(true, std::memory_order_release);
-            return std::format("Throwdown lab: tracing authored graphs for {} s; the list is logged when it ends.",
-                               std::min(seconds, 900U));
-        }
-        if (verb == "mmid")
-        {
-            const auto value = number(1);
-            if (!value)
-                return "Usage: throwdown mmid <value>";
-            std::lock_guard lock(l.mutex);
-            l.mmid = *value;
-            return std::format("Throwdown lab: MMID set to {:#x}.", *value);
-        }
-        // Everything below sends throwdown events as a player, the local one included: in a
-        // multiplayer session that would fake scores, attempts and starts for everyone.
-        if (multiplayer_session_active())
-            return "Throwdown lab: off during a multiplayer session (it can fake throwdown scores, attempts and "
-                   "starts).";
-        bool recorded{};
-        {
-            std::lock_guard lock(l.mutex);
-            recorded = !l.params.empty();
-            if (verb != "spawn" && verb != "endturn" && verb != "score" && verb != "attempt" &&
-                (l.series.empty() || !l.mmid))
-                return "Throwdown lab: no queue known yet. Place, join or spawn a throwdown first.";
-        }
-        std::string error;
-        if (verb == "ai")
-        {
-            const auto uid = number(1);
-            if (!uid || !*uid)
-                return "Usage: throwdown ai <player id> (e.g. 0x3c5; 0x7e000005 tests the 10-bit truncation)";
-            remember_player(*uid);
-            error = queue({Job::Kind::ai, *uid}, {event_add_ai});
-        }
-        else if (verb == "spawn")
-        {
-            const auto uid = number(1);
-            if (!uid || !*uid)
-                return "Usage: throwdown spawn <host id> [max players] [JamSession|SpotBattle|ThrowdownSkate]";
-            Job job{Job::Kind::spawn, *uid, number(2).value_or(0)};
-            if (words.size() > 3 || !recorded)
-            {
-                if (!skater)
-                    return "Throwdown lab: no placement recorded and the skater position is unknown.";
-                job.position = skater;
-                job.series = words.size() > 3 ? std::string(words[3]) : std::string("JamSession");
-            }
-            remember_player(*uid);
-            error = queue(std::move(job), {event_debug_spawn});
-        }
-        else if (verb == "start")
-        {
-            error = queue({Job::Kind::start}, {event_force_start});
-        }
-        else if (verb == "endturn")
-        {
-            const auto uid = number(1);
-            if (!uid || !*uid)
-                return "Usage: throwdown endturn <player id>";
-            {
-                std::lock_guard lock(l.mutex);
-                if (!l.event_handle && !l.leaderboard_live.load(std::memory_order_acquire))
-                    return "Throwdown lab: no running event seen yet (its handle comes from its leaderboard or the "
-                           "local client's turn requests).";
-            }
-            Job job{Job::Kind::end_turn, *uid};
-            job.mmid = number(2).value_or(0);
-            error = queue(std::move(job), {event_request_turn_end});
-        }
-        else if (verb == "mirror")
-        {
-            // What a guest game will do with a leader's drop: take the drop the local player
-            // placed (its recorded settings), destroy it, and spawn the same drop hosted by <id>.
-            const auto uid = number(1);
-            if (!uid || !*uid)
-                return "Usage: throwdown mirror <host id>";
-            if (!recorded)
-                return "Throwdown lab: place a throwdown first (its settings are what gets mirrored).";
-            if (auto missing = ensure_types({event_destroy, event_debug_spawn}); !missing.empty())
-                return "Throwdown lab: " + missing;
-            remember_player(*uid);
-            std::lock_guard lock(l.mutex);
-            l.jobs.push_back({Job::Kind::destroy});
-            l.jobs.push_back({Job::Kind::spawn, *uid, number(2).value_or(0)});
-            l.pending.store(true, std::memory_order_release);
-            return std::format(
-                "Throwdown lab: destroying your drop and spawning it again hosted by {:#x} ({}).", *uid, l.params_note);
-        }
-        else if (verb == "score")
-        {
-            const auto uid = number(1);
-            float value{};
-            if (!uid || words.size() < 3 ||
-                std::from_chars(words[2].data(), words[2].data() + words[2].size(), value).ec != std::errc{})
-                return "Usage: throwdown score <player id> <score> [flag 0|1] [leaderboard 0-3]";
-            Job job{Job::Kind::score, *uid, number(4).value_or(0) & 3};
-            job.score = value;
-            job.flag = number(3).value_or(1) != 0;
-            remember_player(*uid);
-            {
-                std::lock_guard lock(l.mutex);
-                if (!l.leaderboards[job.max_players])
-                    return "Throwdown lab: no leaderboard seen yet (the local client writes one when a round starts).";
-            }
-            std::lock_guard lock(l.mutex);
-            l.jobs.push_back(std::move(job));
-            l.pending.store(true, std::memory_order_release);
-            return std::format("Throwdown lab: score queued for player {:#x}.", *uid);
-        }
-        else if (verb == "attempt")
-        {
-            const auto uid = number(1);
-            if (!uid || !*uid)
-                return "Usage: throwdown attempt <player id> [landed 0|1] (a S.K.A.T.E. attempt as that player)";
-            if (auto missing = ensure_types({event_skate_submit}); !missing.empty())
-                return "Throwdown lab: " + missing;
-            if (!live_event_handle())
-                return "Throwdown lab: no running event handle yet.";
-            Job job{Job::Kind::attempt, *uid};
-            job.flag = number(2).value_or(0) != 0;
-            std::lock_guard lock(l.mutex);
-            l.jobs.push_back(std::move(job));
-            l.pending.store(true, std::memory_order_release);
-            return std::format("Throwdown lab: attempt queued as player {:#x}.", *uid);
-        }
-        else if (verb == "join")
-        {
-            error = queue({Job::Kind::join}, {event_add_participant});
-        }
-        else if (verb == "destroy")
-        {
-            error = queue({Job::Kind::destroy}, {event_destroy});
-        }
-        else
-            return std::format("Unknown throwdown lab verb \"{}\"; try: throwdown help", verb);
-        return error.empty()
-                   ? std::format(
-                         "Throwdown lab: {} queued ({}); the result is logged when the game sends it.", verb, current())
-                   : "Throwdown lab: " + error;
-    }
-    std::string challenge_lab_command(std::string_view arguments)
-    {
-        auto &l = lab();
-        if (!l.installed.load(std::memory_order_acquire))
-            return "Coop challenge lab is not installed (see ReSkate.log).";
-        std::vector<std::string_view> words;
-        for (std::size_t at = 0; at < arguments.size();)
-        {
-            const auto start = arguments.find_first_not_of(' ', at);
-            if (start == std::string_view::npos)
-                break;
-            const auto end = arguments.find(' ', start);
-            words.push_back(
-                arguments.substr(start, end == std::string_view::npos ? std::string_view::npos : end - start));
-            at = end == std::string_view::npos ? arguments.size() : end;
-        }
-        const auto verb = words.empty() ? std::string_view("status") : words[0];
-        const auto number = [&](std::size_t i) { return i < words.size() ? parse_u32(words[i]) : std::nullopt; };
-        if ((verb == "virtual" || verb == "attempt") && multiplayer_session_active())
-            return "Coop challenge lab: off during a multiplayer session (it can fake challenge players and attempts).";
-        if (verb == "virtual")
-        {
-            const auto count = number(1);
-            if (!count || *count > 3)
-                return "Usage: challenge virtual <0-3>";
-            l.challenge_armed.store(*count);
-            return *count
-                       ? std::format("Coop challenge lab: the next challenge you start gets {} virtual participant(s) "
-                                     "({:#x}..) and is coop. Start one (Solo is fine) at a challenge marker.",
-                                     *count,
-                                     challenge_virtual_base + 1)
-                       : "Coop challenge lab: no virtual participants for the next challenge.";
-        }
-        if (verb == "attempt")
-        {
-            const auto uid = number(1).value_or(challenge_virtual_base + 1);
-            {
-                std::lock_guard lock(l.mutex);
-                if (!l.criteria_attempt)
-                    return "Coop challenge lab: finish one attempt yourself first; it is replayed as the virtual "
-                           "player.";
-                if (!l.types.contains(event_criteria_attempt))
-                    return "Coop challenge lab: the attempt event type is not known yet.";
-                if (l.jobs.size() >= 256)
-                    return "Coop challenge lab: too many queued jobs.";
-                l.jobs.push_back({Job::Kind::criteria_attempt, uid});
-            }
-            l.pending.store(true, std::memory_order_release);
-            return std::format(
-                "Coop challenge lab: your last attempt queued as player {:#x}; the handler runs are logged.", uid);
-        }
-        if (verb == "clear")
-        {
-            l.challenge_armed.store(0);
-            for (auto &slot : l.challenge_named)
-                slot.store(0);
-            return "Coop challenge lab: virtual participants cleared.";
-        }
-        if (verb != "status" && verb != "help")
-            return std::format("Unknown challenge lab verb \"{}\"; try: challenge help", verb);
-        std::string named;
-        for (const auto &slot : l.challenge_named)
-            if (const auto id = slot.load())
-                named += std::format(" {:#x} ({})", id, virtual_eid(id));
-        std::lock_guard lock(l.mutex);
-        std::string attempt = "none";
-        if (l.criteria_attempt)
-            attempt = std::format("{} criteria", l.criteria_attempt->count);
-        return std::format(
-            "Coop challenge lab: armed {} virtual; named{}; last start: {}; last own attempt: {}; "
-            "handler runs {}.\n"
-            "  challenge virtual <0-3>   the next challenge you start gets virtual participants and is coop\n"
-            "  challenge attempt [id]    replay your last finished attempt as virtual player [id]\n"
-            "  challenge clear           forget the virtual participants",
-            l.challenge_armed.load(),
-            named.empty() ? " none" : named,
-            l.challenge_start.empty() ? "none yet" : l.challenge_start,
-            attempt,
-            l.criteria_runs.load());
-    }
-#endif
 } // namespace dingosdk::multiplayer

@@ -5,7 +5,6 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include "morph_memory_pool_rvas.h"
 #include <span>
 
 namespace dingosdk::game::build::v20261013::morph_memory_pool {
@@ -140,32 +139,32 @@ inline constexpr auto settings_constructor = hex_bytes(
 
 struct Contract { std::uintptr_t rva; std::span<const std::uint8_t> bytes; };
 inline constexpr Contract contracts[]{
-    {0x00000000, constructor},
-    {0x00000000, constructor_pdata_0},
-    {0x00000000, constructor_unwind_0},
-    {0x00000000, morph_initializer},
-    {0x00000000, morph_initializer_pdata_0},
-    {0x00000000, morph_initializer_unwind_0},
-    {0x00000000, pool_allocate},
-    {0x00000000, pool_allocate_pdata_0},
-    {0x00000000, pool_allocate_unwind_0},
-    {0x00000000, pool_grow},
-    {0x00000000, pool_grow_pdata_0},
-    {0x00000000, pool_grow_unwind_0},
-    {0x00000000, pool_grow_pdata_1},
-    {0x00000000, pool_grow_unwind_1},
-    {0x00000000, pool_grow_pdata_2},
-    {0x00000000, pool_grow_unwind_2},
-    {0x00000000, pool_grow_pdata_3},
-    {0x00000000, pool_grow_unwind_3},
-    {0x00000000, pool_grow_pdata_4},
-    {0x00000000, pool_grow_unwind_4},
-    {0x00000000, pool_map_heap_offset},
-    {0x00000000, pool_map_heap_offset_pdata_0},
-    {0x00000000, pool_map_heap_offset_unwind_0},
-    {0x00000000, temporary_field_name},
-    {0x00000000, pool_debug_name},
-    {0x00000000, settings_constructor},
+    {0x01b21580, constructor},
+    {0x08d926c4, constructor_pdata_0},
+    {0x06abb160, constructor_unwind_0},
+    {0x01b0e460, morph_initializer},
+    {0x08d91260, morph_initializer_pdata_0},
+    {0x06acc5fc, morph_initializer_unwind_0},
+    {0x01b238a0, pool_allocate},
+    {0x08d929dc, pool_allocate_pdata_0},
+    {0x06abdac4, pool_allocate_unwind_0},
+    {0x01b23440, pool_grow},
+    {0x08d92970, pool_grow_pdata_0},
+    {0x06c655b8, pool_grow_unwind_0},
+    {0x08d9297c, pool_grow_pdata_1},
+    {0x06c655c8, pool_grow_unwind_1},
+    {0x08d92988, pool_grow_pdata_2},
+    {0x06c655e0, pool_grow_unwind_2},
+    {0x08d92994, pool_grow_pdata_3},
+    {0x06c655f8, pool_grow_unwind_3},
+    {0x08d929a0, pool_grow_pdata_4},
+    {0x06c6560c, pool_grow_unwind_4},
+    {0x01b271f0, pool_map_heap_offset},
+    {0x08d92cc4, pool_map_heap_offset_pdata_0},
+    {0x06abb620, pool_map_heap_offset_unwind_0},
+    {0x0629fcc0, temporary_field_name},
+    {0x062a2230, pool_debug_name},
+    {0x01af1dc0, settings_constructor},
 };
 inline constexpr std::size_t max_contract_size = [] {
     std::size_t size = 0;
@@ -174,7 +173,12 @@ inline constexpr std::size_t max_contract_size = [] {
 }();
 
 // Morph heap constructor hooked to raise the render heap capacity.
+inline constexpr std::uintptr_t constructor_rva = 0x01b21580;
 // Return addresses of the temporary and permanent morph heap constructions.
+inline constexpr std::uintptr_t temporary_return = 0x01b0e724;
+inline constexpr std::uintptr_t permanent_return = 0x01b0e6db;
 // Globals holding the temporary and permanent morph pools (null until built).
+inline constexpr std::uintptr_t temporary_pool = 0x074b3d80;
+inline constexpr std::uintptr_t permanent_pool = 0x074b3d88;
 } // namespace dingosdk::game::build::v20261013::morph_memory_pool
 

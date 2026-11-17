@@ -6,10 +6,6 @@
 #include <limits>
 #include <new>
 
-#if defined(DINGOSDK_DEV_TOOLS)
-#include "../../Game/Build/usage_trace.h"
-#endif
-
 namespace dingosdk
 {
     namespace
@@ -157,15 +153,6 @@ namespace dingosdk
                     expected,
                     replacement,
                     interlocked});
-#if defined(DINGOSDK_DEV_TOOLS)
-            game::usage_trace::record_lifecycle("patch",
-                                                "slot_installed",
-                                                name,
-                                                reinterpret_cast<std::uintptr_t>(slot),
-                                                reinterpret_cast<std::uintptr_t>(replacement),
-                                                sizeof(void *),
-                                                HookOk);
-#endif
             return HookOk;
         }
     } // namespace
@@ -204,15 +191,6 @@ namespace dingosdk
         DWORD ignored{};
         VirtualProtect(slot, sizeof(void *), previous, &ignored);
         deactivate(entry.record.address);
-#if defined(DINGOSDK_DEV_TOOLS)
-        game::usage_trace::record_lifecycle("patch",
-                                            "slot_restored",
-                                            entry.record.name,
-                                            entry.record.address,
-                                            reinterpret_cast<std::uintptr_t>(entry.original),
-                                            entry.record.size,
-                                            HookOk);
-#endif
         return HookOk;
     }
 
@@ -241,10 +219,6 @@ namespace dingosdk
         if (result == HookOk)
         {
             record({{"code", name, address, replacement.size(), true}});
-#if defined(DINGOSDK_DEV_TOOLS)
-            game::usage_trace::record_lifecycle(
-                "patch", "code_installed", name, address, 0, replacement.size(), result);
-#endif
         }
         return result;
     }
@@ -260,11 +234,6 @@ namespace dingosdk
         if (!code_jump_bytes(address, destination, bytes))
             return HookOutOfReach;
         const auto result = patch_code(name, address, expected, bytes);
-#if defined(DINGOSDK_DEV_TOOLS)
-        if (result == HookOk)
-            game::usage_trace::record_lifecycle(
-                "patch", "code_jump_destination", name, address, destination, expected.size(), result);
-#endif
         return result;
     }
     HookStatus patch_code_restore(std::uintptr_t address, std::span<const std::uint8_t> original) noexcept
@@ -275,9 +244,6 @@ namespace dingosdk
         if (result == HookOk)
         {
             deactivate(address);
-#if defined(DINGOSDK_DEV_TOOLS)
-            game::usage_trace::record_lifecycle("patch", "code_restored", "code", address, 0, original.size(), result);
-#endif
         }
         return result;
     }
@@ -291,9 +257,6 @@ namespace dingosdk
         if (result == HookOk)
         {
             record({{"breakpoint", name, address, 1, true}});
-#if defined(DINGOSDK_DEV_TOOLS)
-            game::usage_trace::record_lifecycle("patch", "breakpoint_installed", name, address, 0, 1, result);
-#endif
         }
         return result;
     }
@@ -308,10 +271,6 @@ namespace dingosdk
         if (handle)
         {
             record({{"breakpoint handler", name, reinterpret_cast<std::uintptr_t>(handle), 0, true}});
-#if defined(DINGOSDK_DEV_TOOLS)
-            game::usage_trace::record_lifecycle(
-                "patch", "breakpoint_handler_installed", name, reinterpret_cast<std::uintptr_t>(handle), 0, 0, HookOk);
-#endif
         }
         return handle;
     }
@@ -321,15 +280,6 @@ namespace dingosdk
             return;
         RemoveVectoredExceptionHandler(handle);
         deactivate(reinterpret_cast<std::uintptr_t>(handle));
-#if defined(DINGOSDK_DEV_TOOLS)
-        game::usage_trace::record_lifecycle("patch",
-                                            "breakpoint_handler_removed",
-                                            "vectored_handler",
-                                            reinterpret_cast<std::uintptr_t>(handle),
-                                            0,
-                                            0,
-                                            HookOk);
-#endif
     }
 
     std::vector<PatchRecord> patch_records()

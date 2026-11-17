@@ -988,21 +988,7 @@ namespace dingosdk::launcher_gui::detail
         const ImVec2 mods_position(primary.x, primary.y - gap - mods_size.y);
         const ImVec2 plate(column_x, S(52)), plate_size(column, S(58));
         page_title(draw, fonts, ImVec2(S(56), S(46)), "RESKATE+");
-		// The mod's name under the wordmark, so the launcher is never taken for ReSkate alone.
-        const bool named_mod = !reskate_mod_name.empty();
-        if (named_mod)
-        {
-            std::string plus = std::string(reskate_mod_name);
-            std::transform(plus.begin(),
-                           plus.end(),
-                           plus.begin(),
-                           [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
-            page_title(draw,
-                       fonts,
-                       ImVec2(S(64), S(46) + fonts.title->FontSize * 0.86f),
-                       plus.c_str(),
-                       fonts.title->FontSize * 0.42f);
-        }
+
         window_buttons(draw, window, size);
 
         ImGui::BeginDisabled(modal);

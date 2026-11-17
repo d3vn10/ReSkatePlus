@@ -2,7 +2,6 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include "mod_layers_rvas.h"
 
 namespace dingosdk::game::build::v20261013::mod_layers {
 template<std::size_t N> consteval auto hex_bytes(const char (&hex)[N]) {
@@ -20,10 +19,14 @@ template<std::size_t N> consteval auto hex_bytes(const char (&hex)[N]) {
 }
 
 // `classify` derives a layer kind from the layout.toc path.
+inline constexpr std::uintptr_t classify = 0x41ded80;
 inline constexpr auto classify_prefix = hex_bytes("4055535657488d6c24884881ec78010000488b052856fe024833c44889456048");
 // `load` adds one layer to the layout manager.
+inline constexpr std::uintptr_t load_layer = 0x4203e60;
 inline constexpr auto load_layer_prefix = hex_bytes("48895c242055565741544157488dac2460feffff4881eca0020000488b053e05");
-// Slot 0x00 of the layout manager's vtable, which must still be `load`.
+// Slot 0x60 of the layout manager's vtable, which must still be `load`.
+inline constexpr std::uintptr_t load_layer_slot = 0x65924f8;
 // layout_bootstrap, which performs the LCU, Patch and Data loads in that order.
+inline constexpr std::uintptr_t layout_bootstrap = 0x41bc220;
 inline constexpr auto layout_bootstrap_prefix = hex_bytes("48895c2418488974242055574156488dac2430fdffff4881ecd0030000488b05");
 }

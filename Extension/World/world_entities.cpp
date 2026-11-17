@@ -10,14 +10,9 @@
 #include "Engine/Game/Build/20260929/physics_bodies.h"
 #include "Engine/Game/Build/20260929/skater_entities.h"
 #include "Extension/Multiplayer/Remote/native_skater.h"
-#if defined(DINGOSDK_DEV_TOOLS)
-#include "Engine/Game/Build/usage_trace.h"
-#endif
 #include <Windows.h>
 #include <intrin.h>
 #include <algorithm>
-#include <array>
-#include <string_view>
 #include <atomic>
 #include <cmath>
 #include <cstring>
@@ -38,18 +33,6 @@ namespace dingosdk::world_entities
     {
         namespace e = addr::skater_entities;
         namespace b = addr::ai_skaters;
-#if defined(DINGOSDK_DEV_TOOLS)
-        template <std::size_t N>
-        void trace_native_call(std::uintptr_t base,
-                              std::uintptr_t rva,
-                              std::string_view symbol,
-                              const std::array<std::uint64_t, N> &arguments) noexcept
-        {
-            const auto last_error = GetLastError();
-            game::usage_trace::record_call("call", base, rva, symbol, arguments, nullptr, nullptr);
-            SetLastError(last_error);
-        }
-#endif
         template <class T> T get(std::uintptr_t p)
         {
             T v{};
@@ -166,6 +149,15 @@ namespace dingosdk::world_entities
                     }
                 }
             }
+            // What is reached from an entity is not all the entity's: another object's body can be two
+            // pointers away (seen in game: a plugin's drawn-only pieces each "had" the body of the
+            // solid collision piece placed with them, and ghosted it, so the collision was gone). Only
+            // a body whose owner keeps this entity's own physics component is its own, as for the rays.
+            if (p.component)
+            {
+                const auto own = ptr(entity, addr::physics_bodies::entity_physics_component);
+                std::erase_if(found, [&](const Body &body) { return !detail::own_body(own, p.component(body)); });
+            }
             if (found.empty() || found.size() > 16)
                 return {};
             const auto owner = p.owner(found.front());
@@ -256,37 +248,19 @@ namespace dingosdk::world_entities
         {
             using CreateBus = std::uintptr_t (*)(
                 std::uintptr_t, std::uintptr_t, std::uintptr_t, std::uintptr_t, std::uint8_t, std::uintptr_t);
-            const auto owner = ptr(ptr(parent, 8), 0x48);
-#if defined(DINGOSDK_DEV_TOOLS)
-            const std::array<std::uint64_t, 6> create_bus_arguments{owner, parent, 0, 0, 0, 0};
-            trace_native_call(base, b::create_bus, "ai_skaters::create_bus", create_bus_arguments);
-#endif
             const auto bus =
-                reinterpret_cast<CreateBus>(base + b::create_bus)(owner, parent, 0, 0, 0, 0);
+                reinterpret_cast<CreateBus>(base + b::create_bus)(ptr(ptr(parent, 8), 0x48), parent, 0, 0, 0, 0);
             require(bus != 0, "World object entity bus unavailable.");
-#if defined(DINGOSDK_DEV_TOOLS)
-            const std::array<std::uint64_t, 1> acquire_bus_arguments{bus};
-            trace_native_call(base, b::acquire_bus, "ai_skaters::acquire_bus", acquire_bus_arguments);
-#endif
             reinterpret_cast<int (*)(std::uintptr_t)>(base + b::acquire_bus)(bus);
             struct BusScope
             {
                 std::uintptr_t base, bus;
                 ~BusScope()
                 {
-#if defined(DINGOSDK_DEV_TOOLS)
-                    const std::array<std::uint64_t, 1> arguments{bus};
-                    trace_native_call(base, e::release_reference, "skater_entities::release_reference", arguments);
-#endif
                     reinterpret_cast<void (*)(std::uintptr_t)>(base + e::release_reference)(bus);
                 }
             } bus_scope{base, bus};
             alignas(16) std::array<unsigned char, 0x190> descriptor{};
-#if defined(DINGOSDK_DEV_TOOLS)
-            const std::array<std::uint64_t, 4> descriptor_init_arguments{
-                reinterpret_cast<std::uintptr_t>(descriptor.data()), 0, bus, reinterpret_cast<std::uintptr_t>(matrix.data())};
-            trace_native_call(base, e::descriptor_init, "skater_entities::descriptor_init", descriptor_init_arguments);
-#endif
             reinterpret_cast<void *(*)(void *, std::uintptr_t, std::uintptr_t, const void *)>(
                 base + e::descriptor_init)(descriptor.data(), 0, bus, matrix.data());
             struct Scope
@@ -295,11 +269,6 @@ namespace dingosdk::world_entities
                 void *data;
                 ~Scope()
                 {
-#if defined(DINGOSDK_DEV_TOOLS)
-                    const std::array<std::uint64_t, 1> arguments{
-                        reinterpret_cast<std::uintptr_t>(static_cast<unsigned char *>(data) + 0x10)};
-                    trace_native_call(base, e::descriptor_destroy, "skater_entities::descriptor_destroy", arguments);
-#endif
                     reinterpret_cast<void (*)(void *)>(base + e::descriptor_destroy)(
                         static_cast<unsigned char *>(data) + 0x10);
                 }
@@ -308,52 +277,18 @@ namespace dingosdk::world_entities
             std::memcpy(descriptor.data() + 0x38, &id, 4);
             descriptor[0x151] = 0;
             std::array<std::uintptr_t, 3> result{};
-#if defined(DINGOSDK_DEV_TOOLS)
-            const std::array<std::uint64_t, 5> create_entity_arguments{
-                reinterpret_cast<std::uintptr_t>(result.data()),
-                reinterpret_cast<std::uintptr_t>(descriptor.data()),
-                asset,
-                0,
-                0};
-            trace_native_call(base, e::create_entity, "skater_entities::create_entity", create_entity_arguments);
-#endif
             reinterpret_cast<void *(*)(void *, void *, std::uintptr_t, std::uintptr_t, std::uintptr_t)>(
                 base + e::create_entity)(result.data(), descriptor.data(), asset, 0, 0);
             if (result[1])
-            {
-#if defined(DINGOSDK_DEV_TOOLS)
-                const std::array<std::uint64_t, 1> arguments{result[1]};
-                trace_native_call(base, e::release_reference, "skater_entities::release_reference", arguments);
-#endif
                 reinterpret_cast<void (*)(std::uintptr_t)>(base + e::release_reference)(result[1]);
-            }
             require(result[0] != 0, "A world object blueprint did not create an entity.");
             Live live{result[0], ptr(result[0], 0x40), ptr(result[0], 0x20)};
-#if defined(DINGOSDK_DEV_TOOLS)
-            const std::array<std::uint64_t, 4> placement_arguments{
-                live.entity, reinterpret_cast<std::uintptr_t>(matrix.data()), 0, 1};
-            trace_native_call(
-                base, e::initialize_placement, "skater_entities::initialize_placement", placement_arguments);
-#endif
             reinterpret_cast<void (*)(std::uintptr_t, const void *, std::uintptr_t, std::uint8_t)>(
                 base + e::initialize_placement)(live.entity, matrix.data(), 0, 1);
             return live;
         }
         void move(std::uintptr_t base, const Live &l, const Matrix &matrix)
         {
-#if defined(DINGOSDK_DEV_TOOLS)
-            static game::usage_trace::HitCounter move_spatial_entity_usage_counter;
-            const std::array<std::uint64_t, 4> arguments{
-                l.entity, reinterpret_cast<std::uintptr_t>(matrix.data()), 1, 1};
-            const auto last_error = GetLastError();
-            game::usage_trace::record_hit(
-                move_spatial_entity_usage_counter,
-                base,
-                e::move_spatial_entity,
-                "skater_entities::move_spatial_entity",
-                arguments);
-            SetLastError(last_error);
-#endif
             reinterpret_cast<void (*)(std::uintptr_t, const void *, std::uint8_t, std::uint8_t)>(
                 base + e::move_spatial_entity)(l.entity, matrix.data(), 1, 1);
         }
@@ -361,13 +296,7 @@ namespace dingosdk::world_entities
         {
             // No lock held: the shared destroy hook calls entity_destroyed back.
             if (ptr(l.entity, 0x20) == l.context && ptr(l.entity, 0x40) == l.owner)
-            {
-#if defined(DINGOSDK_DEV_TOOLS)
-                const std::array<std::uint64_t, 2> arguments{l.entity, l.owner};
-                trace_native_call(base, e::destroy_entity, "skater_entities::destroy_entity", arguments);
-#endif
                 reinterpret_cast<void (*)(std::uintptr_t, std::uintptr_t)>(base + e::destroy_entity)(l.entity, l.owner);
-            }
         }
         void destroy_all(std::uintptr_t base)
         {
@@ -956,15 +885,32 @@ namespace dingosdk::world_entities
                     bodies_for(base, key, l->second, w, now);
                     // Move a resident object in place: recreating restarts its effects and makes it jump.
                     // Joint attachments and non-solid visuals follow changed transforms every client tick.
+                    bool remake = false;
                     if (detail::movement_due(
                             l->second.matrix != w.matrix, w.solid, w.attach.has_value(), now, l->second.moved))
                     {
-                        move(base, l->second, w.matrix);
-                        std::lock_guard lock(s.mutex);
-                        if (const auto at = s.live.find(key); at != s.live.end())
-                            at->second.matrix = w.matrix, at->second.moved = now;
+                        if (detail::collision_stays(
+                                w.solid,
+                                w.attach.has_value(),
+                                ptr(l->second.entity, addr::physics_bodies::entity_physics_component)))
+                        {
+                            // Its collision would stay behind: it is made again there (below).
+                            remake = now >= l->second.moved + detail::remake_wait_ms;
+                        }
+                        else
+                        {
+                            move(base, l->second, w.matrix);
+                            std::lock_guard lock(s.mutex);
+                            if (const auto at = s.live.find(key); at != s.live.end())
+                                at->second.matrix = w.matrix, at->second.moved = now;
+                        }
                     }
-                    continue;
+                    if (!remake)
+                        continue;
+                    destroy(base, l->second);
+                    live.erase(l);
+                    std::lock_guard lock(s.mutex);
+                    s.live.erase(key);
                 }
                 const auto asset = resolved[w.asset];
                 if (!asset)

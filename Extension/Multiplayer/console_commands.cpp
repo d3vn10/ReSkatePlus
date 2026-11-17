@@ -7,9 +7,6 @@
 #include "Extension/Throwdowns/throwdown_lab.h"
 #include "Extension/Throwdowns/throwdown_debug_text.h"
 #include "Extension/Throwdowns/throwdown_relay.h"
-#if defined(DINGOSDK_DEV_TOOLS)
-#include "Extension/UI/NativeMenu/native_menu_dump.h"
-#endif
 #include "Extension/UI/NativeMenu/native_menu.h"
 #include "Extension/Assets/live_mods.h"
 #include "Extension/Multiplayer/Synchros/synchros_runtime.h"
@@ -297,106 +294,7 @@ namespace dingosdk::console
                     : "Coop challenges: off (every challenge is your own).");
         };
         registry.add(std::move(invite));
-#if defined(DINGOSDK_DEV_TOOLS)
-        // Research aids, in development builds only (DINGOSDK_DEV_TOOLS).
-        // Research aid for multiplayer throwdowns (analysis/throwdowns-native-mp.md).
-        auto lab_args = argument("verb_and_arguments", Type::text, true);
-        lab_args.rest = true;
-        lab_args.complete = [](const Model &, auto)
-        {
-            return std::vector<std::string>{"status",
-                                            "ai",
-                                            "spawn",
-                                            "join",
-                                            "start",
-                                            "solo",
-                                            "destroy",
-                                            "mmid",
-                                            "trace",
-                                            "endturn",
-                                            "score",
-                                            "mirror",
-                                            "attempt",
-                                            "relay"};
-        };
-        auto lab = action("throwdown",
-                          "Throwdown lab: add virtual participants, spawn/start/destroy queues (research aid)",
-                          Group::console,
-                          {std::move(lab_args)});
-        lab.aliases = {"dingo throwdown"};
-        lab.run = [](const Model &model, const Values &values, const Output &out)
-        {
-            std::optional<std::array<float, 3>> skater;
-            if (model.debug.skater_position_valid)
-                skater = model.debug.skater_position;
-            out(multiplayer::throwdown_lab_command(values.empty() ? std::string{} : std::get<std::string>(values[0]),
-                                                   skater));
-        };
-        registry.add(std::move(lab));
-        // Skate Synchros (contrib/outfit-sharing.md): share codes and groups, until the settings page.
-        auto synchros_args = argument("verb_and_arguments", Type::text, true);
-        synchros_args.rest = true;
-        synchros_args.complete = [](const Model &, auto)
-        {
-            return std::vector<std::string>{"status",
-                                            "share",
-                                            "show",
-                                            "code",
-                                            "new-code",
-                                            "add",
-                                            "remove",
-                                            "codes",
-                                            "group",
-                                            "groups",
-                                            "paired",
-                                            "unpair",
-                                            "block",
-                                            "unblock",
-                                            "cache",
-                                            "empty-cache"};
-        };
-        auto synchros_command = action("synchros",
-                                       "Skate Synchros: see each other's modded outfits, by share code or group "
-                                       "(status, share on|off, show on|off, code, add <code>, group create|join ...)",
-                                       Group::gameplay,
-                                       {std::move(synchros_args)});
-        synchros_command.run = [](const Model &, const Values &values, const Output &out)
-        {
-            out(multiplayer::synchros::console_command(values.empty() ? std::string{}
-                                                                      : std::get<std::string>(values[0])));
-        };
-        registry.add(std::move(synchros_command));
-        // Research aid for multiplayer coop challenges (analysis/coop-challenges-mp.md).
-        auto challenge_args = argument("verb_and_arguments", Type::text, true);
-        challenge_args.rest = true;
-        challenge_args.complete = [](const Model &, auto)
-        { return std::vector<std::string>{"status", "virtual", "attempt", "clear"}; };
-        auto challenge = action("challenge",
-                                "Coop challenge lab: start a challenge with virtual participants, replay your attempt "
-                                "as one (research aid)",
-                                Group::console,
-                                {std::move(challenge_args)});
-        challenge.run = [](const Model &, const Values &values, const Output &out)
-        { out(multiplayer::challenge_lab_command(values.empty() ? std::string{} : std::get<std::string>(values[0]))); };
-        registry.add(std::move(challenge));
-        // Research aid: "all", "roots", "0x<schema>", or text every printed root must contain.
-        auto what = argument("what", Type::text, true);
-        what.complete = [](const Model &, auto) { return std::vector<std::string>{"all", "roots"}; };
-        auto delay = argument("delay_seconds", Type::unsigned_integer, true);
-        delay.maximum = 600;
-        auto dump = action("ui dump",
-                           "Write the live native UI model tree to the game's logs folder (research aid)",
-                           Group::console,
-                           {std::move(what), std::move(delay)});
-        dump.run = [](const Model &, const Values &values, const Output &out)
-        {
-            const auto text = values.empty() ? std::string{} : std::get<std::string>(values[0]);
-            const auto seconds = values.size() > 1 ? std::get<std::uint64_t>(values[1]) : 0;
-            out(multiplayer::request_ui_dump(text, static_cast<unsigned>(seconds)));
-        };
-        registry.add(std::move(dump));
-#endif
-        // The game's menu room behind the Mod Manager tab (native_backdrop.cpp).
+		// The game's menu room behind the Mod Manager tab (native_backdrop.cpp).
         auto room = argument("off|cas|store|skatepass|skatepedia", Type::text, true);
         room.complete = [](const Model &, auto)
         { return std::vector<std::string>{"off", "cas", "store", "skatepass", "skatepedia"}; };

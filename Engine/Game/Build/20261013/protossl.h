@@ -2,7 +2,6 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include "protossl_rvas.h"
 
 namespace dingosdk::game::build::v20261013::protossl {
 template<std::size_t N> consteval auto hex_bytes(const char (&hex)[N]) {
@@ -23,7 +22,9 @@ template<std::size_t N> consteval auto hex_bytes(const char (&hex)[N]) {
 // were added (negative on error). The game itself adds GlobalSign, DigiCert G2
 // and Amazon roots through it. With verify set, each certificate must chain to
 // an already trusted root, which a new root cannot.
+inline constexpr std::uintptr_t set_ca_cert = 0x1fdd9c0;
 inline constexpr auto set_ca_cert_prefix = hex_bytes("405553565741564157488dac2448f5ffff4881ecb80b0000");
 // DirtySDK's allocator. Until the game sets it, set_ca_cert allocates through
 // a fallback that is not ready yet and crashes; wait for it to be non-null.
+inline constexpr std::uintptr_t dirty_allocator = 0x73c5330;
 }

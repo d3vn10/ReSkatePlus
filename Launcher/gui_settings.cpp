@@ -703,19 +703,7 @@ namespace dingosdk::launcher_gui::detail
         void page_display(Launcher &launcher)
         {
             auto &settings = launcher.settings();
-			
-			begin_group("MOD BROWSER");
-            row_switch("NSFW mods",
-                       "Show NSFW mods in the mod browser.",
-                       settings.nsfw_mods);
-            row_switch("Deprecated mods",
-                       "Show deprecated mods that the author has stopped supporting in the mod browser.",
-                       settings.deprecated_mods);
-            end_group();
-			
-            begin_group("LAUNCHER WINDOW");
-			
-            begin_group("GAME WINDOW");
+            begin_group("WINDOW");
             row_switch("Windowed",
                        "Start in a window, not as the game's display settings say.",
                        settings.windowed,
@@ -823,6 +811,12 @@ namespace dingosdk::launcher_gui::detail
         {
             auto &settings = launcher.settings();
             begin_group("LAUNCHER");
+            row_switch("NSFW mods",
+                       "Show NSFW mods in the mod browser.",
+                       settings.nsfw_mods);
+            row_switch("Deprecated mods",
+                       "Show deprecated mods that the author has stopped supporting in the mod browser.",
+                       settings.deprecated_mods);
             if (begin_row("Interface size",
                           "The launcher's text and layout. Takes a restart.",
                           "Makes the launcher's text and layout bigger or smaller. A size too big for this screen is "
@@ -887,15 +881,24 @@ namespace dingosdk::launcher_gui::detail
 
             begin_group("UPDATES");
             {
-                const bool updates_were = settings.updates;
+                const bool updates_were = settings.updates, prereleases_were = settings.prereleases;
                 row_switch("Install ReSkate updates",
                            "Off keeps the ReSkate files you have, such as a test build.",
                            settings.updates,
                            "Turn off to keep the ReSkate.dll and launcher you have, such as a test build someone gave "
                            "you. Skate's own "
                            "Steam updates are not affected.");
+                // Only while there is a pre-release to test (one newer than the latest release), or while
+                // it is on, so it can always be turned off.
+                if (settings.prereleases || launcher.prerelease_available())
+                    row_switch("Test pre-releases",
+                               "Get what is coming before it is released. Less tested.",
+                               settings.prereleases,
+                               "Update to the newest pre-release on GitHub, to try what is coming before it is "
+                               "released. Pre-releases "
+                               "are less tested. Turn off to go back to the latest release.");
                 // Either flipped: checked again now, so PLAY or the update button changes to match.
-                if (settings.updates != updates_were)
+                if (settings.updates != updates_were || settings.prereleases != prereleases_were)
                 {
                     launcher.save();
                     launcher.check_again_if_update_choices_changed();
@@ -925,6 +928,9 @@ namespace dingosdk::launcher_gui::detail
                 const float each = (S(300) - S(8)) * 0.5f;
                 if (ImGui::Button("Privacy Policy", ImVec2(each, 0)))
                     ui.legal.open = Legal::privacy;
+                ImGui::SameLine(0, S(8));
+                if (ImGui::Button("Terms of Service", ImVec2(each, 0)))
+                    ui.legal.open = Legal::terms;
                 end_row();
             }
             end_group();
